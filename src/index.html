@@ -22,7 +22,7 @@
 
 
     <script type="module">
-        import { FOO, patslot } from './index.js';
+        import { FOO, patslot, state } from './index.js';
         console.log('hello', FOO, patslot);
 
         /*     function fill_slot(
@@ -39,7 +39,7 @@
         
          */
 
-        patslot.onstate(() => {
+        state.onstate(() => {
             patslot.fill_body(
                 { name: 'John Doe', age: '30' }
             )
