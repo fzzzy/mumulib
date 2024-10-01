@@ -1,0 +1,22 @@
+{
+  "name": "mumulib",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "make"
+  },
+  "keywords": [],
+  "author": "Donovan Preston",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "chokidar": "^3.5.3",
+    "esbuild": "^0.19.12"
+  },
+  "dependencies": {
+    "lodash.get": "^4.4.2",
+    "lodash.set": "^4.3.2",
+    "morphdom": "^2.7.2"
+  }
+}

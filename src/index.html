@@ -1,0 +1,62 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+
+<div id="person" data-pat="person">
+    <dl>
+        <dt>Name:</dt>
+        <dd data-slot="name"></dd>
+        <dt>Age:</dt>
+        <dd data-slot="age"></dd>
+    </dl>
+</div>
+
+
+
+<script type="module">
+    import { FOO, patslot } from './index.js';
+    console.log('hello', FOO, patslot);
+
+/*     function fill_slot(
+    node: ParentNode,
+    slotname: string,
+    pat: string | HTMLElement
+): void {
+
+    function clone_pat(
+    node: ParentNode,
+    patname: string,
+    slots: { [key: string]: string | HTMLElement }
+): Element {
+
+ */
+
+patslot.onstate(() => {
+    document.body.querySelector("#person")?.replaceWith(
+        patslot.clone_pat(
+            document.body,
+            'person',
+            { name: 'John Doe', age: '30' }
+        )
+    );
+});
+
+
+
+</script>
+
+
+
+
+</body>
+</html>
+
+
