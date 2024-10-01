@@ -21,9 +21,13 @@ function set_state(nstate: State): void {
   let changed = false;
   for (const [k, v] of Object.entries(nstate)) {
     if (state[k] !== v) {
-       changed = true;
-       state[k] = v;
+      if (v === undefined) {
+        delete state[k];
+      } else {
+        state[k] = v;
+        changed = true;
       }
+    }
   }
   if (!changed) {
     return;
