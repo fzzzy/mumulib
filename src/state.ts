@@ -97,6 +97,6 @@ document.addEventListener('focusout', function (e: Event) {
 }, true);
 
 
-export { onstate, set_state };
+export { onstate, set_state, state };
 
 
