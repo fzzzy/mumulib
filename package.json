@@ -15,8 +15,7 @@
     "esbuild": "^0.19.12"
   },
   "dependencies": {
-    "lodash.get": "^4.4.2",
-    "lodash.set": "^4.3.2",
+    "object-path":"^0.11.8",
     "morphdom": "^2.7.2"
   }
 }

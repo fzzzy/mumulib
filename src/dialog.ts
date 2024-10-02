@@ -1,7 +1,6 @@
 
 
-import set from 'lodash.set';
-import get from 'lodash.get';
+import { set, get } from "object-path";
 import morphdom from "morphdom";
 import { set_state, state } from "./state";
 

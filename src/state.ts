@@ -1,6 +1,5 @@
 
-import set from 'lodash.set';
-import get from 'lodash.get';
+import { set, get } from "object-path";
 
 type State = { [key: string]: any };
 type OnStateChange = (state: State) => void;
