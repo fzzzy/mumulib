@@ -5,12 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+
+<style>
+    .blue {
+        color: blue;
+    }
+</style>
+
+
+
+
+
+
 </head>
 
 <body>
 
 
-    <div id="person" data-pat="person">
+    <div id="person" data-pat="person" data-attr="class=color">
         <dl>
             <dt>Name:</dt>
             <dd data-slot="name"></dd>
@@ -23,25 +35,10 @@
 
     <script type="module">
         import { FOO, patslot, state } from './index.js';
-        console.log('hello', FOO, patslot);
-
-        /*     function fill_slot(
-            node: ParentNode,
-            slotname: string,
-            pat: string | HTMLElement
-        ): void {
-        
-            function clone_pat(
-            node: ParentNode,
-            patname: string,
-            slots: { [key: string]: string | HTMLElement }
-        ): Element {
-        
-         */
 
         state.onstate(() => {
             patslot.fill_body(
-                { name: 'John Doe', age: '30' }
+                { name: 'John Doe', age: '30', color: 'blue' }
             )
         });
 
