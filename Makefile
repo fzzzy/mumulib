@@ -1,7 +1,11 @@
 
 
-all: build serve
+all: install build serve
 	echo "Done"
+
+
+install:
+	npm install
 
 
 build:
