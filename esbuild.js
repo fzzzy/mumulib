@@ -11,7 +11,7 @@ const isServe = process.argv.includes('--serve');
 const args = {
   format: 'esm',
   logLevel: 'info',
-  entryPoints: ['./src/index.ts'],
+  entryPoints: ['./src/index.ts', './examples/use_state.ts', './examples/use_patslot.ts', './examples/use_dialog.ts'],
   bundle: true,
   sourcemap: true,
   outdir: 'dist',
