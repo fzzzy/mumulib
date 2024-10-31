@@ -24,6 +24,25 @@ function fill_slots(
     slotname: string,
     pat: Pattern
 ) {
+    _fill_or_append_slots(node, slotname, pat, false);
+}
+
+
+function append_to_slots(
+    node: HTMLElement,
+    slotname: string,
+    pat: Pattern
+) {
+    _fill_or_append_slots(node, slotname, pat, true);
+}
+
+
+function _fill_or_append_slots(
+    node: HTMLElement,
+    slotname: string,
+    pat: Pattern,
+    append: boolean
+) {
     let slots: HTMLElement[] | Element[] | NodeListOf<Element> = [];
     if (node.dataset.slot == slotname) {
         slots = [node];
@@ -34,15 +53,21 @@ function fill_slots(
     for (const slot of slots) {
         // console.log("got a slots", slot, pat);
         if (pat instanceof Element) {
-            pat.dataset.slot = slotname;
-            slot.replaceWith(pat.cloneNode(true) as Element);
+            if (append) {
+                slot.appendChild(pat.cloneNode(true) as Element);
+            } else {
+                pat.dataset.slot = slotname;
+                slot.replaceWith(pat.cloneNode(true) as Element);                
+            }
         } else if (
             pat instanceof Array ||
             (typeof pat === 'object' &&
                 'next' in pat &&
                 'throw' in pat)) {
-            while (slot.firstChild) {
-                slot.removeChild(slot.firstChild);
+            if (!append) {
+                while (slot.firstChild) {
+                    slot.removeChild(slot.firstChild);
+                }    
             }
             if (calculated_slot.length !== 0) {
                 for (const p of calculated_slot) {
@@ -64,7 +89,11 @@ function fill_slots(
                 }
             }
         } else {
-            slot.textContent = (pat === undefined) ? "undefined" : pat.toString();
+            if (append) {
+                slot.textContent += (pat === undefined) ? "undefined" : pat.toString();
+            } else {
+                slot.textContent = (pat === undefined) ? "undefined" : pat.toString();
+            }
         }
     }
     let attrslots: HTMLElement[] | Element[] | NodeListOf<Element> = [];
@@ -126,6 +155,6 @@ function clone_pat(
 
 
 
-export { clone_pat, fill_slots, fill_body, Pattern };
+export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern };
 
 
