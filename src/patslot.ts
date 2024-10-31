@@ -1,14 +1,33 @@
+/**
+ * Patslot Module API Documentation
+ *
+ * This module provides functions and types for working with HTML templates and slots.
+ *
+ * Constants:
+ * - TEMPLATE: A constant representing the initial cloned state of the document body.
+ *
+ * Types:
+ * - Pattern: A type representing a pattern that can be an HTMLElement, an array of patterns, a generator of patterns, or a string.
+ *
+ * Functions:
+ * - fill_body(slots: { [key: string]: Pattern }): void
+ *   Fills the document body with the provided slots and updates the DOM.
+ *
+ * - fill_slots(node: HTMLElement, slotname: string, pat: Pattern): void
+ *   Fills the specified slots in the given node with the provided pattern.
+ *
+ * - clone_pat(patname: string, slots: { [key: string]: Pattern }): HTMLElement
+ *   Clones the specified pattern and fills its slots with the provided patterns.
+ */
 
 import morphdom from "morphdom";
 
 const TEMPLATE = document.body.cloneNode(true) as HTMLElement;
 
-
 type Pattern = HTMLElement |
     (HTMLElement | Generator<Pattern> | string)[] |
     Generator<Pattern> |
     string;
-
 
 function fill_body(slots: { [key: string]: Pattern }) {
     const clone = document.body.cloneNode(true) as HTMLElement;
@@ -17,7 +36,6 @@ function fill_body(slots: { [key: string]: Pattern }) {
     }
     morphdom(document.body, clone);
 }
-
 
 function fill_slots(
     node: HTMLElement,
@@ -135,7 +153,6 @@ function _fill_or_append_slots(
     }
 }
 
-
 function clone_pat(
     patname: string,
     slots: { [key: string]: Pattern }
@@ -155,6 +172,6 @@ function clone_pat(
 
 
 
-export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern };
+export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern, TEMPLATE };
 
 
