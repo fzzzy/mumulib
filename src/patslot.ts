@@ -32,33 +32,33 @@ type Pattern = HTMLElement |
     Generator<Pattern> |
     string;
 
-function fill_body(slots: { [key: string]: Pattern }) {
+async function fill_body(slots: { [key: string]: Pattern }) {
     const clone = document.body.cloneNode(true) as HTMLElement;
     for (const [slotname, pat2] of Object.entries(slots)) {
-        fill_slots(clone, slotname, pat2);
+        await fill_slots(clone, slotname, pat2);
     }
     morphdom(document.body, clone);
 }
 
-function fill_slots(
+async function fill_slots(
     node: HTMLElement,
     slotname: string,
     pat: Pattern
 ) {
-    _fill_or_append_slots(node, slotname, pat, false);
+    await _fill_or_append_slots(node, slotname, pat, false);
 }
 
 
-function append_to_slots(
+async function append_to_slots(
     node: HTMLElement,
     slotname: string,
     pat: Pattern
 ) {
-    _fill_or_append_slots(node, slotname, pat, true);
+    await _fill_or_append_slots(node, slotname, pat, true);
 }
 
 
-function _fill_or_append_slots(
+async function _fill_or_append_slots(
     node: HTMLElement,
     slotname: string,
     pat: Pattern,
@@ -156,10 +156,10 @@ function _fill_or_append_slots(
     }
 }
 
-function clone_pat(
+async function clone_pat(
     patname: string,
     slots: { [key: string]: Pattern }
-): HTMLElement {
+): Promise<HTMLElement> {
     //console.log(TEMPLATE);
     const pat = TEMPLATE.querySelector(`[data-pat=${patname}]`);
     if (!pat) {
@@ -168,7 +168,7 @@ function clone_pat(
     //console.log(pat);
     const clone = pat.cloneNode(true) as HTMLElement;
     for (const [slotname, pat2] of Object.entries(slots)) {
-        fill_slots(clone, slotname, pat2);
+        await fill_slots(clone, slotname, pat2);
     }
     return clone;
 }
@@ -176,4 +176,3 @@ function clone_pat(
 
 
 export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern, TEMPLATE };
-
