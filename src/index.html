@@ -36,14 +36,11 @@
     <script type="module">
         import { FOO, patslot, state } from './index.js';
 
-        state.onstate(() => {
-            patslot.fill_body(
+        state.onstate(async () => {
+            await patslot.fill_body(
                 { name: 'John Doe', age: '30', color: 'blue' }
             )
         });
-
-
-
     </script>
 
 

@@ -1,3 +1,4 @@
+
 import { fill_body, clone_pat } from '../../src/patslot';
 
 const examplePeople = [
@@ -7,6 +8,13 @@ const examplePeople = [
 ];
 
 window.onload = async () => {
-  const clonedNodes = await Promise.all(examplePeople.map(async person => await clone_pat('person', person)));
+  const clonedNodes = await Promise.all(
+    examplePeople.map(
+      async person => await clone_pat('person', {
+        name: person.name,
+        age: person.age.toString()
+      })
+    )
+  );
   await fill_body({ people: clonedNodes });
 };
