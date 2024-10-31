@@ -13,14 +13,12 @@ const args = {
   logLevel: 'info',
   entryPoints: [
     './src/index.ts',
-    './examples/use_state.ts',
-    './examples/use_patslot/index.ts',
+    './examples/use_state/state_example.ts',
     './examples/use_patslot/patslot_example.ts'
   ],
   bundle: true,
   sourcemap: true,
   outdir: 'dist',
-  outbase: 'src',
   external: ['http', 'fs', 'path'],
 };
 
@@ -28,7 +26,7 @@ const args = {
 if (isServe) {
   let ctx = await esbuild.context(args);
 
-  let watcher = chokidar.watch('src', {
+  let watcher = chokidar.watch(['src', 'examples'], {
     ignored: /(^|[\/\\])\../, // ignore dotfiles
     persistent: true
   });
@@ -37,15 +35,19 @@ if (isServe) {
     .on('add', async (path) => {
       console.log(`File ${path} has been added`);
       if (path.endsWith('.html') || path.endsWith('.png')) {
-        const outputPath = path.replace('src', 'dist');
+        const outputPath = path.replace('src', 'dist/src').replace('examples', 'dist/examples');
+        await fs.mkdir(outputPath.split('/').slice(0, -1).join('/'), { recursive: true });
         await fs.copyFile(path, outputPath);
+        await fs.copyFile('index.html', 'dist/index.html');
       }
     })
     .on('change', async (path) => {
       console.log(`File ${path} has been changed`)
       if (path.endsWith('.html') || path.endsWith('.png')) {
-        const outputPath = path.replace('src', 'dist');
+        const outputPath = path.replace('src', 'dist/src').replace('examples', 'dist/examples');
+        await fs.mkdir(outputPath.split('/').slice(0, -1).join('/'), { recursive: true });
         await fs.copyFile(path, outputPath);
+        await fs.copyFile('index.html', 'dist/index.html');
         let touch = await fs.open('src/index.ts', 'a');
         await touch.write('\n');
         await touch.close();
@@ -54,8 +56,9 @@ if (isServe) {
     })
     .on('unlink', async (path) => {
       console.log(`File ${path} has been removed`)
-      const outputPath = path.replace('src', 'dist').replace('.ts', '.js');
+      const outputPath = path.replace('src', 'dist').replace('examples', 'dist/examples').replace('.ts', '.js');
       await fs.rm(outputPath);
+      await fs.copyFile('index.html', 'dist/index.html');
     });
 
   await ctx.serve({

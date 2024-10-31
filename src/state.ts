@@ -54,7 +54,7 @@ async function set_state(nstate: State): Promise<void> {
   }
   setting++;
   if (setting == 1) {
-    console.log("onstatechange");
+    //console.log("onstatechange");
     for (const onstatechange of obs) {
       await onstatechange(state);
     }
