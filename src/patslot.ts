@@ -16,6 +16,9 @@
  * - fill_slots(node: HTMLElement, slotname: string, pat: Pattern): void
  *   Fills the specified slots in the given node with the provided pattern.
  *
+ * - append_to_slots(node: HTMLElement, slotname: string, pat: Pattern): void
+ *   Appends the specified pattern to the given slots in the node.
+ *
  * - clone_pat(patname: string, slots: { [key: string]: Pattern }): HTMLElement
  *   Clones the specified pattern and fills its slots with the provided patterns.
  */
@@ -173,5 +176,4 @@ function clone_pat(
 
 
 export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern, TEMPLATE };
-
 
