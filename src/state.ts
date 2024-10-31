@@ -1,3 +1,22 @@
+/**
+ * State Module API Documentation
+ *
+ * This module provides functions and types for managing application state.
+ *
+ * Types:
+ * - State: A type representing the application state as an object with string keys and any values.
+ * - OnStateChange: A type representing a callback function that is called when the state changes.
+ *
+ * Functions:
+ * - onstate(onstatechange: OnStateChange): void
+ *   Registers a callback function to be called when the state changes.
+ *
+ * - set_state(nstate: State): void
+ *   Updates the application state with the provided new state and notifies registered callbacks.
+ *
+ * - state: State
+ *   The current application state.
+ */
 
 import { set, get } from "object-path";
 
@@ -10,8 +29,6 @@ let loaded = false;
 let state: State = {};
 let setting = 0;
 let dirty = false;
-
-
 
 function onstate(onstatechange: OnStateChange): void {
   if (loaded) {
@@ -51,12 +68,10 @@ function set_state(nstate: State): void {
   }
 }
 
-
 document.addEventListener('DOMContentLoaded', function () {
   loaded = true;
   set_state({ "loaded": true });
 });
-
 
 document.addEventListener('focus', function (e) {
   if (
@@ -66,7 +81,6 @@ document.addEventListener('focus', function (e) {
       initialValues[e.target.name] = e.target.value;
   }
 }, true);
-
 
 document.addEventListener('focusout', function (e: Event) {
   //console.log('blur event fired:', e);
@@ -95,7 +109,4 @@ document.addEventListener('focusout', function (e: Event) {
   }
 }, true);
 
-
 export { onstate, set_state, state };
-
-
