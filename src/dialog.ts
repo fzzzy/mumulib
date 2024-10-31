@@ -1,4 +1,20 @@
-
+/**
+ * Dialog Module API Documentation
+ *
+ * This module provides functions for handling dialog interactions.
+ *
+ * Functions:
+ * - do_dialog(dialog_name: string, path: string, render: (el: HTMLElement, state: object) => HTMLElement): void
+ *   Opens a dialog, renders its content, and handles form submissions.
+ *
+ *   Parameters:
+ *   - dialog_name: The ID of the dialog element to be opened.
+ *   - path: The path to the state object to be used for rendering the dialog.
+ *   - render: A function that takes an HTMLElement and a state object, and returns an HTMLElement representing the rendered dialog content.
+ *
+ *   Return value:
+ *   - void
+ */
 
 import { set, get } from "object-path";
 import morphdom from "morphdom";
