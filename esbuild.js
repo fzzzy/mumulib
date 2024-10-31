@@ -11,11 +11,17 @@ const isServe = process.argv.includes('--serve');
 const args = {
   format: 'esm',
   logLevel: 'info',
-  entryPoints: ['./src/index.ts', './examples/use_state.ts', './examples/use_patslot.ts', './examples/use_dialog.ts', './examples/use_patslot/index.ts', './examples/use_patslot/patslot_example.ts'],
+  entryPoints: [
+    './src/index.ts',
+    './examples/use_state.ts',
+    './examples/use_patslot/index.ts',
+    './examples/use_patslot/patslot_example.ts'
+  ],
   bundle: true,
   sourcemap: true,
   outdir: 'dist',
   outbase: 'src',
+  external: ['http', 'fs', 'path'],
 };
 
 
