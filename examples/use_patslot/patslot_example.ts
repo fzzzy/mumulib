@@ -6,7 +6,7 @@ const examplePeople = [
   { name: 'Alice Johnson', age: 35 }
 ];
 
-window.onload = () => {
-  const clonedNodes = examplePeople.map(person => clone_pat('person', person));
-  fill_body({ people: clonedNodes });
+window.onload = async () => {
+  const clonedNodes = await Promise.all(examplePeople.map(async person => await clone_pat('person', person)));
+  await fill_body({ people: clonedNodes });
 };
