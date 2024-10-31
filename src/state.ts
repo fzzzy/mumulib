@@ -21,7 +21,7 @@
 import { set, get } from "object-path";
 
 type State = { [key: string]: any };
-type OnStateChange = (state: State) => void;
+type OnStateChange = (state: State) => Promise<void>;
 
 const initialValues = {};
 const obs: OnStateChange[] = [];
@@ -30,9 +30,9 @@ let state: State = {};
 let setting = 0;
 let dirty = false;
 
-async function onstate(onstatechange: OnStateChange): Promise<void> {
+async function onstate(onstatechange: OnStateChange) {
   if (loaded) {
-    onstatechange(state);
+    await onstatechange(state);
   }
   obs.push(onstatechange);
 }
@@ -56,7 +56,7 @@ async function set_state(nstate: State): Promise<void> {
   if (setting == 1) {
     console.log("onstatechange");
     for (const onstatechange of obs) {
-      onstatechange(state);
+      await onstatechange(state);
     }
   } else {
     dirty = true;
