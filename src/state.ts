@@ -30,14 +30,14 @@ let state: State = {};
 let setting = 0;
 let dirty = false;
 
-function onstate(onstatechange: OnStateChange): void {
+async function onstate(onstatechange: OnStateChange): Promise<void> {
   if (loaded) {
     onstatechange(state);
   }
   obs.push(onstatechange);
 }
 
-function set_state(nstate: State): void {
+async function set_state(nstate: State): Promise<void> {
   let changed = false;
   for (const [k, v] of Object.entries(nstate)) {
     if (state[k] !== v) {
@@ -68,9 +68,9 @@ function set_state(nstate: State): void {
   }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
   loaded = true;
-  set_state({ "loaded": true });
+  await set_state({ "loaded": true });
 });
 
 document.addEventListener('focus', function (e) {
