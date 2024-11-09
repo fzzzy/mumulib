@@ -5,14 +5,14 @@
  *
  * Types:
  * - State: A type representing the application state as an object with string keys and any values.
- * - OnStateChange: A type representing a callback function that is called when the state changes.
+ * - OnStateChange: A type representing a callback function that is called when the state changes. The callback takes the new state.
  *
  * Functions:
  * - onstate(onstatechange: OnStateChange): void
  *   Registers a callback function to be called when the state changes.
  *
  * - set_state(nstate: State): void
- *   Updates the application state with the provided new state and notifies registered callbacks.
+ *   Updates the application state with the provided new state and notifies registered callbacks. The new top level keys are merged with the old top level keys.
  *
  * - state: State
  *   The current application state.

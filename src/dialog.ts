@@ -20,11 +20,12 @@ import { set, get } from "object-path";
 import morphdom from "morphdom";
 import { set_state, state } from "./state";
 
+type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 
 function do_dialog(
   dialog_name: string,
   path: string,
-  render: (el: HTMLElement, state: object) => HTMLElement
+  render: RenderFunc
 ) {
   set_state(
       {'selected': path}

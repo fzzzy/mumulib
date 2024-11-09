@@ -10,10 +10,7 @@ const examplePeople = [
 window.onload = async () => {
   const clonedNodes = await Promise.all(
     examplePeople.map(
-      async person => await clone_pat('person', {
-        name: person.name,
-        age: person.age.toString()
-      })
+      person => clone_pat('person', person)
     )
   );
   await fill_body({ people: clonedNodes });

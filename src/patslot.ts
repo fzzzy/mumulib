@@ -27,10 +27,14 @@ import morphdom from "morphdom";
 
 const TEMPLATE = document.body.cloneNode(true) as HTMLElement;
 
-type Pattern = HTMLElement |
+type SyncPattern = HTMLElement |
     (HTMLElement | Generator<Pattern> | string)[] |
     Generator<Pattern> |
-    string;
+    string |
+    number;
+
+type Pattern = Promise<SyncPattern> | SyncPattern;
+
 
 async function fill_body(slots: { [key: string]: Pattern }) {
     const clone = document.body.cloneNode(true) as HTMLElement;
@@ -71,6 +75,9 @@ async function _fill_or_append_slots(
         slots = node.querySelectorAll(`[data-slot=${slotname}]`);
     }
     let calculated_slot: (Element | string)[] = [];
+    if (pat instanceof Promise) {
+        pat = await pat;
+    }
     for (const slot of slots) {
         // console.log("got a slots", slot, pat);
         if (pat instanceof Element) {
