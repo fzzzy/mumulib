@@ -51,7 +51,8 @@ state.onstate(person => {
 There is a special toplevel state key "selected" which is the path to the currently selected state object. Inputs whose name start with "selected." will use the object at the path specified by the toplevel "selected" key as the root when traversing the path and setting the state.
 
 ```
-Insert radio button input here
+<input type="radio" name="selected" value="person1">
+<input type="radio" name="selected" value="person2">
 
 <div>
   <input name="selected.name" placeholder="Name" />
@@ -63,12 +64,13 @@ Insert radio button input here
 ```
 import { state } from "mumulib";
 
-state.onstate(person => {
+state.onstate(people => {
   console.log(
-    "Current state", person
+    "Current state", people
   );
 });
 ```
+
 type State = { [key: string]: any };
 type OnStateChange = (state: State) => Promise<void>;
 

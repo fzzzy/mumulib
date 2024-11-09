@@ -29,6 +29,11 @@ let loaded = false;
 let state: State = {};
 let setting = 0;
 let dirty = false;
+let debug_mode = false;
+
+function debug(mode) {
+  debug_mode = mode;
+}
 
 async function onstate(onstatechange: OnStateChange) {
   if (loaded) {
@@ -53,8 +58,11 @@ async function set_state(nstate: State): Promise<void> {
     return;
   }
   setting++;
-  if (setting == 1) {
-    //console.log("onstatechange");
+  if (setting === 1) {
+    if (debug_mode) {
+      document.body.dataset.state = JSON.stringify(state);
+      console.log("onstatechange", state);
+    }
     for (const onstatechange of obs) {
       await onstatechange(state);
     }
@@ -62,7 +70,7 @@ async function set_state(nstate: State): Promise<void> {
     dirty = true;
   }
   setting--;
-  if (setting == 0 && dirty) {
+  if (setting === 0 && dirty) {
     dirty = false;
     window.requestAnimationFrame(() => set_state(state));
   }
@@ -97,16 +105,15 @@ document.addEventListener('focusout', function (e: Event) {
       if (name.substring(0, 5) === 'this.') {
           set(state, name.substring(5), value);
           console.log(`${name} = ${JSON.stringify(value)}`);
-          //document.body.dataset.state = JSON.stringify(state);
           set_state(state);
       } else if (name.substring(0, 9) === 'selected.') {
+          // should state['selected'] be prefixed with "this." for consistency
           const selected = get(state, state['selected']);
           set(selected, name.substring(9), value);
           console.log(`${name} = ${JSON.stringify(value)}`);
-          //document.body.dataset.state = JSON.stringify(state);
           set_state(state);
       }
   }
 }, true);
 
-export { onstate, set_state, state };
+export { onstate, set_state, state, debug };
