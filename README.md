@@ -60,7 +60,7 @@ state.onstate(new_state => {
 });
 ```
 
-[http://127.0.0.1:8000/examples/use_state_input/](http://127.0.0.1:8000/examples/use_state)input/)
+[http://127.0.0.1:8000/examples/use_state_input/](http://127.0.0.1:8000/examples/use_state_input/)
 
 There is a special toplevel state key "selected" which is the path to the currently selected state object. Inputs whose name start with "selected." will use the object at the path specified by the toplevel "selected" key as the root when traversing the path and setting the state.
 

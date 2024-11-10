@@ -7,5 +7,13 @@
     <script src="selected_example.js" defer></script>
 </head>
 <body>
+    <label></label><input type="radio" name="selected" value="person1"><label>Person 1</label>
+    <label></label><input type="radio" name="selected" value="person2">Person 2</label>
+
+    <div>
+      <input name="selected.name" placeholder="Name" />
+      <input name="selected.age" placeholder="Age" type="number" />
+      <div>Favorite color <input name="selected.color" type="color" /></div>
+    </div>
 </body>
 </html>

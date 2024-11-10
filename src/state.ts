@@ -118,31 +118,58 @@ document.addEventListener('focus', function (e) {
   }
 }, true);
 
+
+function possiblyChanged(e: Event) {
+  if (e.target) {
+    const target = e.target as HTMLInputElement;
+    if (!target.name || !target.value) {
+      return;
+    }
+  }
+  const target = e.target as HTMLInputElement;
+  let name = target.name;
+  let value = target.value;
+  if (initialValues[name] === value) {
+    return;
+  }
+  //console.log('Input event fired:', e.target.name, e.target.value);
+  if (name.substring(0, 5) === 'this.') {
+    set(state, name.substring(5), value);
+    console.log(`${name} = ${JSON.stringify(value)}`);
+    set_state(null);
+  } else if (name.substring(0, 9) === 'selected.') {
+    // should state['selected'] be prefixed with "this." for consistency
+    const selected = get(state, state['selected']);
+    console.log("selected", selected);
+    set(selected, name.substring(9), value);
+    if (debug_mode) {
+      console.log(`${name} = ${JSON.stringify(value)}`);
+    }
+    set_state(null);
+  } else if (name === "selected") {
+    set(state, "selected", value);
+    set_state(null);
+  }
+}
+
 document.addEventListener('focusout', function (e: Event) {
   //console.log('blur event fired:', e);
   if (
     e.target &&
     e.target instanceof HTMLInputElement
   ) {
-    let name = e.target.name;
-    let value = e.target.value;
-    if (initialValues[e.target.name] === value) {
-      return;
-    }
-    //console.log('Input event fired:', e.target.name, e.target.value);
-    if (name.substring(0, 5) === 'this.') {
-      set(state, name.substring(5), value);
-      console.log(`${name} = ${JSON.stringify(value)}`);
-      set_state(null);
-    } else if (name.substring(0, 9) === 'selected.') {
-      // should state['selected'] be prefixed with "this." for consistency
-      const selected = get(state, state['selected']);
-      set(selected, name.substring(9), value);
-      if (debug_mode) {
-        console.log(`${name} = ${JSON.stringify(value)}`);
-      }
-      set_state(null);
-    }
+    possiblyChanged(e);
+  }
+}, true);
+
+document.addEventListener('change', function (e: Event) {
+  //console.log('blur event fired:', e);
+  if (
+    e.target &&
+    e.target instanceof HTMLInputElement &&
+    e.target.type === "radio"
+  ) {
+    possiblyChanged(e);
   }
 }, true);
 
