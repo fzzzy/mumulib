@@ -24,7 +24,7 @@ state
 
 The state module provides simple state management with a toplevel javascript object and a function set_state which takes a new object and updates the state by merging all toplevel keys with the old state. The onstate function registers a callback which is called when the state has changed.
 
-```
+```typescript
 import { state } from "mumulib";
 
 state.onstate(new_state => {
@@ -38,11 +38,11 @@ state.set_state({hello: "world"});
 state.set_path("hello", "everybody");
 ```
 
-http://127.0.0.1:8000/examples/use_state/
+[http://127.0.0.1:8000/examples/use_state/](http://127.0.0.1:8000/examples/use_state/)
 
 <input> elements whose name starts with "this." will automatically update the state when those inputs change. Validation can be performed by using JavaScript setter functions in your state tree or by using the built in html input types such as color, email, month, number, range, tel, time, url, etc.
 
-```
+```html
 <div>
   <input name="this.name" placeholder="Name" />
   <input name="this.age" placeholder="Age" type="number" />
@@ -50,7 +50,7 @@ http://127.0.0.1:8000/examples/use_state/
 </div>
 ```
 
-```
+```typescript
 import { state } from "mumulib";
 
 state.onstate(new_state => {
@@ -60,11 +60,11 @@ state.onstate(new_state => {
 });
 ```
 
-http://127.0.0.1:8000/examples/use_state_input/
+[http://127.0.0.1:8000/examples/use_state_input/](http://127.0.0.1:8000/examples/use_state)input/)
 
 There is a special toplevel state key "selected" which is the path to the currently selected state object. Inputs whose name start with "selected." will use the object at the path specified by the toplevel "selected" key as the root when traversing the path and setting the state.
 
-```
+```html
 <input type="radio" name="selected" value="person1">
 <input type="radio" name="selected" value="person2">
 
@@ -75,7 +75,7 @@ There is a special toplevel state key "selected" which is the path to the curren
 </div>
 ```
 
-```
+```typescript
 import { state } from "mumulib";
 
 state.onstate(async new_state => {
@@ -85,7 +85,7 @@ state.onstate(async new_state => {
 });
 ```
 
-http://127.0.0.1:8000/examples/use_state_selected/
+[http://127.0.0.1:8000/examples/use_state_selected/](http://127.0.0.1:8000/examples/use_state_selected/)
 
 state api
 =====
@@ -104,7 +104,7 @@ patslot
 
 Patterns and Slots provide a very simple html templating mechanism with templates that can be edited with sample data in them in a graphical html editor. There are only three tag attributes: data-pat, data-slot, and data-attr. All logic is delegated to normal TypeScript or JavaScript code.
 
-```
+```html
 <dl data-pat="person" data-attr="style=color">
   <dt>Name</dt>
   <dd data-slot="name">
@@ -117,7 +117,7 @@ Patterns and Slots provide a very simple html templating mechanism with template
 </dl>
 ```
 
-```
+```typescript
 import { patslot } from "mumulib";
 
 window.onload = async () => {
@@ -132,10 +132,12 @@ window.onload = async () => {
 }
 ```
 
+[http://127.0.0.1:8000/examples/use_patslot/](http://127.0.0.1:8000/examples/use_patslot/)
+
 There is a convenience function fill_body you can use to fill the top level slots in your page. There is also the function fill_slots if you have an HTML element you wish to fill.
 
 
-```
+```html
 <dl data-attr="style=color">
   <dt>Name</dt>
   <dd data-slot="name">
@@ -152,7 +154,7 @@ There is a convenience function fill_body you can use to fill the top level slot
 </div>
 ```
 
-```
+```typescript
 import { patslot } from "mumulib";
 
 window.onload = async () => {
@@ -170,9 +172,11 @@ window.onload = async () => {
 }
 ```
 
+[http://127.0.0.1:8000/examples/use_patslot_fill/](http://127.0.0.1:8000/examples/use_patslot_fill/)
+
 You can use JavaScript generators to make rendering nested hierarchies easy.
 
-```
+```html
 <main>
     <ol data-slot="towns">
         <li data-pat="town">
@@ -196,7 +200,7 @@ You can use JavaScript generators to make rendering nested hierarchies easy.
 </footer>
 ```
 
-```
+```typescript
 
 
 import { patslot } from '../../src';
@@ -245,6 +249,8 @@ window.onload = async () => {
 }
 
 ```
+
+[http://127.0.0.1:8000/examples/use_patslot_nested/](http://127.0.0.1:8000/examples/use_patslot_nested/)
 
 patslot api
 =====
