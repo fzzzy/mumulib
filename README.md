@@ -278,6 +278,44 @@ The dialog module provides a simple function for showing a <dialog> element with
 
 If your dialog contains a <form> element, you can use a hidden input with the name "path" and one with the name "method" to specify a "path" into the state tree to an object whose "method" attribute will be called with a list of all of the <form> <input> values when a form is submitted.
 
+```html
+<dialog id="my_dialog">
+    <form onsubmit="event.preventDefault(); event.target.parentNode.close()">
+        <input type="hidden" name="path" value="this.my_object" />
+        <input type="hidden" name="method" value="my_method" />
+        <input name="name" />
+        <input type="number" name="age" />
+        <button>Save</button>
+    </form>
+</dialog>
+```
+
+```typescript
+
+import { state, dialog } from '../../src';
+
+class MyObject {
+    my_method(args) {
+        const node = document.createElement("div");
+        node.textContent = "my_method was called " + args.name + " " + args.age;
+        document.body.appendChild(node);
+    }
+}
+
+state.onstate(async (new_state) => {
+    if (!new_state.my_object) {
+        state.set_state({my_object: new MyObject()});
+    } else {
+        dialog.do_dialog("my_dialog", "this.my_object", (el, _state) => {
+            return el;
+        })
+    }
+});
+
+```
+
+[http://127.0.0.1:8000/examples/use_dialog/](http://127.0.0.1:8000/examples/use_dialog/)
+
 dialog api
 =====
 

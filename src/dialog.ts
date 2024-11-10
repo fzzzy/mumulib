@@ -22,6 +22,7 @@ import { set_state, state } from "./state";
 
 type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 
+
 function do_dialog(
   dialog_name: string,
   path: string,

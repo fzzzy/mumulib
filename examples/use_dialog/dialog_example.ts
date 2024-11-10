@@ -15,9 +15,8 @@ state.onstate(async (new_state) => {
     if (!new_state.my_object) {
         state.set_state({my_object: new MyObject()});
     } else {
-        dialog.do_dialog("my_dialog", "my_object", (el, _state) => {
-            return el;
-        })
+        dialog.do_dialog("my_dialog", "this.my_object", (el, _state) => el);
     }
 });
+
 
