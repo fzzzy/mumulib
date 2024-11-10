@@ -53,12 +53,14 @@ http://127.0.0.1:8000/examples/use_state/
 ```
 import { state } from "mumulib";
 
-state.onstate(person => {
-  console.log(
-    "Current state", person
-  );
+state.onstate(new_state => {
+  const node = document.createElement("div");
+  node.textContent = "Got state " + JSON.stringify(new_state);
+  document.appendChild(node);
 });
 ```
+
+http://127.0.0.1:8000/examples/use_state_input/
 
 There is a special toplevel state key "selected" which is the path to the currently selected state object. Inputs whose name start with "selected." will use the object at the path specified by the toplevel "selected" key as the root when traversing the path and setting the state.
 
@@ -76,12 +78,17 @@ There is a special toplevel state key "selected" which is the path to the curren
 ```
 import { state } from "mumulib";
 
-state.onstate(people => {
-  console.log(
-    "Current state", people
-  );
+state.onstate(async new_state => {
+  const node = document.createElement("div");
+  node.textContent = "Got state " + JSON.stringify(new_state);
+  document.body.appendChild(node);
 });
 ```
+
+http://127.0.0.1:8000/examples/use_state_selected/
+
+state api
+=====
 
 type State = { [key: string]: any };
 type OnStateChange = (state: State) => Promise<void>;
@@ -94,6 +101,7 @@ set_path(path: string, new_substate: any): Traverses the given path and sets the
 
 patslot
 =====
+
 Patterns and Slots provide a very simple html templating mechanism with templates that can be edited with sample data in them in a graphical html editor. There are only three tag attributes: data-pat, data-slot, and data-attr. All logic is delegated to normal TypeScript or JavaScript code.
 
 ```
@@ -112,12 +120,134 @@ Patterns and Slots provide a very simple html templating mechanism with template
 ```
 import { patslot } from "mumulib";
 
-// Returns an HTMLElement with the slots filled
-let node = patslot.clone_pat("person", {
-  name: "Jane Smith",
-  age: 12
-});
+window.onload = async () => {
+  // Returns an HTMLElement with the slots filled
+  let node = await patslot.clone_pat("person", {
+    name: "Jane Smith",
+    age: 12,
+    color: "color: blue"
+  });
+
+  document.body.appendChild(node);
+}
 ```
+
+There is a convenience function fill_body you can use to fill the top level slots in your page. There is also the function fill_slots if you have an HTML element you wish to fill.
+
+
+```
+<dl data-attr="style=color">
+  <dt>Name</dt>
+  <dd data-slot="name">
+    John Smith
+  </dd>
+  <dt>Age</dt>
+  <dd data-slot="age">
+    42
+  </dd>
+</dl>
+
+<div id="fill-element">
+  This element has <span data-slot="fill_me"> not been filled yet.</span>
+</div>
+```
+
+```
+import { patslot } from "mumulib";
+
+window.onload = async () => {
+  await patslot.fill_body({
+    name: "Jane Smith",
+    age: 12,
+    color: "color: blue"
+  });
+  setTimeout(() => {
+    patslot.fill_slots(
+      document.getElementById("fill-element"),
+      { fill_me: "now been filled." }
+    );
+  });
+}
+```
+
+You can use JavaScript generators to make rendering nested hierarchies easy.
+
+```
+<main>
+    <ol data-slot="towns">
+        <li data-pat="town">
+            <h1>Town:</h1>
+            <div data-slot="town_name"></div>
+            <h2>People:</h2>
+            <div data-slot="people">
+                <dl data-pat="person">
+                    <dt>Name</dt>
+                    <dd data-slot="name"></dd>
+                    <dt>Age</dt>
+                    <dd data-slot="age"></dd>
+                </dl>    
+            </div>
+        </li>
+    </ol>
+</main>
+
+<footer data-slot="footer">
+
+</footer>
+```
+
+```
+
+
+import { patslot } from '../../src';
+
+
+const dataset = {
+  towns: [
+    {
+      name: "Los Angeles",
+      people: [
+        {"name": "Joe Smith", age: 67},
+        {"name": "Example Person", age: 2}
+      ]
+    },
+    {
+      name: "London",
+      people: [
+        {"name": "Jane Smith", age: 23},
+        {"name": "John Doe", age: 34}
+      ]
+    }
+  ]
+};
+
+
+function render_people(people) {
+  return people.map((person) => patslot.clone_pat("person", person));
+}
+
+
+function* render_towns(towns) {
+  for (const town of towns) {
+    yield patslot.clone_pat("town", {
+      town_name: town.name,
+      people: render_people(town.people)
+    });
+  }
+}
+
+
+window.onload = async () => {
+  patslot.fill_body({
+    towns: await render_towns(dataset.towns),
+    footer: "This is the footer."
+  });
+}
+
+```
+
+patslot api
+=====
 
 type SyncPattern = HTMLElement |
     (HTMLElement | Generator<Pattern> | string)[] |
@@ -137,9 +267,13 @@ fill_body(slot_values: { [key: string]: Pattern }): Fill slots in the current ht
 
 dialog
 =====
+
 The dialog module provides a simple function for showing a <dialog> element with forms in it and automatically calling a method of your choice when a form is submitted.
 
 If your dialog contains a <form> element, you can use a hidden input with the name "path" and one with the name "method" to specify a "path" into the state tree to an object whose "method" attribute will be called with a list of all of the <form> <input> values when a form is submitted.
+
+dialog api
+=====
 
 type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 

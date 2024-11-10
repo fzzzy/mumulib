@@ -24,7 +24,7 @@
 
 import { set, get } from "object-path";
 
-type State = { [key: string]: any };
+type State = { [key: string]: any } | any;
 type OnStateChange = (state: State) => Promise<void>;
 
 const initialValues = {};
@@ -106,7 +106,7 @@ async function set_path(path: string, nstate: State): Promise<void> {
 
 document.addEventListener('DOMContentLoaded', async function () {
   loaded = true;
-  await set_state({});
+  await set_state(null);
 });
 
 document.addEventListener('focus', function (e) {
@@ -133,13 +133,15 @@ document.addEventListener('focusout', function (e: Event) {
     if (name.substring(0, 5) === 'this.') {
       set(state, name.substring(5), value);
       console.log(`${name} = ${JSON.stringify(value)}`);
-      set_state(state);
+      set_state(null);
     } else if (name.substring(0, 9) === 'selected.') {
       // should state['selected'] be prefixed with "this." for consistency
       const selected = get(state, state['selected']);
       set(selected, name.substring(9), value);
-      console.log(`${name} = ${JSON.stringify(value)}`);
-      set_state(state);
+      if (debug_mode) {
+        console.log(`${name} = ${JSON.stringify(value)}`);
+      }
+      set_state(null);
     }
   }
 }, true);

@@ -5,11 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pattern and Slot Example</title>
-    <script src="patslot_example.js" defer></script>
+    <script src="fill_example.js" defer></script>
 </head>
 
 <body>
-    <dl data-pat="person" data-attr="style=color">
+    <dl data-attr="style=color">
         <dt>Name</dt>
         <dd data-slot="name">
             John Smith
@@ -19,6 +19,10 @@
             42
         </dd>
     </dl>
+
+    <div id="fill-element">
+        This element has <span data-slot="fill_me"> not been filled yet.</span>
+    </div>
 </body>
 
 </html>

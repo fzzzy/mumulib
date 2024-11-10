@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern and Slot Example</title>
+    <script src="nested_example.js" defer></script>
+</head>
+
+<body>
+
+    <main>
+        <ol data-slot="towns">
+            <li data-pat="town">
+                <h1>Town:</h1>
+                <div data-slot="town_name"></div>
+                <h2>People:</h2>
+                <div data-slot="people">
+                    <dl data-pat="person">
+                        <dt>Name</dt>
+                        <dd data-slot="name"></dd>
+                        <dt>Age</dt>
+                        <dd data-slot="age"></dd>
+                    </dl>    
+                </div>
+            </li>
+        </ol>
+    </main>
+
+    <footer data-slot="footer">
+
+    </footer>
+</body>
+
+</html>

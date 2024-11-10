@@ -28,8 +28,8 @@ import morphdom from "morphdom";
 const TEMPLATE = document.body.cloneNode(true) as HTMLElement;
 
 type SyncPattern = HTMLElement |
-    (HTMLElement | Generator<Pattern> | string)[] |
-    Generator<Pattern> |
+    (HTMLElement | Generator<Pattern> | AsyncGenerator<Pattern> | string)[] |
+    Generator<Pattern> | AsyncGenerator<Pattern> |
     string |
     number;
 
@@ -85,7 +85,7 @@ async function _fill_or_append_slots(
                 slot.appendChild(pat.cloneNode(true) as Element);
             } else {
                 pat.dataset.slot = slotname;
-                slot.replaceWith(pat.cloneNode(true) as Element);                
+                slot.replaceWith(pat.cloneNode(true) as Element);
             }
         } else if (
             pat instanceof Array ||
@@ -94,8 +94,9 @@ async function _fill_or_append_slots(
                 'throw' in pat)) {
             if (!append) {
                 while (slot.firstChild) {
+                    0
                     slot.removeChild(slot.firstChild);
-                }    
+                }
             }
             if (calculated_slot.length !== 0) {
                 for (const p of calculated_slot) {
@@ -106,13 +107,28 @@ async function _fill_or_append_slots(
                     }
                 }
             } else {
-                for (const p of pat) {
-                    if (p instanceof Element) {
-                        calculated_slot.push(p);
-                        slot.appendChild(p.cloneNode(true) as Element);
-                    } else {
-                        calculated_slot.push(p.toString());
-                        slot.appendChild(document.createTextNode(p.toString()));
+                if (typeof pat[Symbol.asyncIterator] === 'function') {
+                    for await (const p of pat) {
+                        if (p instanceof Element) {
+                            calculated_slot.push(p);
+                            slot.appendChild(p.cloneNode(true) as Element);
+                        } else {
+                            calculated_slot.push(p.toString());
+                            slot.appendChild(document.createTextNode(p.toString()));
+                        }
+                    }
+                } else {
+                    for (let p of pat as Generator<Pattern>) {
+                        if (p instanceof Promise) {
+                            p = await p;
+                        }
+                        if (p instanceof Element) {
+                            calculated_slot.push(p);
+                            slot.appendChild(p.cloneNode(true) as Element);
+                        } else {
+                            calculated_slot.push(p.toString());
+                            slot.appendChild(document.createTextNode(p.toString()));
+                        }
                     }
                 }
             }
@@ -134,7 +150,7 @@ async function _fill_or_append_slots(
         const attrs = (attrslot as HTMLElement).dataset.attr || '';
         //console.log("attrs", attrs);
         const mappings = attrs.split(',');
-        mappings.forEach(mapping => {
+        const results: Promise<void>[] = mappings.map(async (mapping) => {
             const [attribute_name, attribute_slot] = mapping.split('=');
             //console.log("attribute_slot", attribute_slot, slotname);
             if (attribute_slot != slotname) {
@@ -148,18 +164,30 @@ async function _fill_or_append_slots(
                     'next' in pat &&
                     'throw' in pat)) {
                 let patstr = "";
-                for (const p of pat) {
+                if (typeof pat[Symbol.asyncIterator] === 'function') {
+                for await (const p of pat) {
                     if (p instanceof Element) {
                         throw new Error("Can't set attr to Element");
                     } else {
                         patstr += p.toString();
                     }
                 }
+            } else {
+                for (const p of pat as Generator<Pattern>) {
+                    if (p instanceof Element) {
+                        throw new Error("Can't set attr to Element");
+                    } else {
+                        patstr += p.toString();
+                    }
+                }
+
+            }
                 attrslot.setAttribute(attribute_name, patstr);
             } else {
-                attrslot.setAttribute(attribute_name, pat);
+                attrslot.setAttribute(attribute_name, pat.toString());
             }
         });
+        await Promise.all(results);
     }
 }
 
