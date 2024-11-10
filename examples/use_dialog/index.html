@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dialog Example</title>
+    <script src="dialog_example.js" defer></script>
+</head>
+
+<body>
+
+<dialog id="my_dialog">
+    <form onsubmit="event.preventDefault(); event.target.parentNode.close()">
+        <input type="hidden" name="path" value="this.my_object" />
+        <input type="hidden" name="method" value="my_method" />
+        <input name="name" />
+        <input type="number" name="age" />
+        <button>Save</button>
+    </form>
+</dialog>
+
+</body>
+
+</html>
