@@ -1,5 +1,6 @@
 mumulib
 =====
+
 mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.
 
 state provides a simple method for managing state and a way to register onstate callbacks to react to state changes.
@@ -8,25 +9,36 @@ patslot provides a simple html templating api, with html templates that can be f
 
 dialog provides functionality to show html dialog elements populated with state from the state module, and automatically update the state when form inputs in the dialog change.
 
+Building
+=====
+
+Running `make build` converts the typescript files into JavaScript files ready for the browser in the `dist` directory.
+
+Examples
+=====
+
+Running `make` also runs build and starts a server on port 8000 which can be used to view the examples link below.
+
 state
 =====
+
 The state module provides simple state management with a toplevel javascript object and a function set_state which takes a new object and updates the state by merging all toplevel keys with the old state. The onstate function registers a callback which is called when the state has changed.
 
 ```
 import { state } from "mumulib";
 
 state.onstate(new_state => {
-  console.log(
-    "Got state", new_state
-  );
+  const node = document.createElement("div");
+  node.textContent = "Got state " + JSON.stringify(new_state);
+  document.appendChild(node);
 });
 
 state.set_state({hello: "world"});
 
-state.set_path(
-  "hello", "everybody"
-);
+state.set_path("hello", "everybody");
 ```
+
+http://127.0.0.1:8000/examples/use_state/
 
 <input> elements whose name starts with "this." will automatically update the state when those inputs change. Validation can be performed by using JavaScript setter functions in your state tree or by using the built in html input types such as color, email, month, number, range, tel, time, url, etc.
 

@@ -1,17 +1,15 @@
 
 
-import { onstate, set_state, state } from '../../src/state';
+import { state } from '../../src';
 
-async function main() {
-  console.log('Initial state:', state);
 
-  await onstate(async (newState) => {
-    console.log('State changed:', newState);
-  });
-  
-  await set_state({ exampleKey: 'exampleValue' });
-  
-  console.log('Final state:', state);  
-}
+state.onstate(new_state => {
+  const node = document.createElement("div");
+  node.textContent = "Got state " + JSON.stringify(new_state);
+  document.body.appendChild(node);
+});
 
-main().catch(console.error);
+state.set_state({hello: "world"});
+
+state.set_path("hello", "everybody");
+
