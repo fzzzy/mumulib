@@ -323,3 +323,7 @@ type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 
 do_dialog(dialog_id: string, path: string, render: RenderFunc) => HTMLElement: Fetch the state at path, call the render function, set the contents of the <dialog> element with the id dialog_id to the result of the render function, and display the dialog.
 
+TODO
+=====
+
+Two-way data binding; in on state, look for all elements whose name starts with this or selected and update the HTML with the new state.
