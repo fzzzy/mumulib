@@ -1,6 +1,6 @@
 
 
-import { patslot } from '../../src';
+import { patslot } from 'mumulib';
 
 
 const dataset = {

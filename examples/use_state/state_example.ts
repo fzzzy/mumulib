@@ -1,6 +1,6 @@
 
 
-import { state } from '../../src';
+import { state } from 'mumulib';
 
 
 state.onstate(async new_state => {

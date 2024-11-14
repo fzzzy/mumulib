@@ -1,6 +1,6 @@
 
 
-import { patslot } from '../../src';
+import { patslot } from 'mumulib';
 
 window.onload = async () => {
   await patslot.fill_body({

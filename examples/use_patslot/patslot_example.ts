@@ -1,6 +1,6 @@
 
 
-import { patslot } from '../../src';
+import { patslot } from 'mumulib';
 
 window.onload = async () => {
   // Returns an HTMLElement with the slots filled

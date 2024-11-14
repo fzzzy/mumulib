@@ -1,6 +1,6 @@
 
 
-import { state, dialog } from '../../src';
+import { state, dialog } from 'mumulib';
 
 
 class MyObject {
