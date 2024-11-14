@@ -120,13 +120,19 @@ document.addEventListener('focus', function (e) {
 
 
 function possiblyChanged(e: Event) {
+  let target;
   if (e.target) {
-    const target = e.target as HTMLInputElement;
+    if (e.target instanceof HTMLInputElement) {
+      target = e.target as HTMLInputElement;  
+    } else if (e.target instanceof HTMLSelectElement) {
+      target = e.target as HTMLSelectElement;
+    } else if (e.target instanceof HTMLTextAreaElement) {
+      target = e.target as HTMLTextAreaElement;
+    }
     if (!target.name || !target.value) {
       return;
     }
   }
-  const target = e.target as HTMLInputElement;
   let name = target.name;
   let value = target.value;
   if (initialValues[name] === value) {
@@ -156,7 +162,8 @@ document.addEventListener('focusout', function (e: Event) {
   //console.log('blur event fired:', e);
   if (
     e.target &&
-    e.target instanceof HTMLInputElement
+    (e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement)
   ) {
     possiblyChanged(e);
   }
@@ -166,8 +173,9 @@ document.addEventListener('change', function (e: Event) {
   //console.log('blur event fired:', e);
   if (
     e.target &&
-    e.target instanceof HTMLInputElement &&
-    e.target.type === "radio"
+    ((e.target instanceof HTMLInputElement &&
+    e.target.type === "radio") ||
+    e.target instanceof HTMLSelectElement)
   ) {
     possiblyChanged(e);
   }

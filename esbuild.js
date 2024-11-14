@@ -15,6 +15,7 @@ const args = {
     './src/index.ts',
     './examples/use_state/state_example.ts',
     './examples/use_state_input/input_example.ts',
+    './examples/use_state_select_textarea/select_textarea_example.ts',
     './examples/use_state_selected/selected_example.ts',
     './examples/use_patslot/patslot_example.ts',
     './examples/use_patslot_fill/fill_example.ts',

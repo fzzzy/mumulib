@@ -328,7 +328,5 @@ TODO
 
 Two-way data binding; in on state, look for all elements whose name starts with this or selected and update the HTML with the new state.
 
-Check that select textarea and button work.
-
-Examples for above.
+Example for above.
 
