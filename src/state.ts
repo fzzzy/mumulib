@@ -75,6 +75,7 @@ async function _set_state(root: any, path: string, nstate: State): Promise<void>
   }
   setting++;
   if (setting === 1) {
+    update_dom_state(state);
     if (debug_mode) {
       document.body.dataset.state = JSON.stringify(state);
       console.log("onstatechange", state);
@@ -119,7 +120,7 @@ document.addEventListener('focus', function (e) {
 }, true);
 
 
-function possiblyChanged(e: Event) {
+function possibly_changed(e: Event) {
   let target;
   if (e.target) {
     if (e.target instanceof HTMLInputElement) {
@@ -165,7 +166,7 @@ document.addEventListener('focusout', function (e: Event) {
     (e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement)
   ) {
-    possiblyChanged(e);
+    possibly_changed(e);
   }
 }, true);
 
@@ -177,9 +178,27 @@ document.addEventListener('change', function (e: Event) {
     e.target.type === "radio") ||
     e.target instanceof HTMLSelectElement)
   ) {
-    possiblyChanged(e);
+    possibly_changed(e);
   }
 }, true);
 
-export { onstate, set_state, set_path, state, debug };
+async function update_dom_state(state: State) {
+  const elements = document.querySelectorAll('input, select, textarea');
+  elements.forEach((element) => {
+    const name = element.name;
+    if (name.startsWith('this.')) {
+      const value = get(state, name.slice(5));
+      if (element.value !== value) {
+        element.value = value;
+      }
+    } else if (name.startsWith('selected.')) {
+      const selectedState = get(state, state["selected"]);
+      const value = get(selectedState, name.slice(9));
+      if (element.value !== value) {
+        element.value = value;
+      }
+    }
+  });
+}
 
+export { onstate, set_state, set_path, state, debug };
