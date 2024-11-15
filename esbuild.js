@@ -17,6 +17,8 @@ const args = {
     './examples/use_state_input/input_example.ts',
     './examples/use_state_select_textarea/select_textarea_example.ts',
     './examples/use_state_selected/selected_example.ts',
+    './examples/use_state_update/update_example.ts',
+    './examples/use_state_selected_update/selected_update_example.ts',
     './examples/use_patslot/patslot_example.ts',
     './examples/use_patslot_fill/fill_example.ts',
     './examples/use_patslot_nested/nested_example.ts',
