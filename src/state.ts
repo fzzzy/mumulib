@@ -185,17 +185,36 @@ document.addEventListener('change', function (e: Event) {
 async function update_dom_state(state: State) {
   const elements = document.querySelectorAll('input, select, textarea');
   elements.forEach((element) => {
-    const name = element.name;
+    let el;
+    if (element instanceof HTMLInputElement) {
+      el = element as HTMLInputElement;
+    } else if (element instanceof HTMLSelectElement) {
+      el = element as HTMLSelectElement;
+    } else if (element instanceof HTMLTextAreaElement) {
+      el = element as HTMLTextAreaElement;
+    }
+    const name = el.name;
     if (name.startsWith('this.')) {
       const value = get(state, name.slice(5));
-      if (element.value !== value) {
-        element.value = value;
+      if (el.value !== value) {
+        el.value = value;
       }
     } else if (name.startsWith('selected.')) {
       const selectedState = get(state, state["selected"]);
       const value = get(selectedState, name.slice(9));
-      if (element.value !== value) {
-        element.value = value;
+      if (el.value !== value) {
+        el.value = value;
+      }
+    } else if (name === "selected") {
+      const sel = state["selected"];
+      if (el.type === "radio") {
+        if (el.value === sel) {
+          el.checked = true;
+        } else {
+          el.checked = false
+        }  
+      } else {
+        el.value = sel;
       }
     }
   });

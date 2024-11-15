@@ -15,7 +15,7 @@ function update() {
 
 state.onstate(async new_state => {
   if (Object.keys(new_state).length === 0) {
-    state.set_state({"selected": "person1", "person1": {}, "person2": {}});
+    state.set_state({"selected": "person1", "person1": {"number": 0}, "person2": {"number": 0}});
     console.log(state.state);
     update();
   }
