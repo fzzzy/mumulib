@@ -3,9 +3,6 @@
  *
  * This module provides functions and types for working with HTML templates and slots.
  *
- * Constants:
- * - TEMPLATE: A constant representing the initial cloned state of the document body.
- *
  * Types:
  * - Pattern: A type representing a pattern that can be an HTMLElement, an array of patterns, a generator of patterns, or a string.
  *
@@ -232,4 +229,4 @@ async function clone_pat(
     return await template.clone_pat(patname, slots);
 }
 
-export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern, TEMPLATE };
+export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern, Template };
