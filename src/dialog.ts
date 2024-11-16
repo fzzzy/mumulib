@@ -35,10 +35,27 @@ function do_dialog(
   console.log("SUBSTATE", state, path, substate);
 
   const dialog = document.getElementById(dialog_name);
-  if (dialog) {
+  if (dialog && dialog instanceof HTMLDialogElement) {
       const clone = render(dialog, substate);
       console.log("cloned", dialog, clone);
       morphdom(dialog, clone);
+      for (const d of dialog.querySelectorAll('form')) {
+        d.onsubmit = (event) => {
+            event.preventDefault();
+            if (event.target) {
+                let target = event.target as HTMLElement;
+                while (!(target instanceof HTMLDialogElement)) {
+                    if (target.parentNode) {
+                        target = target.parentNode as HTMLElement;
+                    } else {
+                        console.error("Dialog target not found");
+                        return;
+                    }
+                }
+                target.close();
+            }
+        }
+      }
       (dialog as HTMLDialogElement).showModal();
       dialog.onclose = async (ev) => {
           console.log("closing", ev.target);
@@ -89,8 +106,9 @@ function do_dialog(
               }
               set_state({ 'selected': undefined });
           }
-
       }
+  } else {
+    console.error(`Dialog ${dialog_name} not found.`);
   }
 }
 
