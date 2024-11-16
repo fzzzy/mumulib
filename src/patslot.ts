@@ -21,6 +21,9 @@
  *
  * - clone_pat(patname: string, slots: { [key: string]: Pattern }): HTMLElement
  *   Clones the specified pattern and fills its slots with the provided patterns.
+ *
+ * Classes:
+ * - Template: A class that takes a URL parameter and provides a clone_pat method.
  */
 
 import morphdom from "morphdom";
@@ -35,6 +38,36 @@ type SyncPattern = HTMLElement |
 
 type Pattern = Promise<SyncPattern> | SyncPattern;
 
+class Template {
+    url: string;
+
+    constructor(url: string) {
+        this.url = url;
+    }
+
+    async clone_pat(patname: string, slots: { [key: string]: Pattern }): Promise<HTMLElement> {
+        let template;
+        if (this.url === "") {
+            template = TEMPLATE;
+        } else {
+            const response = await fetch(this.url);
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, "text/html");
+            template = doc.body;
+        }
+
+        const pat = template.querySelector(`[data-pat=${patname}]`);
+        if (!pat) {
+            throw new Error(`No pat named ${patname}`);
+        }
+        const clone = pat.cloneNode(true) as HTMLElement;
+        for (const [slotname, pat2] of Object.entries(slots)) {
+            await fill_slots(clone, slotname, pat2);
+        }
+        return clone;
+    }
+}
 
 async function fill_body(slots: { [key: string]: Pattern }) {
     const clone = document.body.cloneNode(true) as HTMLElement;
@@ -195,19 +228,8 @@ async function clone_pat(
     patname: string,
     slots: { [key: string]: Pattern }
 ): Promise<HTMLElement> {
-    //console.log(TEMPLATE);
-    const pat = TEMPLATE.querySelector(`[data-pat=${patname}]`);
-    if (!pat) {
-        throw new Error(`No pat named ${patname}`);
-    }
-    //console.log(pat);
-    const clone = pat.cloneNode(true) as HTMLElement;
-    for (const [slotname, pat2] of Object.entries(slots)) {
-        await fill_slots(clone, slotname, pat2);
-    }
-    return clone;
+    const template = new Template("");
+    return await template.clone_pat(patname, slots);
 }
-
-
 
 export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern, TEMPLATE };
