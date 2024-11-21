@@ -40,7 +40,7 @@ state.set_path("hello", "everybody");
 
 [http://127.0.0.1:8000/examples/use_state/](http://127.0.0.1:8000/examples/use_state/)
 
-<input> elements whose name starts with "this." will automatically update the state when those inputs change. Validation can be performed by using JavaScript setter functions in your state tree or by using the built in html input types such as color, email, month, number, range, tel, time, url, etc.
+&lt;input&gt; elements whose name starts with "this." will automatically update the state when those inputs change. Validation can be performed by using JavaScript setter functions in your state tree or by using the built in html input types such as color, email, month, number, range, tel, time, url, etc.
 
 ```html
 <div>
@@ -91,7 +91,7 @@ state api
 =====
 
 type State = { [key: string]: any };
-type OnStateChange = (state: State) => Promise<void>;
+type OnStateChange = (state: State) => Promise&lt;void&gt;;
 
 onstate(callback: OnStateChange): Registers callback to be called when the state has changed.
 
@@ -256,11 +256,11 @@ patslot api
 =====
 
 type SyncPattern = HTMLElement |
-    (HTMLElement | Generator<Pattern> | string)[] |
-    Generator<Pattern> |
+    (HTMLElement | Generator&lt;Pattern&gt; | string)[] |
+    Generator&lt;Pattern&gt; |
     string |
     number;
-type Pattern = Promise<SyncPattern> | SyncPattern;
+type Pattern = Promise&lt;SyncPattern&gt; | SyncPattern;
 
 clone_pat(pattern_name: string, slot_values: { [key: string]: Pattern}) => HTMLElement: Clone a pattern in the current html page and fill any slots with the given values. Return the filled HTMLElement.
 
@@ -274,9 +274,9 @@ fill_body(slot_values: { [key: string]: Pattern }): Fill slots in the current ht
 dialog
 =====
 
-The dialog module provides a simple function for showing a <dialog> element with forms in it and automatically calling a method of your choice when a form is submitted.
+The dialog module provides a simple function for showing a &lt;dialog&gt; element with forms in it and automatically calling a method of your choice when a form is submitted.
 
-If your dialog contains a <form> element, you can use a hidden input with the name "path" and one with the name "method" to specify a "path" into the state tree to an object whose "method" attribute will be called with a list of all of the <form> <input> values when a form is submitted.
+If your dialog contains a &lt;form&gt; element, you can use a hidden input with the name "path" and one with the name "method" to specify a "path" into the state tree to an object whose "method" attribute will be called with a list of all of the &ltl;form&gt; &lt;input&gt; values when a form is submitted.
 
 ```html
 <dialog id="my_dialog">
@@ -321,4 +321,4 @@ dialog api
 
 type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 
-do_dialog(dialog_id: string, path: string, render: RenderFunc) => HTMLElement: Fetch the state at path, call the render function, set the contents of the <dialog> element with the id dialog_id to the result of the render function, and display the dialog.
+do_dialog(dialog_id: string, path: string, render: RenderFunc) => HTMLElement: Fetch the state at path, call the render function, set the contents of the &lt;dialog&gt; element with the id dialog_id to the result of the render function, and display the dialog.
