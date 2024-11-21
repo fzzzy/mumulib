@@ -203,7 +203,7 @@ You can use JavaScript generators to make rendering nested hierarchies easy.
 ```typescript
 
 
-import { patslot } from '../../src';
+import { patslot } from 'mumulib';
 
 
 const dataset = {
@@ -280,7 +280,7 @@ If your dialog contains a <form> element, you can use a hidden input with the na
 
 ```html
 <dialog id="my_dialog">
-    <form onsubmit="event.preventDefault(); event.target.parentNode.close()">
+    <form>
         <input type="hidden" name="path" value="this.my_object" />
         <input type="hidden" name="method" value="my_method" />
         <input name="name" />

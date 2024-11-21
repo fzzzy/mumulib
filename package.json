@@ -1,15 +1,15 @@
 {
   "name": "mumulib",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.1",
+  "description": "mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "make"
   },
-  "keywords": [],
+  "keywords": ["html templating", "templating", "state management", "state", "form handling", "forms"],
   "author": "Donovan Preston",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.8.6",
     "chokidar": "^3.5.3",
