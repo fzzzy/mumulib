@@ -1,6 +1,6 @@
 {
   "name": "mumulib",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.",
   "main": "index.js",
   "type": "module",
