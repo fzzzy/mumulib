@@ -276,7 +276,7 @@ dialog
 
 The dialog module provides a simple function for showing a &lt;dialog&gt; element with forms in it and automatically calling a method of your choice when a form is submitted.
 
-If your dialog contains a &lt;form&gt; element, you can use a hidden input with the name "path" and one with the name "method" to specify a "path" into the state tree to an object whose "method" attribute will be called with a list of all of the &ltl;form&gt; &lt;input&gt; values when a form is submitted.
+If your dialog contains a &lt;form&gt; element, you can use a hidden input with the name "path" and one with the name "method" to specify a "path" into the state tree to an object whose "method" attribute will be called with a list of all of the &lt;form&gt; &lt;input&gt; values when a form is submitted.
 
 ```html
 <dialog id="my_dialog">
@@ -292,7 +292,7 @@ If your dialog contains a &lt;form&gt; element, you can use a hidden input with 
 
 ```typescript
 
-import { state, dialog } from '../../src';
+import { state, dialog } from 'mumulib';
 
 class MyObject {
     my_method(args) {
