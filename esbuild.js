@@ -22,6 +22,7 @@ const args = {
     './examples/use_patslot/patslot_example.ts',
     './examples/use_patslot_fill/fill_example.ts',
     './examples/use_patslot_nested/nested_example.ts',
+    './examples/use_patslot_template/template_example.ts',
     './examples/use_dialog/dialog_example.ts'
   ],
   bundle: true,
