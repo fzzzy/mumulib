@@ -25,13 +25,9 @@ THE SOFTWARE.
 """
 
 
+from mumutypes import SpecialResponse
+
 from types import MappingProxyType
-
-
-class SpecialResponse(object):
-    def __init__(self, asgi_send_dict, leaf_object):
-        self.asgi_send_dict = asgi_send_dict
-        self.leaf_object = leaf_object
 
 
 _consumer_adapters = {}
@@ -68,9 +64,10 @@ async def consume(parent, segments, state, send):
         return parent
     state["remaining"] = segments
 
-    for adapter_type, conv in _consumer_adapters.items():
-        if isinstance(parent, adapter_type):
-            return await conv(parent, segments, state, send)
+    parent_type = type(parent)
+    if parent_type in _consumer_adapters:
+        return await _consumer_adapters[parent_type](
+            parent, segments, state, send)
 
     return None
 

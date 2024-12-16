@@ -38,7 +38,7 @@ async def request(asgi_app, method, path, body): # pragma: no cover
     }
 
     if body is not None:
-        body_bytes = body.encode("utf-8")
+        body_bytes = json.dumps(body).encode("utf-8")
         scope["headers"].append((b"content-length", str(len(body_bytes)).encode("utf-8")))
     else:
         body_bytes = b""
@@ -60,10 +60,17 @@ async def request(asgi_app, method, path, body): # pragma: no cover
     response_start = next(event for event in send_queue if event["type"] == "http.response.start")
     response_body = next(event for event in send_queue if event["type"] == "http.response.body")
 
+    decoded_body = response_body["body"].decode("utf-8")
+    if decoded_body:
+        try:
+            decoded_body = json.loads(decoded_body)
+        except json.decoder.JSONDecodeError:
+            pass
+
     return {
         "status": response_start["status"],
         "headers": {k.decode(): v.decode() for k, v in response_start["headers"]},
-        "body": response_body["body"].decode("utf-8"),
+        "body": decoded_body,
     }
 
 
@@ -91,7 +98,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         response = await request(ASGI_APP, "GET", "/", None)
         self.assertEqual(response['status'], 200)
         self.assertEqual(
-            json.loads(response['body']),
+            response['body'],
             {
                 'hello': 'world',
                 'tuple': ['this', 'is', 'a', 'tuple'],
@@ -107,7 +114,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Test GET /hello
         response = await request(ASGI_APP, "GET", "/hello", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), "world")
+        self.assertEqual(response['body'], "world")
 
         # Test PUT /hello
         response = await request(
@@ -118,7 +125,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Verify GET /hello after PUT
         response = await request(ASGI_APP, "GET", "/hello", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(response['body'], '"newworld"\n')
+        self.assertEqual(response['body'], 'newworld')
 
         # Test DELETE /hello
         response = await request(ASGI_APP, "DELETE", "/hello", None)
@@ -128,7 +135,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         response = await request(ASGI_APP, "GET", "/", None)
         self.assertEqual(response['status'], 200)
         self.assertEqual(
-            json.loads(response['body']),
+            response['body'],
             {
                 'tuple': ['this', 'is', 'a', 'tuple'],
                 'list': ['this', 'is', 'a', 'list'],
@@ -143,15 +150,15 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Test GET /tuple and /tuple/2
         response = await request(ASGI_APP, "GET", "/tuple/", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), ['this', 'is', 'a', 'tuple'])
+        self.assertEqual(response['body'], ['this', 'is', 'a', 'tuple'])
 
         response = await request(ASGI_APP, "GET", "/tuple/2", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), "a")
+        self.assertEqual(response['body'], "a")
 
         # Test PUT and DELETE on /tuple/2
         response = await request(
-            ASGI_APP, "PUT", "/tuple/2", json.dumps("change")
+            ASGI_APP, "PUT", "/tuple/2", "change"
         )
         self.assertEqual(response['status'], 405)
 
@@ -165,22 +172,22 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Test GET /list and /list/1
         response = await request(ASGI_APP, "GET", "/list/", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), ['this', 'is', 'a', 'list'])
+        self.assertEqual(response['body'], ['this', 'is', 'a', 'list'])
 
         response = await request(ASGI_APP, "GET", "/list/1", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), "is")
+        self.assertEqual(response['body'], "is")
 
         # Test PUT /list/1
         response = await request(
-            ASGI_APP, "PUT", "/list/1", json.dumps("modified")
+            ASGI_APP, "PUT", "/list/1", "modified"
         )
         self.assertEqual(response['status'], 201)
 
         # Verify GET /list after PUT /list/1
         response = await request(ASGI_APP, "GET", "/list", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), ['this', '"modified"', 'a', 'list'])
+        self.assertEqual(response['body'], ['this', 'modified', 'a', 'list'])
 
         # Test PUT /list/555 fails
         response = await request(
@@ -202,14 +209,14 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
         # Test PUT /list/last
         response = await request(
-            ASGI_APP, "PUT", "/list/last", json.dumps("appended")
+            ASGI_APP, "PUT", "/list/last", "appended"
         )
         self.assertEqual(response['status'], 201)
 
         # Verify GET /list after PUT /list/last
         response = await request(ASGI_APP, "GET", "/list", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), ['this', '"modified"', 'a', 'list', '"appended"'])
+        self.assertEqual(response['body'], ['this', 'modified', 'a', 'list', 'appended'])
 
         # Test DELETE /list/1
         response = await request(ASGI_APP, "DELETE", "/list/1", None)
@@ -218,7 +225,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Verify GET /list after DELETE /list/1
         response = await request(ASGI_APP, "GET", "/list", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), ['this', 'a', 'list', '"appended"'])
+        self.assertEqual(response['body'], ['this', 'a', 'list', 'appended'])
 
         # Test DELETE /list/555
         response = await request(ASGI_APP, "DELETE", "/list/555", None)
@@ -231,18 +238,18 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
     async def test_nested_list(self):
         response = await request(ASGI_APP, "GET", "/nested_list/0/0", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), "asdf")
+        self.assertEqual(response['body'], "asdf")
 
     async def test_nested_dict(self):
         response = await request(ASGI_APP, "GET", "/nested_dict/nested/again", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), "string")
+        self.assertEqual(response['body'], "string")
 
     async def test_immutable(self):
         # Test GET /immutable
         response = await request(ASGI_APP, "GET", "/immutable", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), {'cannot': 'touch this'})
+        self.assertEqual(response['body'], {'cannot': 'touch this'})
 
         # Test PUT and DELETE on /immutable/cannot
         response = await request(
@@ -256,7 +263,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Verify GET /immutable after PUT and DELETE
         response = await request(ASGI_APP, "GET", "/immutable", None)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(json.loads(response['body']), {'cannot': 'touch this'})
+        self.assertEqual(response['body'], {'cannot': 'touch this'})
 
     async def test_not_found(self):
         # Test GET /not_found/foo fails

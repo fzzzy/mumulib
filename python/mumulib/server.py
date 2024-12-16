@@ -2,14 +2,36 @@
 import json
 from types import MappingProxyType
 
-from consumers import consume, SpecialResponse
+from consumers import consume
+from mumutypes import SpecialResponse
 
 
 def custom_serializer(obj):
     if isinstance(obj, MappingProxyType):
-        # Convert the mappingproxy object to a dictionary
         return dict(obj)
     return None
+
+
+async def parse_json(scope, receive):
+    body = b''
+
+    # Receive request body chunks
+    while True:
+        message = await receive()
+
+        # Check if we've reached the end of the body
+        if message['type'] == 'http.request':
+            # Accumulate body chunks
+            body += message.get('body', b'')
+
+            # Check if this is the last body chunk
+            if not message.get('more_body', False):
+                break
+
+    # Process the full body
+    body_text = body.decode('utf-8')
+    if len(body_text):
+        scope["state"]["parsed_body"] = json.loads(body_text)
 
 
 def consumers_app(root):
@@ -28,24 +50,9 @@ def consumers_app(root):
         scope["state"]["url"] = scope["path"]
         scope["state"]["method"] = scope["method"]
 
-        body = b''
-
-        # Receive request body chunks
-        while True:
-            message = await receive()
-
-            # Check if we've reached the end of the body
-            if message['type'] == 'http.request':
-                # Accumulate body chunks
-                body += message.get('body', b'')
-
-                # Check if this is the last body chunk
-                if not message.get('more_body', False):
-                    break
-
-        # Process the full body
-        body_text = body.decode('utf-8')
-        scope["state"]["parsed_body"] = body_text
+        for (key, value) in scope["headers"]:
+            if key.lower() == b"content-type" and value.lower() == b'application/json':
+                await parse_json(scope, receive)
 
         result = await consume(root, scope["path"].split("/")[1:], scope["state"], send)
         if result is None:
