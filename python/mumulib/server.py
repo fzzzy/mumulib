@@ -1,18 +1,12 @@
 
 import json
-from types import MappingProxyType
 
 from consumers import consume
 from mumutypes import SpecialResponse
+from producers import produce
 
 
-def custom_serializer(obj):
-    if isinstance(obj, MappingProxyType):
-        return dict(obj)
-    return None
-
-
-async def parse_json(scope, receive):
+async def parse_json(receive):
     body = b''
 
     # Receive request body chunks
@@ -31,7 +25,7 @@ async def parse_json(scope, receive):
     # Process the full body
     body_text = body.decode('utf-8')
     if len(body_text):
-        scope["state"]["parsed_body"] = json.loads(body_text)
+        return json.loads(body_text)
 
 
 def consumers_app(root):
@@ -47,23 +41,26 @@ def consumers_app(root):
 
         assert scope['type'] == 'http'
 
-        scope["state"]["url"] = scope["path"]
-        scope["state"]["method"] = scope["method"]
+        state = scope["state"]
+        state["url"] = scope["path"]
+        state["method"] = scope["method"]
+        # Just hard code json for now
+        state["accept"] = ["application/json"]
 
         for (key, value) in scope["headers"]:
             if key.lower() == b"content-type" and value.lower() == b'application/json':
-                await parse_json(scope, receive)
+                state["parsed_body"] = await parse_json(receive)
 
-        result = await consume(root, scope["path"].split("/")[1:], scope["state"], send)
+        result = await consume(root, scope["path"].split("/")[1:], state, send)
         if result is None:
             await send({
                 'type': 'http.response.start',
                 'status': 404,
-                'headers': [(b'content-type', b'text/plain')],
+                'headers': [(b'content-type', b'application/json')],
             })
             await send({
                 'type': 'http.response.body',
-                'body': b'Not Found',
+                'body': b'{"error": "Not Found"}',
                 'more_body': False,
             })
             return
@@ -75,9 +72,15 @@ def consumers_app(root):
             await send({
                 'type': 'http.response.start',
                 'status': 200,
-                'headers': [(b'content-type', b'text/plain')],
+                'headers': [(b'content-type', b'application/json')],
             })
-            result = bytes(json.dumps(result, default=custom_serializer), 'utf8') + b"\n"
+            async for chunk in produce(result, state):
+                await send({
+                    'type': 'http.response.body',
+                    'body': chunk,
+                    'more_body': True,
+                })
+            result = b'\n'
         await send({
             'type': 'http.response.body',
             'body': result,
@@ -85,19 +88,4 @@ def consumers_app(root):
         })
 
     return app
-
-
-# test_app = consumers_app({"hello": "world"})
-# test_app = consumers_app(("hello", "world"))
-test_app = consumers_app(["goodbye", "mr chips"])
-# test_app = consumers_app(MappingProxyType({"immutable": "dict"}))
-
-test_app = consumers_app(
-    {
-        "hello": "world",
-        "tuple": ("this", "is", "a", "tuple"),
-        "list": ["this", "is", "a", "list"],
-        "immutable": MappingProxyType({"cannot": "touch this"})
-    }
-)
 

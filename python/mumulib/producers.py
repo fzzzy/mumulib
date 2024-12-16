@@ -25,6 +25,16 @@ THE SOFTWARE.
 """
 
 
+import json
+from types import MappingProxyType
+
+
+def custom_serializer(obj):
+    if isinstance(obj, MappingProxyType):
+        return dict(obj)
+    return None
+
+
 class NoProducer(Exception):
     pass
 
@@ -38,30 +48,23 @@ def add_producer(adapter_for_type, conv, mime_type='*/*'):
     _producer_adapters[mime_type][adapter_for_type] = conv
 
 
-def produce(resource, req):
-    req.site.adapt(resource, req)
+async def produce(thing, state):
+    for content_type in state['accept']:
+        adapter = _producer_adapters.get(content_type, {}).get(type(thing))
+        if adapter:
+            async for chunk in adapter(thing, state):
+                yield chunk
+            return
+    yield str(thing).encode('utf8')
 
 
-def _none(_, req, segs=None):
-    req.not_found()
-add_producer(types.NoneType, _none)
+async def produce_json(thing, state):
+    yield json.dumps(thing, default=custom_serializer).encode('utf8')
 
 
 JSON_TYPES = [
-    dict, list, tuple, str, bytes, int, long, float,
-    bool, type(None)]
-
-
-
-def produce_json(it, req):
-    req.set_header('content-type', 'application/json')
-    callback = req.get_query('callback')
-    if callback is not None:
-        ## See Yahoo's ajax documentation for information about using jsonp
-        ## http://developer.yahoo.com/common/json.html#callbackparam
-        req.write("%s(%s)" % (callback, simplejson.dumps(it, cls=DumbassEncoder)))
-    else:
-        req.write(simplejson.dumps(it, cls=DumbassEncoder))
+    dict, list, tuple, str, bytes, int, float,
+    bool, MappingProxyType, type(None)]
 
 
 for typ in JSON_TYPES:
