@@ -25,7 +25,7 @@ THE SOFTWARE.
 """
 
 
-from mumutypes import SpecialResponse
+from mumulib.mumutypes import SpecialResponse
 
 from types import MappingProxyType
 
@@ -196,7 +196,7 @@ async def _consume_immutabledict(parent, segments, state, send):
     Returns:
         any or None: The resolved object or None if the key does not exist.
     """
-    if len(segments) == 1 and state["method"] != "GET":
+    if len(segments) == 1 and state["method"] != "GET" and state["method"] != "POST":
         return SpecialResponse({
             'type': 'http.response.start',
             'status': 405,
@@ -206,7 +206,10 @@ async def _consume_immutabledict(parent, segments, state, send):
         }, b'Method not allowed')
     try:
         if len(segments) == 1 and not len(segments[0]):
-            child = parent
+            if "index" in parent:
+                child = parent["index"]
+            else:
+                child = parent
         else:
             child = parent[segments[0]]
     except KeyError:

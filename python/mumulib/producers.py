@@ -24,19 +24,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-
+from io import TextIOWrapper
 import json
+import mimetypes
 from types import MappingProxyType
+
+from mumulib import mumutypes
 
 
 def custom_serializer(obj):
     if isinstance(obj, MappingProxyType):
         return dict(obj)
     return None
-
-
-class NoProducer(Exception):
-    pass
 
 
 _producer_adapters = {}
@@ -55,11 +54,22 @@ async def produce(thing, state):
             async for chunk in adapter(thing, state):
                 yield chunk
             return
-    yield str(thing).encode('utf8')
+    yield str(thing)
+
+
+
+async def produce_file(thing, state):
+    content_type = mimetypes.guess_type(thing.name)
+    yield mumutypes.SpecialResponse({
+        'type': 'http.response.start',
+        'status': 200,
+        'headers': [(b'content-type', content_type[0].encode("utf8"))],
+    }, thing.read())
+add_producer(TextIOWrapper, produce_file)
 
 
 async def produce_json(thing, state):
-    yield json.dumps(thing, default=custom_serializer).encode('utf8')
+    yield json.dumps(thing, default=custom_serializer)
 
 
 JSON_TYPES = [

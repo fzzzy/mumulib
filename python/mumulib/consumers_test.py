@@ -8,7 +8,7 @@ from types import MappingProxyType # pragma: no cover
 import json # pragma: no cover
 import unittest # pragma: no cover
 
-from server import consumers_app # pragma: no cover
+from mumulib.server import consumers_app # pragma: no cover
 
 
 async def request(asgi_app, method, path, body): # pragma: no cover

@@ -6,8 +6,8 @@ import unittest # pragma: no cover
 cov = coverage.Coverage(branch=True) # pragma: no cover
 cov.start() # pragma: no cover
 
-from shaped import is_shaped, make_shape, would_retain_shape # pragma: no cover
-from shaped import anything, HeterogenousList, AmbiguousShape # pragma: no cover
+from mumulib.shaped import is_shaped, make_shape, would_retain_shape # pragma: no cover
+from mumulib.shaped import anything, HeterogenousList, AmbiguousShape # pragma: no cover
 
 
 class TestShapedScalars(unittest.TestCase):

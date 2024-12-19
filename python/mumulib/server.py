@@ -1,9 +1,10 @@
 
 import json
+import traceback
 
-from consumers import consume
-from mumutypes import SpecialResponse
-from producers import produce
+from mumulib.consumers import consume
+from mumulib.mumutypes import SpecialResponse, HTTPResponse
+from mumulib.producers import produce
 
 
 async def parse_json(receive):
@@ -45,7 +46,7 @@ def consumers_app(root):
         state["url"] = scope["path"]
         state["method"] = scope["method"]
         # Just hard code json for now
-        state["accept"] = ["application/json"]
+        state["accept"] = ["application/json", "*/*"]
 
         for (key, value) in scope["headers"]:
             if key.lower() == b"content-type" and value.lower() == b'application/json':
@@ -69,21 +70,51 @@ def consumers_app(root):
             await send(result.asgi_send_dict)
             result = result.leaf_object
         else:
-            await send({
-                'type': 'http.response.start',
-                'status': 200,
-                'headers': [(b'content-type', b'application/json')],
-            })
-            async for chunk in produce(result, state):
-                await send({
-                    'type': 'http.response.body',
-                    'body': chunk,
-                    'more_body': True,
-                })
-            result = b'\n'
+            first_chunk = True
+            try:
+                async for chunk in produce(result, state):
+                    if first_chunk:
+                        if isinstance(chunk, SpecialResponse):
+                            await send(chunk.asgi_send_dict)
+                            await send({
+                                'type': 'http.response.body',
+                                'body': str(chunk.leaf_object).encode('utf8'),
+                                'more_body': True,
+                            })
+                        else:
+                            await send({
+                                'type': 'http.response.start',
+                                'status': 200,
+                                'headers': [(b'content-type', b'application/json')],
+                            })
+                            await send({
+                                'type': 'http.response.body',
+                                'body': str(chunk).encode('utf8'),
+                                'more_body': True,
+                            })
+                        first_chunk = False
+                    else:
+                        await send({
+                            'type': 'http.response.body',
+                            'body': chunk,
+                            'more_body': True,
+                        })
+                result = "\n"
+            except SpecialResponse as special:
+                if first_chunk:
+                    await send(special.asgi_send_dict)
+                    first_chunk = False
+                result = special.leaf_object
+            except Exception as exc:
+                traceback.print_exc(exc)
+                resp = HTTPResponse(500, str(exc))
+                if first_chunk:
+                    await send(resp.asgi_send_dict)
+                    first_chunk = False
+                result = resp.leaf_object
         await send({
             'type': 'http.response.body',
-            'body': result,
+            'body': str(result).encode('utf8'),
             'more_body': False,
         })
 
