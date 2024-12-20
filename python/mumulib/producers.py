@@ -27,7 +27,7 @@ THE SOFTWARE.
 from io import TextIOWrapper
 import json
 import mimetypes
-from types import MappingProxyType
+from types import FunctionType, MappingProxyType
 
 from mumulib import mumutypes
 
@@ -48,12 +48,17 @@ def add_producer(adapter_for_type, conv, mime_type='*/*'):
 
 
 async def produce(thing, state):
+    thing_type = type(thing)
     for content_type in state['accept']:
-        adapter = _producer_adapters.get(content_type, {}).get(type(thing))
+        adapter = _producer_adapters.get(content_type, {}).get(thing_type)
         if adapter:
             async for chunk in adapter(thing, state):
                 yield chunk
             return
+    if thing_type is FunctionType:
+        async for chunk in thing(thing, state):
+            yield chunk
+        return
     yield str(thing)
 
 
