@@ -74,6 +74,16 @@ async function fill_body(slots: { [key: string]: Pattern }) {
     morphdom(document.body, clone);
 }
 
+async function fill(
+    node: HTMLElement,
+    slots: { [key: string]: Pattern }
+) {
+    for (const [slotname, pat2] of Object.entries(slots)) {
+        await fill_slots(node, slotname, pat2);
+    }
+}
+
+
 async function fill_slots(
     node: HTMLElement,
     slotname: string,
