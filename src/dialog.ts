@@ -23,7 +23,7 @@ import { set_state, state } from "./state";
 type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 
 
-function do_dialog(
+async function do_dialog(
   dialog_name: string,
   path: string,
   render: RenderFunc
@@ -36,10 +36,10 @@ function do_dialog(
 
   const dialog = document.getElementById(dialog_name);
   if (dialog && dialog instanceof HTMLDialogElement) {
-      const clone = render(dialog, substate);
+      const clone = await render(dialog, substate);
       console.log("cloned", dialog, clone);
       morphdom(dialog, clone);
-      for (const d of dialog.querySelectorAll('form')) {
+      for (const d of Array.from(dialog.querySelectorAll('form'))) {
         d.onsubmit = (event) => {
             event.preventDefault();
             if (event.target) {
@@ -77,10 +77,11 @@ function do_dialog(
               form = (ev.target as HTMLElement).querySelector('form');
           }
           if (form) {
-              const method = form.querySelector('input[name="method"]');
+              const method = form.querySelector('input[name="method"]') as HTMLFormElement;
               if (method) {
-                  const args = {};
-                  for (const inp of form.querySelectorAll('input')) {
+                  const args: { [key: string]: string } = {};
+                  for (const inp of Array.from(
+                    form.querySelectorAll('input'))) {
                       args[inp.name] = inp.value;
                   }
                   console.log("calling method", method.value, args);
@@ -93,7 +94,7 @@ function do_dialog(
                       await result;
                   }
               } else {
-                  for (const inp of form.querySelectorAll('input')) {
+                  for (const inp of Array.from(form.querySelectorAll('input'))) {
                       if (inp.name.substring(0, 9) === 'selected.') {
                           const fullname = `${state['selected']}.${inp.name.substring(9)}`;
                           console.log("setting", fullname, inp.value);

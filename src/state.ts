@@ -27,17 +27,19 @@ import { set, get } from "object-path";
 type State = { [key: string]: any } | any;
 type OnStateChange = (state: State) => Promise<void>;
 
-const initialValues = {};
+const initialValues: { [key: string]: string } = {};
 const obs: OnStateChange[] = [];
 let loaded = false;
 let state: State = {};
 let setting = 0;
 let dirty = false;
-let debug_mode = false;
+let debug_mode: boolean = false;
 
-function debug(mode) {
+
+function debug(mode: boolean) {
   debug_mode = mode;
 }
+
 
 async function onstate(onstatechange: OnStateChange) {
   if (loaded) {
@@ -45,6 +47,7 @@ async function onstate(onstatechange: OnStateChange) {
   }
   obs.push(onstatechange);
 }
+
 
 async function _set_state(root: any, path: string, nstate: State): Promise<void> {
   let changed = false;
@@ -93,22 +96,27 @@ async function _set_state(root: any, path: string, nstate: State): Promise<void>
   }
 }
 
+
 async function set_state(nstate: State): Promise<void> {
   await _set_state(state, "", nstate);
 }
+
 
 async function _set_path(root: any, path: string, nstate: State): Promise<void> {
   await _set_state(root, path, nstate);
 }
 
+
 async function set_path(path: string, nstate: State): Promise<void> {
   await _set_path(state, path, nstate);
 }
+
 
 document.addEventListener('DOMContentLoaded', async function () {
   loaded = true;
   await set_state(null);
 });
+
 
 document.addEventListener('focus', function (e) {
   if (
@@ -130,9 +138,12 @@ function possibly_changed(e: Event) {
     } else if (e.target instanceof HTMLTextAreaElement) {
       target = e.target as HTMLTextAreaElement;
     }
-    if (!target.name || !target.value) {
+    if (target && (!target.name || !target.value)) {
       return;
     }
+  }
+  if (!target) {
+    return;
   }
   let name = target.name;
   let value = target.value;
@@ -159,6 +170,7 @@ function possibly_changed(e: Event) {
   }
 }
 
+
 document.addEventListener('focusout', function (e: Event) {
   //console.log('blur event fired:', e);
   if (
@@ -169,6 +181,7 @@ document.addEventListener('focusout', function (e: Event) {
     possibly_changed(e);
   }
 }, true);
+
 
 document.addEventListener('change', function (e: Event) {
   //console.log('blur event fired:', e);
@@ -182,6 +195,7 @@ document.addEventListener('change', function (e: Event) {
   }
 }, true);
 
+
 async function update_dom_state(state: State) {
   const elements = document.querySelectorAll('input, select, textarea');
   elements.forEach((element) => {
@@ -192,6 +206,9 @@ async function update_dom_state(state: State) {
       el = element as HTMLSelectElement;
     } else if (element instanceof HTMLTextAreaElement) {
       el = element as HTMLTextAreaElement;
+    }
+    if (!el) {
+      return;
     }
     const name = el.name;
     if (name.startsWith('this.')) {
@@ -207,7 +224,7 @@ async function update_dom_state(state: State) {
       }
     } else if (name === "selected") {
       const sel = state["selected"];
-      if (el.type === "radio") {
+      if (el instanceof HTMLInputElement && el.type === "radio") {
         if (el.value === sel) {
           el.checked = true;
         } else {
@@ -219,5 +236,6 @@ async function update_dom_state(state: State) {
     }
   });
 }
+
 
 export { onstate, set_state, set_path, state, debug };

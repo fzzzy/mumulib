@@ -1,23 +1,43 @@
 {
   "name": "mumulib",
-  "version": "1.0.3",
+  "version": "1.0.10",
   "description": "mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.",
-  "main": "index.js",
-  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "dist/src/cjs/index.js",
+  "module": "dist/src/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    "import": "./dist/esm/src/index.js",
+    "require": "./dist/cjs/src/index.js"
+  },
+  "type": "commonjs",
   "scripts": {
     "start": "make"
   },
-  "keywords": ["html templating", "templating", "state management", "state", "form handling", "forms"],
+  "keywords": [
+    "html templating",
+    "templating",
+    "state management",
+    "state",
+    "form handling",
+    "forms"
+  ],
   "author": "Donovan Preston",
   "license": "MIT",
   "devDependencies": {
+    "@types/morphdom": "^2.3.0",
     "@types/node": "^22.8.6",
+    "@types/object-path": "^0.11.4",
     "chokidar": "^3.5.3",
-    "esbuild": "^0.19.12"
+    "esbuild": "^0.19.12",
+    "typescript": "^5.7.2"
   },
   "dependencies": {
     "morphdom": "^2.7.2",
-    "object-path": "^0.11.8",
-    "mumulib": "file:src"
+    "object-path": "^0.11.8"
   }
 }

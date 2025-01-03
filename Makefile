@@ -1,10 +1,10 @@
 
 
-all: install build serve
+all: node_modules build serve
 	echo "Done"
 
 
-install:
+node_modules:
 	npm install
 
 
@@ -14,5 +14,9 @@ build:
 
 serve:
 	node esbuild.js --serve
+
+
+clean:
+	rm -rf node_modules
 
 

@@ -112,7 +112,7 @@ async function _fill_or_append_slots(
     if (node.dataset.slot == slotname) {
         slots = [node];
     } else {
-        slots = node.querySelectorAll(`[data-slot=${slotname}]`);
+        slots = Array.from(node.querySelectorAll(`[data-slot=${slotname}]`));
     }
     let calculated_slot: (Element | string)[] = [];
     if (pat instanceof Promise) {
@@ -147,7 +147,7 @@ async function _fill_or_append_slots(
                     }
                 }
             } else {
-                if (typeof pat[Symbol.asyncIterator] === 'function') {
+                if (typeof (pat as any)[Symbol.asyncIterator] === 'function') {
                     for await (const p of pat) {
                         if (p instanceof Element) {
                             calculated_slot.push(p);
@@ -184,7 +184,10 @@ async function _fill_or_append_slots(
     if (node.dataset.attr) {
         attrslots = [node];
     }
-    attrslots = [...attrslots, ...node.querySelectorAll(`[data-attr]`)];
+    attrslots = [
+        ...attrslots,
+        ...Array.from(node.querySelectorAll(`[data-attr]`))
+    ];
 
     for (const attrslot of attrslots) {
         const attrs = (attrslot as HTMLElement).dataset.attr || '';
@@ -204,7 +207,7 @@ async function _fill_or_append_slots(
                     'next' in pat &&
                     'throw' in pat)) {
                 let patstr = "";
-                if (typeof pat[Symbol.asyncIterator] === 'function') {
+                if (typeof (pat as any)[Symbol.asyncIterator] === 'function') {
                 for await (const p of pat) {
                     if (p instanceof Element) {
                         throw new Error("Can't set attr to Element");
