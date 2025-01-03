@@ -242,4 +242,5 @@ async function clone_pat(
     return await template.clone_pat(patname, slots);
 }
 
-export { clone_pat, fill_slots, fill_body, append_to_slots, Pattern, Template };
+export { clone_pat, fill_slots, fill_body, append_to_slots };
+export type { Pattern, Template };

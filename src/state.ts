@@ -239,3 +239,6 @@ async function update_dom_state(state: State) {
 
 
 export { onstate, set_state, set_path, state, debug };
+export type { State, OnStateChange };
+
+

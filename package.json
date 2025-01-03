@@ -1,6 +1,6 @@
 {
   "name": "mumulib",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.",
   "files": [
     "dist",
@@ -11,6 +11,8 @@
   "module": "dist/src/esm/index.js",
   "types": "dist/types/index.d.ts",
   "exports": {
+    "types": "./dist/types/index.d.ts",
+    "default": "./dist/esm/src/index.js",
     "import": "./dist/esm/src/index.js",
     "require": "./dist/cjs/src/index.js"
   },

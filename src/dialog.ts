@@ -115,4 +115,5 @@ async function do_dialog(
 
 
 export { do_dialog };
+export type { RenderFunc };
 
