@@ -8,6 +8,7 @@ state.onstate(async new_state => {
     state.set_state({"person1": {}, "person2": {}});
   }
   const node = document.createElement("div");
+  node.className = "output";
   node.textContent = "Got state " + JSON.stringify(new_state);
   document.body.appendChild(node);
 });

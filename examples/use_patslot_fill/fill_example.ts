@@ -14,7 +14,7 @@ window.onload = async () => {
       "fill_me",
       "now been filled."
     );
-  }, 2000);
+  }, 500);
 }
 
 

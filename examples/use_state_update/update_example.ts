@@ -16,6 +16,7 @@ state.onstate(async new_state => {
   }
   const node = document.createElement("div");
   node.textContent = "Got state " + JSON.stringify(new_state);
+  node.className = "output";
   document.body.appendChild(node);
 });
 

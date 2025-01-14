@@ -6,6 +6,7 @@ import { state, dialog } from 'mumulib';
 class MyObject {
     my_method(args) {
         const node = document.createElement("div");
+        node.className = "output";
         node.textContent = "my_method was called " + args.name + " " + args.age;
         document.body.appendChild(node);
     }
