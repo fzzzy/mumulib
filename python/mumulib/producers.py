@@ -64,12 +64,13 @@ async def produce(thing, state):
 
 
 async def produce_file(thing, state):
+    newthing = open(thing.name)
     content_type = mimetypes.guess_type(thing.name)
     yield mumutypes.SpecialResponse({
         'type': 'http.response.start',
         'status': 200,
         'headers': [(b'content-type', content_type[0].encode("utf8"))],
-    }, thing.read())
+    }, newthing.read())
 add_producer(TextIOWrapper, produce_file)
 
 
