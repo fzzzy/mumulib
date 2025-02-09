@@ -1,4 +1,7 @@
 
+import asyncio
+
+from mumulib import producers
 
 from lxml import etree
 
@@ -183,21 +186,32 @@ WEB_COMPONENTS = [
 ALL_ELEMENTS = MAIN_ROOT + DOCUMENT_METADATA + SECTIONING_ROOT + CONTENT_SECTIONING + TEXT_CONTENT + INLINE_TEXT_SEMANTICS + IMAGE_AND_MULTIMEDIA + EMBEDDED_CONTENT + SVG_AND_MATHML + SCRIPTING + DEMARCATING_EDITS + TABLE_CONTENT + FORMS + INTERACTIVE_ELEMENTS + WEB_COMPONENTS
 
 
+def reindent_tree(node, indent):
+    node.indent = indent
+    for child in node.children:
+        if isinstance(child, Stan):
+            reindent_tree(child, indent + 1)
+
+
 class Stan(object):
     def __init__(self, tagname, indent, *args, **kwargs):
+        self.clone = False
         self.tagname = tagname
         self.indent = indent
         self.attributes = dict(kwargs)
         self.children = list(args)
 
     def __call__(self, **kwargs):
+        if self.clone:
+            self = self.copy()
         if 'indent' in kwargs:
             self.indent = kwargs.pop('indent')
         self.attributes | kwargs
         return self
 
     def __getitem__(self, item):
-        ## Check if item is a list
+        if self.clone:
+            self = self.copy()
         if isinstance(item, list):
             for child in item:
                 if isinstance(child, Stan):
@@ -216,12 +230,15 @@ class Stan(object):
         attributes = {
             k: getattr(v, 'copy', lambda: v)()
             for k, v in self.attributes.items()}
-        return Stan(
-            self.tagname, self.indent, *children, **attributes)
+        result = Stan(
+            self.tagname, 0, *children, **attributes)
+        return result
 
     def clone_pat(self, patname, **slots):
         if self.attributes.get("data-pat") == patname:
             copy = self.copy()
+            reindent_tree(copy, 0)
+
             for k, v in slots.items():
                 fill_slots(copy, k, v)
             return copy
@@ -229,6 +246,7 @@ class Stan(object):
             if isinstance(child, Stan):
                 result = child.clone_pat(patname, **slots)
                 if result:
+                    reindent_tree(result, 0)
                     return result
 
     def fill_slots(self, slotname, value):
@@ -236,16 +254,21 @@ class Stan(object):
             if not isinstance(child, Stan):
                 continue
             if child.attributes.get("data-slot") != slotname:
+                if isinstance(value, Stan):
+                    reindent_tree(value, self.indent + 1)
                 child.fill_slots(slotname, value)
                 continue
             if isinstance(value, Stan):
                 node = value.copy()
+                reindent_tree(node, self.indent + 1)
                 self.children.replace(child, node)
             elif isinstance(value, list):
                 child.children = []
                 for node in value:
                     if isinstance(node, Stan):
-                        child.children.append(node.copy())
+                        newnode = node.copy()
+                        reindent_tree(newnode, self.indent + 1)
+                        child.children.append(newnode)
                     else:
                         child.children.append(node)
             else:
@@ -275,8 +298,8 @@ class Stan(object):
         if self.attributes:
             result += "("
             for x in self.attributes:
-                result += f", {x}={repr(self.attributes[x])}"
-            result += ")"
+                result += f"{x}={repr(self.attributes[x])}, "
+            result = result[:-2] + ")"
         if self.children:
             indent = "    " * (self.indent + 1)
             result += "[\n" + indent
@@ -289,18 +312,12 @@ class Stan(object):
         return result
 
 
-class Entity(object):
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return f"Entity({self.name})"
-
-
 class TagGroup(object):
     def __init__(self, *tags):
         for tag in tags:
-            setattr(self, tag, Stan(tag, 0))
+            newtag = Stan(tag, 0)
+            newtag.clone = True
+            setattr(self, tag, newtag)
 
 
 main_root = TagGroup(*MAIN_ROOT)
@@ -319,25 +336,6 @@ forms = TagGroup(*FORMS)
 interactive_elements = TagGroup(*INTERACTIVE_ELEMENTS)
 web_components = TagGroup(*WEB_COMPONENTS)
 all = TagGroup(*ALL_ELEMENTS)
-
-
-class Pattern(object):
-    def __init__(self, name, pattern):
-        self.name = name
-        self.pattern = pattern
-
-    def copy(self):
-        return self.pattern.copy()
-
-
-class Slot(object):
-    def __init__(self, name, contents):
-        self.name = name
-        self.contents = contents
-        self.filled_contents = None
-
-    def fill(self, value):
-        self.filled_contents = value
 
 
 def parse_template(source):
@@ -382,7 +380,6 @@ def parse_template(source):
     return root
 
 
-
 class Template(object):
     def __init__(self, filename):
         self.filename = filename
@@ -391,6 +388,7 @@ class Template(object):
     def load(self):
         self.loaded = True
         self.root = parse_template(self.filename)
+        return self.root
 
     def clone_pat(self, patname, **slots):
         if not self.loaded:
@@ -414,11 +412,43 @@ def append_slots(node, slotname, value):
     return node.append_slots(slotname, value)
 
 
-if __name__ == "__main__":
-    t = Template("templates.html")
+async def produce_html(thing, state):
+    print("Produce HTML", thing)
+    if not isinstance(thing, Stan):
+        raise ValueError("Thing must be an instance of Stan.")
+    indent = "    " * thing.indent
+    yield f"{indent}<{thing.tagname}"
+    if thing.attributes:
+        for k, v in thing.attributes.items():
+            yield f" {k}=\"{v}\""
+    yield ">\n"
+    if thing.children:
+        for child in thing.children:
+            if isinstance(child, Stan):
+                async for chunk in produce_html(child, state):
+                    yield chunk
+            else:
+                yield child
+    yield f"\n{indent}</{thing.tagname}>\n"
+
+
+
+producers.add_producer(Stan, produce_html)
+
+
+async def main():
+    t = Template("python/mumulib/templates.html")
     t.load()
     root = t.root
     person1 = t.clone_pat("person", name="John Doe", age="25", color="blue")
     person2 = t.clone_pat("person", name="Jane Doe", age="93", color="mauve")
     root.fill_slots("people", [person1, person2])
     print(root)
+    results = []
+    async for chunk in produce_html(root, {}):
+        results.append(chunk)
+    print("".join(results))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
