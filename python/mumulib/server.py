@@ -1,6 +1,7 @@
 
 import json
 import traceback
+from urllib import parse
 
 from mumulib.consumers import consume
 from mumulib.mumutypes import SpecialResponse, HTTPResponse
@@ -27,6 +28,74 @@ async def parse_json(receive):
     body_text = body.decode('utf-8')
     if len(body_text):
         return json.loads(body_text)
+
+
+async def parse_urlencoded(receive):
+    body = b''
+
+    # Receive request body chunks
+    while True:
+        message = await receive()
+
+        # Check if we've reached the end of the body
+        if message['type'] == 'http.request':
+            # Accumulate body chunks
+            body += message.get('body', b'')
+
+            # Check if this is the last body chunk
+            if not message.get('more_body', False):
+                break
+
+    result = {}
+    for (k, v) in parse.parse_qsl(body.decode('utf-8')):
+        print(k, v)
+        if k.endswith("]") and "[" in k:
+            l = result.get(k[:k.index("[")], [])
+            l.append(v)
+        else:
+            result[k] = v
+    print("PARSED", result)
+    return result
+
+
+async def parse_multipart(receive, boundary):
+    body = b''
+    # Receive request body chunks
+    while True:
+        message = await receive()
+
+        # Check if we've reached the end of the body
+        if message['type'] == 'http.request':
+            # Accumulate body chunks
+            body += message.get('body', b'')
+
+            # Check if this is the last body chunk
+            if not message.get('more_body', False):
+                break
+    #print("BODY", len(body), body)
+    result = {}
+    #print("BOUNDARY", boundary)
+    for part in body.split(boundary):
+        if not part or part.strip() == b'--':
+            continue
+        #print("PART", part)
+        headers, content = part.split(b"\r\n\r\n", 1)
+        headers = headers.split(b"\r\n")
+        print("HEADERS", headers)
+        name = None
+        for header in headers:
+            if header.startswith(b"Content-Disposition:"):
+                name = header.split(b";")[1].split(b"=")[1][1:-1]
+                #print("NAME", name)
+        if name:
+            for x in headers:
+                if b'Content-Type' in x:
+                    result[name.decode("utf-8")] = content[:-2]
+                    break
+            else:
+                result[name.decode("utf-8")] = content[:-2].decode("utf-8")
+    print(result)
+    return result
 
 
 def consumers_app(root):
@@ -58,13 +127,15 @@ def consumers_app(root):
 
         for (key, value) in scope["headers"]:
             if key.lower() == b"content-type":
-                lowervalue = value.lower()
+                lowervalue = value.lower().split(b";")[0]
                 if lowervalue == b'application/json':
                     state["parsed_body"] = await parse_json(receive)
                 elif lowervalue == b'application/x-www-form-urlencoded':
-                    print("application/x-www-form-urlencoded")
+                    state["parsed_body"] = await parse_urlencoded(receive)
                 elif lowervalue == b'multipart/form-data':
-                    print("multipart/form-data")
+                    boundary = b'--' + value[len(lowervalue) + 11:]
+                    state["parsed_body"] = await parse_multipart(
+                        receive, boundary)
                 else:
                     print("Unknown content type: %s" % value)
 
