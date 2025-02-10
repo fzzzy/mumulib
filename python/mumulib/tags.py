@@ -427,7 +427,6 @@ class Template(object):
         return self
 
     def clone_pat(self, patname, **slots):
-        print("Cloning pattern", patname)
         if not self.loaded:
             self.load()
         current = self.template

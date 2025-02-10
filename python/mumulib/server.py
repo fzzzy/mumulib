@@ -1,4 +1,5 @@
 
+import asyncio
 import json
 import traceback
 from urllib import parse
@@ -93,13 +94,13 @@ async def parse_multipart(receive, boundary):
 def consumers_app(root):
     async def app(scope, receive, send):
         if scope['type'] == 'lifespan':
-                while True:
-                    message = await receive()
-                    if message['type'] == 'lifespan.startup':
-                        await send({'type': 'lifespan.startup.complete'})
-                    elif message['type'] == 'lifespan.shutdown':
-                        await send({'type': 'lifespan.shutdown.complete'})
-                        return
+            while True:
+                message = await receive()
+                if message['type'] == 'lifespan.startup':
+                    await send({'type': 'lifespan.startup.complete'})
+                if message['type'] == 'lifespan.shutdown':
+                    await send({'type': 'lifespan.shutdown.complete'})
+                    return
 
         assert scope['type'] == 'http'
 
@@ -160,14 +161,8 @@ def consumers_app(root):
                                 'body': str(chunk.leaf_object).encode('utf8'),
                                 'more_body': True,
                             })
-                            async def send_more(data):
-                                await send({
-                                    'type': 'http.response.body',
-                                    'body': data.encode('utf8'),
-                                    'more_body': True,
-                                })
                             if chunk.writer is not None:
-                                await chunk.writer(send_more, receive)
+                                await chunk.writer(send, receive)
                         else:
                             await send({
                                 'type': 'http.response.start',
@@ -207,3 +202,42 @@ def consumers_app(root):
 
     return app
 
+
+def EventSource(output_queue):
+    async def handle_eventsource(_, state):
+        async def writer(send, receive):
+            while True:
+                # Create tasks for the ASGI receive and the queue.
+                task_receive = asyncio.create_task(receive())
+                task_queue = asyncio.create_task(output_queue.get())
+
+                try:
+                    done, pending = await asyncio.wait(
+                        {task_receive, task_queue},
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                except asyncio.CancelledError:
+                    break
+                if task_queue in done:
+                    result = done.pop().result()
+                    await send({
+                        'type': 'http.response.body',
+                        'body': f"data: {result}\n\n".encode('utf8'),
+                        'more_body': True,
+                    })
+                else:
+                    task_queue.cancel()
+                    break
+
+        yield SpecialResponse(
+            {
+                'type': 'http.response.start',
+                'status': 200,
+                'headers': [
+                    (b'content-type', b'text/event-stream; charset=UTF-8'),
+                    (b'cache-control', b'no-cache'),],
+            },
+            b"event: ping\ndata: {}\n\n",
+            writer
+        )
+    return handle_eventsource
