@@ -45,19 +45,35 @@ def consumers_app(root):
         state = scope["state"]
         state["url"] = scope["path"]
         state["method"] = scope["method"]
-        # Just hard code json for now
-        state["accept"] = ["application/json", "*/*"]
+        content_type = None
+        if scope["path"].endswith(".json"):
+            state["accept"] = ["application/json", "*/*"]
+            content_type = "application/json; charset=UTF-8"
+        elif scope["path"].endswith(".html"):
+            state["accept"] = ["text/html", "*/*"]
+            content_type = "text/html; charset=UTF-8"
+        else:
+            state["accept"] = ["*/*"]
+            content_type = "text/html"
 
         for (key, value) in scope["headers"]:
-            if key.lower() == b"content-type" and value.lower() == b'application/json':
-                state["parsed_body"] = await parse_json(receive)
+            if key.lower() == b"content-type":
+                lowervalue = value.lower()
+                if lowervalue == b'application/json':
+                    state["parsed_body"] = await parse_json(receive)
+                elif lowervalue == b'application/x-www-form-urlencoded':
+                    print("application/x-www-form-urlencoded")
+                elif lowervalue == b'multipart/form-data':
+                    print("multipart/form-data")
+                else:
+                    print("Unknown content type: %s" % value)
 
         result = await consume(root, scope["path"].split("/")[1:], state, send)
         if result is None:
             await send({
                 'type': 'http.response.start',
                 'status': 404,
-                'headers': [(b'content-type', b'application/json')],
+                'headers': [(b'content-type', b'application/json; charset=UTF-8')],
             })
             await send({
                 'type': 'http.response.body',
@@ -85,7 +101,7 @@ def consumers_app(root):
                             await send({
                                 'type': 'http.response.start',
                                 'status': 200,
-                                'headers': [(b'content-type', b'application/json')],
+                                'headers': [(b'content-type', content_type.encode('utf8'))],
                             })
                             await send({
                                 'type': 'http.response.body',
@@ -96,7 +112,7 @@ def consumers_app(root):
                     else:
                         await send({
                             'type': 'http.response.body',
-                            'body': chunk,
+                            'body': str(chunk).encode('utf8'),
                             'more_body': True,
                         })
                 result = "\n"

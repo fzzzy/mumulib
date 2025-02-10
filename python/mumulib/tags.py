@@ -7,6 +7,26 @@ from lxml import etree
 
 
 # From MDN reference
+VOID_ELEMENTS = [
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'source',
+    'track',
+    'wbr'
+]
+
+
+VOID_ELEMENTS_SET = set(VOID_ELEMENTS)
+
+
 MAIN_ROOT = [
     'html'
 ]
@@ -206,7 +226,7 @@ class Stan(object):
             self = self.copy()
         if 'indent' in kwargs:
             self.indent = kwargs.pop('indent')
-        self.attributes | kwargs
+        self.attributes = self.attributes | kwargs
         return self
 
     def __getitem__(self, item):
@@ -246,11 +266,10 @@ class Stan(object):
             if isinstance(child, Stan):
                 result = child.clone_pat(patname, **slots)
                 if result:
-                    reindent_tree(result, 0)
                     return result
 
     def fill_slots(self, slotname, value):
-        for child in self.children:
+        for i, child in enumerate(self.children):
             if not isinstance(child, Stan):
                 continue
             if child.attributes.get("data-slot") != slotname:
@@ -261,7 +280,7 @@ class Stan(object):
             if isinstance(value, Stan):
                 node = value.copy()
                 reindent_tree(node, self.indent + 1)
-                self.children.replace(child, node)
+                self.children[i] = node
             elif isinstance(value, list):
                 child.children = []
                 for node in value:
@@ -274,6 +293,15 @@ class Stan(object):
             else:
                 child.children = [value]
 
+    def clear_slots(self, slotname):
+        for child in self.children:
+            if not isinstance(child, Stan):
+                continue
+            if child.attributes.get("data-slot") != slotname:
+                child.clear_slots(slotname)
+                continue
+            child.children = []
+
     def append_slots(self, slotname, value):
         for child in self.children:
             if not isinstance(child, Stan):
@@ -281,6 +309,14 @@ class Stan(object):
             if child.attributes.get("data-slot") != slotname:
                 child.append_slots(slotname, value)
                 continue
+            attrslots = child.attributes.get("data-attr")
+            if attrslots:
+                attrslots = attrslots.split(",")
+                attrslots = [
+                    (k, v) for k, v in (x.split("=") for x in attrslots)]
+                for attrname, attrslotname in attrslots:
+                    if attrslotname == slotname:
+                        child.attributes[attrname] = value
             if isinstance(value, Stan):
                 node = value.copy()
                 child.children.append(node)
@@ -361,8 +397,8 @@ def parse_template(source):
 
             if elem.text and elem.text.replace("\n", "").replace(" ", ""):
                 current[elem.text]
-            else:
-                print(elem, repr(elem.text))
+            # else:
+            #     print(elem, repr(elem.text))
 
         elif event == "end":
             if elem.tail and elem.tail.strip():
@@ -376,7 +412,6 @@ def parse_template(source):
                     current = None
             # Clean up to free memory
             elem.clear()
-    print(root)
     return root
 
 
@@ -387,13 +422,15 @@ class Template(object):
 
     def load(self):
         self.loaded = True
-        self.root = parse_template(self.filename)
-        return self.root
+        self.template = parse_template(self.filename)
+        self.root = self.template.copy()
+        return self
 
     def clone_pat(self, patname, **slots):
+        print("Cloning pattern", patname)
         if not self.loaded:
             self.load()
-        current = self.root
+        current = self.template
         for child in current.children:
             if not isinstance(child, Stan):
                 continue
@@ -402,6 +439,25 @@ class Template(object):
                 return result
         else:
             raise ValueError(f"Pattern {patname} not found in template.")
+
+    def fill_slots(self, slotname, value):
+        if not self.loaded:
+            self.load()
+        self.root.fill_slots(slotname, value)
+
+    def clear_slots(self, slotname):
+        if not self.loaded:
+            self.load()
+        self.root.clear_slots(slotname)
+
+    def append_slots(self, slotname, value):
+        if not self.loaded:
+            self.load()
+        self.root.append_slots(slotname, value)
+
+
+def clear_slots(node, slotname):
+    return node.clear_slots(slotname)
 
 
 def fill_slots(node, slotname, value):
@@ -413,14 +469,20 @@ def append_slots(node, slotname, value):
 
 
 async def produce_html(thing, state):
-    print("Produce HTML", thing)
-    if not isinstance(thing, Stan):
-        raise ValueError("Thing must be an instance of Stan.")
     indent = "    " * thing.indent
     yield f"{indent}<{thing.tagname}"
     if thing.attributes:
         for k, v in thing.attributes.items():
-            yield f" {k}=\"{v}\""
+            attrpartchunks = []
+            async for chunk in producers.produce(v, state):
+                attrpartchunks.append(chunk)
+            attrpartval = "".join(
+                attrpartchunks).replace('"', '&quot;')
+            attrpart = f' {k}="{attrpartval}"'
+            yield attrpart
+    if thing.tagname in VOID_ELEMENTS_SET:
+        yield " />\n"
+        return
     yield ">\n"
     if thing.children:
         for child in thing.children:
@@ -432,23 +494,7 @@ async def produce_html(thing, state):
     yield f"\n{indent}</{thing.tagname}>\n"
 
 
-
 producers.add_producer(Stan, produce_html)
 
 
-async def main():
-    t = Template("python/mumulib/templates.html")
-    t.load()
-    root = t.root
-    person1 = t.clone_pat("person", name="John Doe", age="25", color="blue")
-    person2 = t.clone_pat("person", name="Jane Doe", age="93", color="mauve")
-    root.fill_slots("people", [person1, person2])
-    print(root)
-    results = []
-    async for chunk in produce_html(root, {}):
-        results.append(chunk)
-    print("".join(results))
 
-
-if __name__ == "__main__":
-    asyncio.run(main())

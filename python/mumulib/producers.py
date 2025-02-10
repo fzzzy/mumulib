@@ -64,8 +64,11 @@ async def produce(thing, state):
 
 
 async def produce_file(thing, state):
-    newthing = open(thing.name)
     content_type = mimetypes.guess_type(thing.name)
+    read_mode = 'r'
+    if content_type[0] == "font/ttf":
+        read_mode = 'rb'
+    newthing = open(thing.name, read_mode)
     yield mumutypes.SpecialResponse({
         'type': 'http.response.start',
         'status': 200,
