@@ -62,17 +62,19 @@ async def produce(thing, state):
     yield str(thing)
 
 
-
 async def produce_file(thing, state):
     content_type = mimetypes.guess_type(thing.name)
     read_mode = 'r'
     if content_type[0] == "font/ttf":
         read_mode = 'rb'
     newthing = open(thing.name, read_mode)
+    charset = b'; charset=UTF-8'
+    if read_mode == 'rb':
+        charset = b''
     yield mumutypes.SpecialResponse({
         'type': 'http.response.start',
         'status': 200,
-        'headers': [(b'content-type', content_type[0].encode("utf8"))],
+        'headers': [(b'content-type', content_type[0].encode("utf8") + charset)],
     }, newthing.read())
 add_producer(TextIOWrapper, produce_file)
 

@@ -48,13 +48,11 @@ async def parse_urlencoded(receive):
 
     result = {}
     for (k, v) in parse.parse_qsl(body.decode('utf-8')):
-        print(k, v)
         if k.endswith("]") and "[" in k:
             l = result.get(k[:k.index("[")], [])
             l.append(v)
         else:
             result[k] = v
-    print("PARSED", result)
     return result
 
 
@@ -72,21 +70,16 @@ async def parse_multipart(receive, boundary):
             # Check if this is the last body chunk
             if not message.get('more_body', False):
                 break
-    #print("BODY", len(body), body)
     result = {}
-    #print("BOUNDARY", boundary)
     for part in body.split(boundary):
         if not part or part.strip() == b'--':
             continue
-        #print("PART", part)
         headers, content = part.split(b"\r\n\r\n", 1)
         headers = headers.split(b"\r\n")
-        print("HEADERS", headers)
         name = None
         for header in headers:
             if header.startswith(b"Content-Disposition:"):
                 name = header.split(b";")[1].split(b"=")[1][1:-1]
-                #print("NAME", name)
         if name:
             for x in headers:
                 if b'Content-Type' in x:
@@ -94,7 +87,6 @@ async def parse_multipart(receive, boundary):
                     break
             else:
                 result[name.decode("utf-8")] = content[:-2].decode("utf-8")
-    print(result)
     return result
 
 
@@ -123,7 +115,7 @@ def consumers_app(root):
             content_type = "text/html; charset=UTF-8"
         else:
             state["accept"] = ["*/*"]
-            content_type = "text/html"
+            content_type = "text/html; charset=UTF-8"
 
         for (key, value) in scope["headers"]:
             if key.lower() == b"content-type":
@@ -168,6 +160,14 @@ def consumers_app(root):
                                 'body': str(chunk.leaf_object).encode('utf8'),
                                 'more_body': True,
                             })
+                            async def send_more(data):
+                                await send({
+                                    'type': 'http.response.body',
+                                    'body': data.encode('utf8'),
+                                    'more_body': True,
+                                })
+                            if chunk.writer is not None:
+                                await chunk.writer(send_more, receive)
                         else:
                             await send({
                                 'type': 'http.response.start',
@@ -201,7 +201,7 @@ def consumers_app(root):
                 result = resp.leaf_object
         await send({
             'type': 'http.response.body',
-            'body': str(result).encode('utf8'),
+            'body': result.encode('utf8'),
             'more_body': False,
         })
 
