@@ -123,6 +123,8 @@ def consumers_app(root):
                 lowervalue = value.lower().split(b";")[0]
                 if lowervalue == b'application/json':
                     state["parsed_body"] = await parse_json(receive)
+                    state["accept"] = ["application/json", "*/*"]
+                    content_type = "application/json; charset=UTF-8"
                 elif lowervalue == b'application/x-www-form-urlencoded':
                     state["parsed_body"] = await parse_urlencoded(receive)
                 elif lowervalue == b'multipart/form-data':
