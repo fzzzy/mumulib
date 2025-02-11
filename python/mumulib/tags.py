@@ -376,7 +376,7 @@ all = TagGroup(*ALL_ELEMENTS)
 
 def parse_template(source):
     context = etree.iterparse(
-        source, events=("start", "end"), html=True)
+        source, events=("start", "end"), html=True, encoding="UTF-8")
 
     root = None
     current = None
@@ -397,8 +397,6 @@ def parse_template(source):
 
             if elem.text and elem.text.replace("\n", "").replace(" ", ""):
                 current[elem.text]
-            # else:
-            #     print(elem, repr(elem.text))
 
         elif event == "end":
             if elem.tail and elem.tail.strip():
@@ -422,7 +420,7 @@ class Template(object):
 
     def load(self):
         self.loaded = True
-        self.template = parse_template(self.filename)
+        self.template = parse_template(open(self.filename, 'rb'))
         self.root = self.template.copy()
         return self
 
