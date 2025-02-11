@@ -260,7 +260,7 @@ class Stan(object):
             reindent_tree(copy, 0)
 
             for k, v in slots.items():
-                fill_slots(copy, k, v)
+                copy.fill_slots(k, v)
             return copy
         for child in self.children:
             if isinstance(child, Stan):
@@ -272,6 +272,16 @@ class Stan(object):
         for i, child in enumerate(self.children):
             if not isinstance(child, Stan):
                 continue
+            attrslots = child.attributes.get("data-attr")
+            if attrslots:
+                print(attrslots)
+            if attrslots:
+                attrslots = attrslots.split(",")
+                attrslots = [
+                    (k, v) for k, v in (x.split("=") for x in attrslots)]
+                for attrname, attrslotname in attrslots:
+                    if attrslotname == slotname:
+                        child.attributes[attrname] = value
             if child.attributes.get("data-slot") != slotname:
                 if isinstance(value, Stan):
                     reindent_tree(value, self.indent + 1)
@@ -306,10 +316,9 @@ class Stan(object):
         for child in self.children:
             if not isinstance(child, Stan):
                 continue
-            if child.attributes.get("data-slot") != slotname:
-                child.append_slots(slotname, value)
-                continue
             attrslots = child.attributes.get("data-attr")
+            if attrslots:
+                print(attrslots)
             if attrslots:
                 attrslots = attrslots.split(",")
                 attrslots = [
@@ -317,6 +326,9 @@ class Stan(object):
                 for attrname, attrslotname in attrslots:
                     if attrslotname == slotname:
                         child.attributes[attrname] = value
+            if child.attributes.get("data-slot") != slotname:
+                child.append_slots(slotname, value)
+                continue
             if isinstance(value, Stan):
                 node = value.copy()
                 child.children.append(node)
