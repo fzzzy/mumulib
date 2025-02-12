@@ -46,12 +46,14 @@ async def parse_urlencoded(receive):
             # Check if this is the last body chunk
             if not message.get('more_body', False):
                 break
-
     result = {}
     for (k, v) in parse.parse_qsl(body.decode('utf-8')):
+        k = parse.unquote(k)
+        v = parse.unquote(v)
         if k.endswith("]") and "[" in k:
-            l = result.get(k[:k.index("[")], [])
+            l = result.get(k, [])
             l.append(v)
+            result[k] = l
         else:
             result[k] = v
     return result
