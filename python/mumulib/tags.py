@@ -267,13 +267,20 @@ class Stan(object):
                 if result:
                     return result
 
+    def clear_slots(self, slotname):
+        for child in self.children:
+            if not isinstance(child, Stan):
+                continue
+            if child.attributes.get("data-slot") != slotname:
+                child.clear_slots(slotname)
+                continue
+            child.children = []
+
     def fill_slots(self, slotname, value):
         for i, child in enumerate(self.children):
             if not isinstance(child, Stan):
                 continue
             attrslots = child.attributes.get("data-attr")
-            if attrslots:
-                print(attrslots)
             if attrslots:
                 attrslots = attrslots.split(",")
                 attrslots = [
@@ -302,22 +309,11 @@ class Stan(object):
             else:
                 child.children = [value]
 
-    def clear_slots(self, slotname):
-        for child in self.children:
-            if not isinstance(child, Stan):
-                continue
-            if child.attributes.get("data-slot") != slotname:
-                child.clear_slots(slotname)
-                continue
-            child.children = []
-
     def append_slots(self, slotname, value):
         for child in self.children:
             if not isinstance(child, Stan):
                 continue
             attrslots = child.attributes.get("data-attr")
-            if attrslots:
-                print(attrslots)
             if attrslots:
                 attrslots = attrslots.split(",")
                 attrslots = [
@@ -444,6 +440,19 @@ class Template(object):
                 continue
             result = child.clone_pat(patname, **slots)
             if result:
+                attrslots = result.attributes.get("data-attr", "")
+                attrslots = attrslots.split(",")
+                attrslots = [
+                    (k, v) for k, v in (x.split("=") for x in attrslots if x)]
+                for k, v in slots.items():
+                    if result.attributes.get("data-slot") == k:
+                        if isinstance(v, Stan):
+                            result = v
+                        else:
+                            result.children = [v]
+                    for attrname, attrslotname in attrslots:
+                        if attrslotname == k:
+                            result.attributes[attrname] = v
                 return result
         else:
             raise ValueError(f"Pattern {patname} not found in template.")
