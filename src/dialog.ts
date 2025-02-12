@@ -1,5 +1,5 @@
 /**
- * Dialog Module API Documentation
+ * Dialog
  *
  * This module provides functions for handling dialog interactions.
  *

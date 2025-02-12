@@ -1,5 +1,4 @@
 
-import asyncio
 
 from mumulib import producers
 
@@ -397,7 +396,7 @@ def parse_template(source):
 
     for event, elem in context:
         if event == "start":
-            newtag = Stan(elem.tag, indent, **elem.attrib)
+            newtag = Stan(elem.tag.lower(), indent, **elem.attrib)
             indent += 1
             if current is None:
                 root = newtag

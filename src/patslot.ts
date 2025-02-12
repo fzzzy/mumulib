@@ -1,14 +1,14 @@
 /**
- * Patslot Module API Documentation
+ * Patslot
  *
- * This module provides functions and types for working with HTML templates and slots.
+ * This module provides functions and types for working with HTML templates.
  *
  * Types:
- * - Pattern: A type representing a pattern that can be an HTMLElement, an array of patterns, a generator of patterns, or a string.
+ * - Pattern: A type representing a pattern that can be an HTMLElement, an array of patterns, a generator of patterns, a string, or a Promise for any of these.
  *
  * Functions:
  * - fill_body(slots: { [key: string]: Pattern }): void
- *   Fills the document body with the provided slots and updates the DOM.
+ *   Fills the document body with the provided slots.
  *
  * - fill_slots(node: HTMLElement, slotname: string, pat: Pattern): void
  *   Fills the specified slots in the given node with the provided pattern.
@@ -16,11 +16,11 @@
  * - append_to_slots(node: HTMLElement, slotname: string, pat: Pattern): void
  *   Appends the specified pattern to the given slots in the node.
  *
- * - clone_pat(patname: string, slots: { [key: string]: Pattern }): HTMLElement
- *   Clones the specified pattern and fills its slots with the provided patterns.
+ * - clone_pat(patname: string, slots: { [key: string]: Pattern }): Promise<HTMLElement>
+ *   Clones the specified pattern and fills its slots with the provided patterns, returning the cloned element.
  *
  * Classes:
- * - Template: A class that takes a URL parameter and provides a clone_pat method.
+ * - Template: A class that takes a URL parameter pointing to an HTML file and provides a clone_pat method.
  */
 
 import morphdom from "morphdom";
@@ -134,7 +134,6 @@ async function _fill_or_append_slots(
                 'throw' in pat)) {
             if (!append) {
                 while (slot.firstChild) {
-                    0
                     slot.removeChild(slot.firstChild);
                 }
             }
