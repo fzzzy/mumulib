@@ -9,4 +9,7 @@ setup(name='mumulib',
       author_email='46048+fzzzy@users.noreply.github.com',
       url='https://rewnd.co/mumulib/',
       packages=['mumulib'],
+      install_requires=[
+          'lxml',
+      ]
      )
