@@ -1,6 +1,6 @@
 
 
-.PHONY: all serve clean
+.PHONY: all build serve clean
 
 
 all: node_modules build serve
