@@ -7,6 +7,9 @@ all: node_modules build serve
 	echo "Done"
 
 
+build: venv node_modules dist
+
+
 venv:
 	python3 -m venv venv
 	. venv/bin/activate
