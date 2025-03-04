@@ -1,10 +1,13 @@
 
 
-.PHONY: all serve clean
+.PHONY: all build serve clean
 
 
 all: node_modules build serve
 	echo "Done"
+
+
+build: venv node_modules dist
 
 
 venv:
