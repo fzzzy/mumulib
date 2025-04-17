@@ -7,12 +7,12 @@ all: node_modules build serve
 	echo "Done"
 
 
-build: venv node_modules dist
+build: mumulib node_modules dist
 
 
-venv:
-	python3 -m venv venv
-	. venv/bin/activate
+mumulib:
+	python3 -m venv mumulib
+	. mumulib/bin/activate
 	pip3 install -r requirements.txt
 
 
@@ -30,9 +30,9 @@ serve:
 
 
 clean:
-	rm -rf node_modules
+	rm -rf node_modules && rm -rf mumulib
 
 
 tags:
-	. venv/bin/activate && python3 python/mumulib/tags.py
+	. mumulib/bin/activate && python3 python/mumulib/tags.py
 
