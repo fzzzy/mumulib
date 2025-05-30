@@ -7,13 +7,12 @@ all: node_modules build serve
 	echo "Done"
 
 
-build: mumulib node_modules dist
+build: mumulib-venv dist
 
 
-mumulib:
-	python3 -m venv mumulib
-	. mumulib/bin/activate
-	pip3 install -r requirements.txt
+mumulib-venv:
+	python3 -m venv mumulib-venv
+	. mumulib-venv/bin/activate && python3 -m pip install -e python
 
 
 
@@ -21,7 +20,7 @@ node_modules:
 	npm install
 
 
-dist:
+dist: node_modules
 	node esbuild.js
 
 
@@ -30,9 +29,9 @@ serve:
 
 
 clean:
-	rm -rf node_modules && rm -rf mumulib
+	rm -rf node_modules && rm -rf mumulib-venv && rm -rf dist && rm -rf python/mumulib/__pycache__
 
 
 tags:
-	. mumulib/bin/activate && python3 python/mumulib/tags.py
+	. mumulib-venv/bin/activate && python3 python/mumulib/tags.py
 

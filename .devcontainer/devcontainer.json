@@ -4,13 +4,12 @@
       "ghcr.io/devcontainers/features/sshd:1": {
         "version": "latest"
       },
-        "ghcr.io/devcontainers/features/python:1": {
-            "version": "3.12"
-        },
-      "ghcr.io/devcontainers/features/desktop-lite:1": {}  
-    },
-    "tasks": {
-      "build": "make build",
-      "launch": "make"
+      "ghcr.io/devcontainers/features/desktop-lite:1": {},
+      "ghcr.io/devcontainers/features/python:1": {
+          "version": "3.13"
+      },
+      "ghcr.io/devcontainers/features/node:1": {
+        "version": "latest"
+      }
     }
 }

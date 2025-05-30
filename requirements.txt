@@ -1,2 +1,0 @@
-
--e git+https://github.com/fzzzy/mumulib.git@ca6953127eacd820650993e5944ddf6459db4f8a#egg=mumulib&subdirectory=python

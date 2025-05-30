@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools >= 77.0.3", "coverage", "lxml"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mumulib"
+version = "1.0.12"
+authors = [
+  { name="Donovan Preston", email="46048+fzzzy@users.noreply.github.com" },
+]
+description = "There is no library, squared"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "https://github.com/fzzzy/mumulib"
+Issues = "https://github.com/fzzzy/mumulib/issues"
