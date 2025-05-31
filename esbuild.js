@@ -52,30 +52,10 @@ const { exec } = require('child_process');
     }
   ];
 
-  const testArgs = {
-    logLevel: 'info',
-    alias: {
-      'mumulib': './src/index.ts',
-    },
-    define: {
-      document: 'document',
-    },
-    entryPoints: [
-      './src/test.ts',
-    ],
-    bundle: true,
-    sourcemap: true,
-    outdir: 'dist',
-    external: ['domino', 'chromium-bidi', './loader', "playwright"],
-    platform: 'node',
-    format: 'cjs',
-    target: 'node20',
-    outdir: 'dist/test',
-};
+
 
   await esbuild.build(builds[0]);
   await esbuild.build(builds[1]);
-  await esbuild.build(testArgs);
 
   exec('node_modules/typescript/bin/tsc', (error, stdout, stderr) => {
     console.log('Generating type declarations...');
@@ -128,18 +108,6 @@ const { exec } = require('child_process');
         await fs.copyFile('index.html', 'dist/index.html');
       });
 
-    let ctx2 = await esbuild.context(testArgs);
-
-    let watcher2 = chokidar.watch(['src/test.ts'], {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
-      persistent: true
-    });
-    watcher2.on('change', async (path) => {
-      console.log(`Test ${path} has been changed`)
-      ctx2.rebuild();
-    })
-
-  
     await ctx.serve({
       servedir: 'dist',
       port: 8000,
