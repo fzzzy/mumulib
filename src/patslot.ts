@@ -108,11 +108,12 @@ async function _fill_or_append_slots(
     pat: Pattern,
     append: boolean
 ) {
-    let slots: HTMLElement[] | Element[] | NodeListOf<Element> = [];
+    let slots: HTMLElement[] | Element[] = [];
+    const descendantSlots = Array.from(node.querySelectorAll(`[data-slot=${slotname}]`));
     if (node.dataset.slot == slotname) {
-        slots = [node];
+        slots = [node, ...descendantSlots];
     } else {
-        slots = Array.from(node.querySelectorAll(`[data-slot=${slotname}]`));
+        slots = descendantSlots;
     }
     let calculated_slot: (Element | string)[] = [];
     if (pat instanceof Promise) {

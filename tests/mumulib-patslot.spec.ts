@@ -102,4 +102,66 @@ test.describe('Mumulib PatSlot Tests', () => {
     const footer = await page.$eval('[data-slot="footer"]', el => el.textContent?.trim());
     expect(footer).toBe('This is the footer.');
   });
+
+  test('should handle nodes that are both patterns and slots', async ({ page }) => {
+    // Set up an HTML page with a node that has both data-pat and data-slot
+    await page.setContent(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <script type="module">
+          import { patslot } from '/dist/index.js';
+          
+          window.onload = async () => {
+            // Clone the pattern twice with different slot values
+            let a = await patslot.clone_pat("cloneme", {"hello": "Hello World"});
+            let b = await patslot.clone_pat("cloneme", {"hello": "Bonjour Monde"});
+            
+            // Fill the body with both cloned elements in the main slot
+            await patslot.fill_body({"main": [a, b]});
+          }
+        </script>
+      </head>
+      <body>
+        <div data-slot="main">
+          <span data-pat="cloneme" data-slot="hello">greeting goes here</span>
+        </div>
+      </body>
+      </html>
+    `);
+
+    // Wait for the JavaScript to execute
+    await page.waitForTimeout(1000);
+
+    // Check that we have two span elements with the expected text
+    const spans = await page.$$eval('span[data-slot="hello"]', elements => 
+      elements.map(el => el.textContent?.trim())
+    );
+
+    expect(spans).toHaveLength(2);
+    expect(spans[0]).toBe('Hello World');
+    expect(spans[1]).toBe('Bonjour Monde');
+
+    // Verify that both elements maintain their pattern and slot attributes
+    const spanAttributes = await page.$$eval('span', elements => 
+      elements.map(el => ({
+        hasPatAttribute: el.hasAttribute('data-pat'),
+        hasSlotAttribute: el.hasAttribute('data-slot'),
+        patValue: el.getAttribute('data-pat'),
+        slotValue: el.getAttribute('data-slot')
+      }))
+    );
+
+    // Should have 3 spans total: original template + 2 cloned
+    expect(spanAttributes).toHaveLength(3);
+    
+    // Check the two cloned spans (they should maintain their attributes)
+    const clonedSpans = spanAttributes.slice(1, 3); // Skip the original template span
+    for (const span of clonedSpans) {
+      expect(span.hasPatAttribute).toBe(true);
+      expect(span.hasSlotAttribute).toBe(true);
+      expect(span.patValue).toBe('cloneme');
+      expect(span.slotValue).toBe('hello');
+    }
+  });
 });
