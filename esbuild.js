@@ -29,6 +29,7 @@ const { exec } = require('child_process');
       './examples/use_patslot_fill/fill_example.ts',
       './examples/use_patslot_nested/nested_example.ts',
       './examples/use_patslot_template/template_example.ts',
+      './examples/use_patslot_pattern_and_slot_node/pattern_and_slot_node_example.ts',
       './examples/use_dialog/dialog_example.ts'
     ],
     bundle: true,

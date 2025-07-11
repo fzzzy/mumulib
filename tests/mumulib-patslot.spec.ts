@@ -102,4 +102,20 @@ test.describe('Mumulib PatSlot Tests', () => {
     const footer = await page.$eval('[data-slot="footer"]', el => el.textContent?.trim());
     expect(footer).toBe('This is the footer.');
   });
+
+  test('should handle nodes that are both patterns and slots', async ({ page }) => {
+    await page.goto('http://localhost:8000/examples/use_patslot_pattern_and_slot_node/');
+
+    await page.waitForTimeout(1000);
+
+    // Check that we have two span elements with the expected text
+    const spans = await page.$$eval('span[data-slot="hello"]', elements => 
+      elements.map(el => el.textContent?.trim())
+    );
+
+    expect(spans).toHaveLength(2);
+    expect(spans[0]).toBe('Hello World');
+    expect(spans[1]).toBe('Bonjour Monde');
+
+  });
 });
