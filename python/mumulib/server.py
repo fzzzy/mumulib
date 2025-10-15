@@ -8,8 +8,11 @@ from mumulib.consumers import consume
 from mumulib.mumutypes import SpecialResponse, HTTPResponse
 from mumulib.producers import produce
 
+# Default max request body size: 10MB
+DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
 
-async def parse_json(receive):
+
+async def parse_json(receive, max_size=DEFAULT_MAX_BODY_SIZE):
     body = b''
 
     # Receive request body chunks
@@ -20,6 +23,10 @@ async def parse_json(receive):
         if message['type'] == 'http.request':
             # Accumulate body chunks
             body += message.get('body', b'')
+
+            # Check if body size exceeds limit
+            if len(body) > max_size:
+                raise ValueError(f"Request body too large: {len(body)} bytes exceeds limit of {max_size} bytes")
 
             # Check if this is the last body chunk
             if not message.get('more_body', False):
@@ -31,7 +38,7 @@ async def parse_json(receive):
         return json.loads(body_text)
 
 
-async def parse_urlencoded(receive):
+async def parse_urlencoded(receive, max_size=DEFAULT_MAX_BODY_SIZE):
     body = b''
 
     # Receive request body chunks
@@ -42,6 +49,10 @@ async def parse_urlencoded(receive):
         if message['type'] == 'http.request':
             # Accumulate body chunks
             body += message.get('body', b'')
+
+            # Check if body size exceeds limit
+            if len(body) > max_size:
+                raise ValueError(f"Request body too large: {len(body)} bytes exceeds limit of {max_size} bytes")
 
             # Check if this is the last body chunk
             if not message.get('more_body', False):
@@ -59,7 +70,7 @@ async def parse_urlencoded(receive):
     return result
 
 
-async def parse_multipart(receive, boundary):
+async def parse_multipart(receive, boundary, max_size=DEFAULT_MAX_BODY_SIZE):
     body = b''
     # Receive request body chunks
     while True:
@@ -69,6 +80,10 @@ async def parse_multipart(receive, boundary):
         if message['type'] == 'http.request':
             # Accumulate body chunks
             body += message.get('body', b'')
+
+            # Check if body size exceeds limit
+            if len(body) > max_size:
+                raise ValueError(f"Request body too large: {len(body)} bytes exceeds limit of {max_size} bytes")
 
             # Check if this is the last body chunk
             if not message.get('more_body', False):
