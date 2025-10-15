@@ -1,6 +1,6 @@
 
 
-.PHONY: all build serve clean
+.PHONY: all build serve clean test
 
 
 all: node_modules build serve
@@ -30,6 +30,10 @@ serve:
 
 clean:
 	rm -rf node_modules && rm -rf mumulib-venv && rm -rf dist && rm -rf python/mumulib/__pycache__
+
+
+test: mumulib-venv
+	. mumulib-venv/bin/activate && python3 -m unittest discover -s python/mumulib -p "*_test.py" -v
 
 
 tags:

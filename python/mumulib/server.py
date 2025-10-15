@@ -252,9 +252,18 @@ def consumers_app(root):
                     })
                     first_chunk = False
                 result = json.dumps({"error": "Internal Server Error", "message": str(exc)})
+
+        # Ensure result is bytes
+        if isinstance(result, str):
+            result_bytes = result.encode('utf8')
+        elif isinstance(result, bytes):
+            result_bytes = result
+        else:
+            result_bytes = str(result).encode('utf8')
+
         await send({
             'type': 'http.response.body',
-            'body': result.encode('utf8'),
+            'body': result_bytes,
             'more_body': False,
         })
 
