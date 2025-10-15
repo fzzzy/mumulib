@@ -28,9 +28,63 @@ THE SOFTWARE.
 from mumulib.mumutypes import SpecialResponse
 
 from types import MappingProxyType
+import sys
 
 
 _consumer_adapters = {}
+
+# Security constants
+MAX_LIST_INDEX = sys.maxsize // 2  # Reasonable upper bound for list indices
+MIN_LIST_INDEX = -(sys.maxsize // 2)  # Reasonable lower bound for list indices
+MAX_KEY_LENGTH = 1000  # Maximum length for dictionary keys to prevent DoS
+
+
+def sanitize_dict_key(key):
+    """Sanitize a dictionary key for security.
+
+    Args:
+        key (str): The dictionary key to sanitize.
+
+    Returns:
+        str: The sanitized key.
+
+    Raises:
+        ValueError: If the key is invalid or too long.
+    """
+    if not isinstance(key, str):
+        raise ValueError(f"Dictionary key must be a string, got {type(key).__name__}")
+
+    if len(key) > MAX_KEY_LENGTH:
+        raise ValueError(f"Dictionary key too long: {len(key)} characters exceeds limit of {MAX_KEY_LENGTH}")
+
+    # Remove any null bytes which could cause issues
+    if '\x00' in key:
+        raise ValueError("Dictionary key contains null bytes")
+
+    return key
+
+
+def validate_list_index(index_str):
+    """Validate and convert a string to a safe list index.
+
+    Args:
+        index_str (str): The string representation of an index.
+
+    Returns:
+        int: The validated integer index.
+
+    Raises:
+        ValueError: If the index is invalid or out of safe bounds.
+    """
+    try:
+        index = int(index_str)
+    except ValueError:
+        raise ValueError(f"Invalid integer index: {index_str}")
+
+    if index > MAX_LIST_INDEX or index < MIN_LIST_INDEX:
+        raise ValueError(f"Index {index} out of safe bounds [{MIN_LIST_INDEX}, {MAX_LIST_INDEX}]")
+
+    return index
 
 
 def add_consumer(adapter_for_type, conv):
@@ -100,7 +154,8 @@ async def consume_tuple(parent, segments, state, send):
         if len(segments) == 1 and not len(segments[0]):
             child = parent
         else:
-            child = parent[int(segments[0])]
+            index = validate_list_index(segments[0])
+            child = parent[index]
     except (IndexError, ValueError):
         return None
     return await consume(child, segments[1:], state, send)
@@ -147,7 +202,7 @@ async def consume_list(parent, segments, state, send):
             else:
                 # Replace existing element
                 try:
-                    segnum = int(index_str)
+                    segnum = validate_list_index(index_str)
                     if segnum >= len(parent) or segnum < 0:
                         return SpecialResponse({
                             'type': 'http.response.start',
@@ -165,7 +220,7 @@ async def consume_list(parent, segments, state, send):
         elif method == 'DELETE':
             # Delete an element
             try:
-                segnum = int(index_str)
+                segnum = validate_list_index(index_str)
                 del parent[segnum]
             except (ValueError, IndexError):
                 # If invalid index, just return OK anyway
@@ -211,8 +266,9 @@ async def _consume_immutabledict(parent, segments, state, send):
             else:
                 child = parent
         else:
-            child = parent[segments[0]]
-    except KeyError:
+            key = sanitize_dict_key(segments[0])
+            child = parent[key]
+    except (KeyError, ValueError):
         return None
     return await consume(child, segments[1:], state, send)
 add_consumer(MappingProxyType, _consume_immutabledict)
@@ -238,7 +294,11 @@ async def consume_dict(parent, segments, state, send):
     """
     if len(segments) == 1:
         method = state.get("method", "GET").upper()
-        key = segments[0]
+
+        try:
+            key = sanitize_dict_key(segments[0])
+        except ValueError:
+            return None
 
         if method == 'PUT':
             parent[key] = state.get("parsed_body", None)
