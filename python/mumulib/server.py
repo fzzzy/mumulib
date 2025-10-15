@@ -12,6 +12,28 @@ from mumulib.producers import produce
 DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
 
 
+async def send_error_response(send, status, error_type, message):
+    """
+    Send a consistent JSON error response.
+
+    Args:
+        send: ASGI send callable
+        status: HTTP status code
+        error_type: Error type/title (e.g., "Bad Request", "Internal Server Error")
+        message: Detailed error message
+    """
+    await send({
+        'type': 'http.response.start',
+        'status': status,
+        'headers': [(b'content-type', b'application/json; charset=UTF-8')],
+    })
+    await send({
+        'type': 'http.response.body',
+        'body': json.dumps({"error": error_type, "message": message}).encode('utf-8'),
+        'more_body': False,
+    })
+
+
 async def parse_json(receive, max_size=DEFAULT_MAX_BODY_SIZE):
     body = b''
 
@@ -135,34 +157,48 @@ def consumers_app(root):
             state["accept"] = ["*/*"]
             content_type = "text/html; charset=UTF-8"
 
-        for (key, value) in scope["headers"]:
-            if key.lower() == b"content-type":
-                lowervalue = value.lower().split(b";")[0]
-                if lowervalue == b'application/json':
-                    state["parsed_body"] = await parse_json(receive)
-                    state["accept"] = ["application/json", "*/*"]
-                    content_type = "application/json; charset=UTF-8"
-                elif lowervalue == b'application/x-www-form-urlencoded':
-                    state["parsed_body"] = await parse_urlencoded(receive)
-                elif lowervalue == b'multipart/form-data':
-                    boundary = b'--' + value[len(lowervalue) + 11:]
-                    state["parsed_body"] = await parse_multipart(
-                        receive, boundary)
-                else:
-                    print("Unknown content type: %s" % value)
+        try:
+            for (key, value) in scope["headers"]:
+                if key.lower() == b"content-type":
+                    lowervalue = value.lower().split(b";")[0]
+                    if lowervalue == b'application/json':
+                        state["parsed_body"] = await parse_json(receive)
+                        state["accept"] = ["application/json", "*/*"]
+                        content_type = "application/json; charset=UTF-8"
+                    elif lowervalue == b'application/x-www-form-urlencoded':
+                        state["parsed_body"] = await parse_urlencoded(receive)
+                    elif lowervalue == b'multipart/form-data':
+                        boundary = b'--' + value[len(lowervalue) + 11:]
+                        state["parsed_body"] = await parse_multipart(
+                            receive, boundary)
+                    else:
+                        print("Unknown content type: %s" % value)
+        except ValueError as exc:
+            # Handle request body size limit errors
+            await send_error_response(send, 413, "Payload Too Large", str(exc))
+            return
+        except json.JSONDecodeError as exc:
+            # Handle JSON parsing errors
+            await send_error_response(send, 400, "Bad Request", f"Invalid JSON: {str(exc)}")
+            return
+        except UnicodeDecodeError as exc:
+            # Handle encoding errors
+            await send_error_response(send, 400, "Bad Request", f"Invalid encoding: {str(exc)}")
+            return
+        except Exception as exc:
+            # Handle other parsing errors
+            await send_error_response(send, 400, "Bad Request", f"Failed to parse request body: {str(exc)}")
+            return
 
-        result = await consume(root, scope["path"].split("/")[1:], state, send)
+        try:
+            result = await consume(root, scope["path"].split("/")[1:], state, send)
+        except Exception as exc:
+            # Handle errors during request consumption/routing
+            traceback.print_exc()
+            await send_error_response(send, 500, "Internal Server Error", str(exc))
+            return
         if result is None:
-            await send({
-                'type': 'http.response.start',
-                'status': 404,
-                'headers': [(b'content-type', b'application/json; charset=UTF-8')],
-            })
-            await send({
-                'type': 'http.response.body',
-                'body': b'{"error": "Not Found"}',
-                'more_body': False,
-            })
+            await send_error_response(send, 404, "Not Found", f"Resource not found: {scope['path']}")
             return
 
         if isinstance(result, SpecialResponse):
@@ -207,12 +243,15 @@ def consumers_app(root):
                     first_chunk = False
                 result = special.leaf_object
             except Exception as exc:
-                traceback.print_exc(exc)
-                resp = HTTPResponse(500, str(exc))
+                traceback.print_exc()
                 if first_chunk:
-                    await send(resp.asgi_send_dict)
+                    await send({
+                        'type': 'http.response.start',
+                        'status': 500,
+                        'headers': [(b'content-type', b'application/json; charset=UTF-8')],
+                    })
                     first_chunk = False
-                result = resp.leaf_object
+                result = json.dumps({"error": "Internal Server Error", "message": str(exc)})
         await send({
             'type': 'http.response.body',
             'body': result.encode('utf8'),
