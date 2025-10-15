@@ -43,7 +43,7 @@ def sanitize_dict_key(key):
     """Sanitize a dictionary key for security.
 
     Args:
-        key (str): The dictionary key to sanitize.
+        key (str): The dictionary key to sanitize (expected to be a string from URL path segments).
 
     Returns:
         str: The sanitized key.
@@ -51,9 +51,6 @@ def sanitize_dict_key(key):
     Raises:
         ValueError: If the key is invalid or too long.
     """
-    if not isinstance(key, str):
-        raise ValueError(f"Dictionary key must be a string, got {type(key).__name__}")
-
     if len(key) > MAX_KEY_LENGTH:
         raise ValueError(f"Dictionary key too long: {len(key)} characters exceeds limit of {MAX_KEY_LENGTH}")
 

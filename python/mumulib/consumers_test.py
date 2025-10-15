@@ -85,6 +85,7 @@ ASGI_APP = consumers_app( # pragma: no cover
         "tuple": ("this", "is", "a", "tuple"),
         "list": ["this", "is", "a", "list"],
         "immutable": MappingProxyType({"cannot": "touch this"}),
+        "immutable_with_index": MappingProxyType({"index": "index_value", "other": "other_value"}),
         "not_found": Foo(),
         'nested_list': [["asdf"], ["qwer"]],
         'nested_dict': {'nested': {'again': 'string'}}
@@ -104,6 +105,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
                 'tuple': ['this', 'is', 'a', 'tuple'],
                 'list': ['this', 'is', 'a', 'list'],
                 'immutable': {'cannot': 'touch this'},
+                'immutable_with_index': {'index': 'index_value', 'other': 'other_value'},
                 'not_found': None,
                 'nested_list': [["asdf"], ["qwer"]],
                 'nested_dict': {'nested': {'again': 'string'}}
@@ -140,6 +142,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
                 'tuple': ['this', 'is', 'a', 'tuple'],
                 'list': ['this', 'is', 'a', 'list'],
                 'immutable': {'cannot': 'touch this'},
+                'immutable_with_index': {'index': 'index_value', 'other': 'other_value'},
                 'not_found': None,
                 'nested_list': [["asdf"], ["qwer"]],
                 'nested_dict': {'nested': {'again': 'string'}}
@@ -265,6 +268,22 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response['status'], 200)
         self.assertEqual(response['body'], {'cannot': 'touch this'})
 
+    async def test_immutable_with_index(self):
+        # Test GET /immutable_with_index - should return the whole dict
+        response = await request(ASGI_APP, "GET", "/immutable_with_index", None)
+        self.assertEqual(response['status'], 200)
+        self.assertEqual(response['body'], {'index': 'index_value', 'other': 'other_value'})
+
+        # Test GET /immutable_with_index/ (with trailing slash) - should return the "index" value
+        response = await request(ASGI_APP, "GET", "/immutable_with_index/", None)
+        self.assertEqual(response['status'], 200)
+        self.assertEqual(response['body'], "index_value")
+
+        # Test GET /immutable_with_index/other - should return the "other" value
+        response = await request(ASGI_APP, "GET", "/immutable_with_index/other", None)
+        self.assertEqual(response['status'], 200)
+        self.assertEqual(response['body'], "other_value")
+
     async def test_not_found(self):
         # Test GET /not_found/foo fails
         response = await request(ASGI_APP, "GET", "/not_found/foo", None)
@@ -273,6 +292,49 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Test GET /asdfasdfasdfasdf fails
         response = await request(ASGI_APP, "GET", "/asdfasdfasdfasdf", None)
         self.assertEqual(response['status'], 404)
+
+
+class TestSecurityValidation(unittest.IsolatedAsyncioTestCase):
+    """Test security validation for index and key sanitization."""
+
+    async def test_list_index_out_of_bounds(self):
+        # Test with extremely large index
+        response = await request(ASGI_APP, "GET", f"/list/{2**62}", None)
+        self.assertEqual(response['status'], 404)
+
+    async def test_list_negative_index_out_of_bounds(self):
+        # Test with extremely negative index
+        response = await request(ASGI_APP, "GET", f"/list/{-(2**62)}", None)
+        self.assertEqual(response['status'], 404)
+
+    async def test_dict_key_too_long(self):
+        # Test with key longer than MAX_KEY_LENGTH (1000 chars)
+        long_key = "a" * 1001
+        response = await request(ASGI_APP, "GET", f"/nested_dict/{long_key}", None)
+        self.assertEqual(response['status'], 404)
+
+    async def test_dict_key_with_null_byte(self):
+        # Test with key containing null byte
+        # URL encoding for null byte is %00
+        response = await request(ASGI_APP, "GET", "/nested_dict/test\x00key", None)
+        self.assertEqual(response['status'], 404)
+
+    async def test_dict_put_key_too_long(self):
+        # Test PUT with key longer than MAX_KEY_LENGTH
+        long_key = "b" * 1001
+        response = await request(ASGI_APP, "PUT", f"/nested_dict/{long_key}", "value")
+        self.assertEqual(response['status'], 404)
+
+    async def test_dict_put_key_with_null_byte(self):
+        # Test PUT with key containing null byte
+        response = await request(ASGI_APP, "PUT", "/nested_dict/bad\x00key", "value")
+        self.assertEqual(response['status'], 404)
+
+    async def test_tuple_index_out_of_bounds(self):
+        # Test tuple access with extremely large index
+        response = await request(ASGI_APP, "GET", f"/tuple/{2**62}", None)
+        self.assertEqual(response['status'], 404)
+
 
 if __name__ == "__main__": # pragma: no cover
     import asyncio # pragma: no cover
