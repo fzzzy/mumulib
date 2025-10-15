@@ -25,6 +25,7 @@ THE SOFTWARE.
 """
 
 from io import TextIOWrapper
+import aiofiles
 import json
 import mimetypes
 from types import FunctionType, MappingProxyType
@@ -67,7 +68,8 @@ async def produce_file(thing, state):
     read_mode = 'r'
     if content_type[0] == "font/ttf":
         read_mode = 'rb'
-    newthing = open(thing.name, read_mode)
+    async with aiofiles.open(thing.name, read_mode) as newthing:
+        content = await newthing.read()
     charset = b'; charset=UTF-8'
     if read_mode == 'rb':
         charset = b''
@@ -75,7 +77,7 @@ async def produce_file(thing, state):
         'type': 'http.response.start',
         'status': 200,
         'headers': [(b'content-type', content_type[0].encode("utf8") + charset)],
-    }, newthing.read())
+    }, content)
 add_producer(TextIOWrapper, produce_file)
 
 
