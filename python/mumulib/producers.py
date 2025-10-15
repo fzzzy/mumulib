@@ -29,26 +29,27 @@ import aiofiles
 import json
 import mimetypes
 from types import FunctionType, MappingProxyType
+from typing import Any, AsyncGenerator, Callable, Dict, Optional
 
 from mumulib import mumutypes
 
 
-def custom_serializer(obj):
+def custom_serializer(obj: Any) -> Optional[Dict[str, Any]]:
     if isinstance(obj, MappingProxyType):
         return dict(obj)
     return None
 
 
-_producer_adapters = {}
+_producer_adapters: Dict[str, Dict[type, Callable]] = {}
 
 
-def add_producer(adapter_for_type, conv, mime_type='*/*'):
+def add_producer(adapter_for_type: type, conv: Callable, mime_type: str = '*/*') -> None:
     if mime_type not in _producer_adapters:
         _producer_adapters[mime_type] = {}
     _producer_adapters[mime_type][adapter_for_type] = conv
 
 
-async def produce(thing, state):
+async def produce(thing: Any, state: Dict[str, Any]) -> AsyncGenerator[str, None]:
     thing_type = type(thing)
     for content_type in state['accept']:
         adapter = _producer_adapters.get(content_type, {}).get(thing_type)
@@ -63,7 +64,7 @@ async def produce(thing, state):
     yield str(thing)
 
 
-async def produce_file(thing, state):
+async def produce_file(thing: TextIOWrapper, state: Dict[str, Any]) -> AsyncGenerator[mumutypes.SpecialResponse, None]:
     content_type = mimetypes.guess_type(thing.name)
     read_mode = 'r'
     if content_type[0] == "font/ttf":
@@ -76,12 +77,12 @@ async def produce_file(thing, state):
     yield mumutypes.SpecialResponse({
         'type': 'http.response.start',
         'status': 200,
-        'headers': [(b'content-type', content_type[0].encode("utf8") + charset)],
+        'headers': [(b'content-type', (content_type[0] or 'application/octet-stream').encode("utf8") + charset)],
     }, content)
 add_producer(TextIOWrapper, produce_file)
 
 
-async def produce_json(thing, state):
+async def produce_json(thing: Any, state: Dict[str, Any]) -> AsyncGenerator[str, None]:
     yield json.dumps(thing, default=custom_serializer)
 
 
