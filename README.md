@@ -1,6 +1,8 @@
 mumulib
 =====
 
+**Note:** This project requires [uv](https://docs.astral.sh/uv/) for Python package management.
+
 mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.
 
 state provides a simple method for managing state and a way to register onstate callbacks to react to state changes.

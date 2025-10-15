@@ -11,8 +11,8 @@ build: mumulib-venv dist
 
 
 mumulib-venv:
-	python3 -m venv mumulib-venv
-	. mumulib-venv/bin/activate && python3 -m pip install -e python
+	uv venv mumulib-venv
+	uv pip install --python mumulib-venv -e "python[dev]"
 
 
 
