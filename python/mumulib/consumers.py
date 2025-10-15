@@ -28,10 +28,11 @@ THE SOFTWARE.
 from mumulib.mumutypes import SpecialResponse
 
 from types import MappingProxyType
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Union
 import sys
 
 
-_consumer_adapters = {}
+_consumer_adapters: Dict[type, Callable] = {}
 
 # Security constants
 MAX_LIST_INDEX = sys.maxsize // 2  # Reasonable upper bound for list indices
@@ -39,7 +40,7 @@ MIN_LIST_INDEX = -(sys.maxsize // 2)  # Reasonable lower bound for list indices
 MAX_KEY_LENGTH = 1000  # Maximum length for dictionary keys to prevent DoS
 
 
-def sanitize_dict_key(key):
+def sanitize_dict_key(key: str) -> str:
     """Sanitize a dictionary key for security.
 
     Args:
@@ -61,7 +62,7 @@ def sanitize_dict_key(key):
     return key
 
 
-def validate_list_index(index_str):
+def validate_list_index(index_str: str) -> int:
     """Validate and convert a string to a safe list index.
 
     Args:
@@ -84,7 +85,7 @@ def validate_list_index(index_str):
     return index
 
 
-def add_consumer(adapter_for_type, conv):
+def add_consumer(adapter_for_type: type, conv: Callable) -> None:
     """Register a consumer function for a specific data type.
 
     Args:
@@ -95,7 +96,7 @@ def add_consumer(adapter_for_type, conv):
     _consumer_adapters[adapter_for_type] = conv
 
 
-async def consume(parent, segments, state, send):
+async def consume(parent: Any, segments: List[str], state: Dict[str, Any], send: Callable) -> Optional[Any]:
     """Traverse a nested data structure by following a list of path segments.
 
     If no segments remain, returns the current parent. Otherwise, attempts to find
@@ -123,7 +124,7 @@ async def consume(parent, segments, state, send):
     return None
 
 
-async def consume_tuple(parent, segments, state, send):
+async def consume_tuple(parent: Tuple, segments: List[str], state: Dict[str, Any], send: Callable) -> Optional[Any]:
     """Traverse a tuple using the first segment as an integer index.
 
     If the only segment is empty, returns the tuple itself. Otherwise, attempts
@@ -159,7 +160,7 @@ async def consume_tuple(parent, segments, state, send):
 add_consumer(tuple, consume_tuple)
 
 
-async def consume_list(parent, segments, state, send):
+async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, Any], send: Callable) -> Any:
     """Traverse a list using the first segment as an integer index or 'last' for appending.
     Supports GET, PUT, and DELETE methods:
       - GET: Return the requested element (if index is valid).
@@ -233,7 +234,7 @@ add_consumer(list, consume_list)
 
 
 
-async def _consume_immutabledict(parent, segments, state, send):
+async def _consume_immutabledict(parent: MappingProxyType, segments: List[str], state: Dict[str, Any], send: Callable) -> Optional[Any]:
     """Traverse a dictionary by treating the first segment as a key.
 
     If the first segment is empty, returns the dictionary itself. Otherwise, returns
@@ -271,7 +272,7 @@ async def _consume_immutabledict(parent, segments, state, send):
 add_consumer(MappingProxyType, _consume_immutabledict)
 
 
-async def consume_dict(parent, segments, state, send):
+async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[str, Any], send: Callable) -> Any:
     """Traverse a dictionary by treating the first segment as a key.
     Supports GET, PUT, and DELETE methods:
     - GET: Return the requested value.
