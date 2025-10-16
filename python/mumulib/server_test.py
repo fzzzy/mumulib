@@ -768,7 +768,7 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             pass
 
         async def produce_with_writer(thing, state):
-            """Producer that yields a SpecialResponse with writer callback"""
+            """Producer that yields a SpecialResponse with writer callback, then additional chunks"""
             yield SpecialResponse(
                 {
                     'type': 'http.response.start',
@@ -778,6 +778,8 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
                 'Initial response',  # leaf_object as string (will be encoded)
                 test_writer
             )
+            # Yield a second chunk to cover lines 229-230 (else clause for additional chunks)
+            yield 'Second chunk from producer'
 
         try:
             # Register the producer (type, producer_func, mimetype)
@@ -820,7 +822,20 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             response_body_2 = sent_messages[2]
             self.assertEqual(response_body_2['type'], 'http.response.body')
             self.assertEqual(response_body_2['body'], b'Additional data from writer')
+            # Note: more_body should be False from the writer
             self.assertFalse(response_body_2['more_body'])
+
+            # Verify the second chunk from producer was sent (covers lines 229-230)
+            response_body_3 = sent_messages[3]
+            self.assertEqual(response_body_3['type'], 'http.response.body')
+            self.assertEqual(response_body_3['body'], b'Second chunk from producer')
+            self.assertTrue(response_body_3['more_body'])
+
+            # Final newline chunk
+            response_body_4 = sent_messages[4]
+            self.assertEqual(response_body_4['type'], 'http.response.body')
+            self.assertEqual(response_body_4['body'], b'\n')
+            self.assertFalse(response_body_4['more_body'])
 
         finally:
             # Clean up
