@@ -1284,6 +1284,176 @@ class TestRequestSizeLimits(unittest.TestCase):
         asyncio.run(self.async_test_multipart_size_limit_exceeded())
 
 
+class TestEventSource(unittest.TestCase):
+    """Test EventSource SSE streaming functionality"""
+
+    async def async_test_eventsource_streaming(self):
+        """Test EventSource with queue events and client disconnect (lines 272-309)"""
+        from mumulib.server import EventSource
+        from mumulib.consumers import add_consumer
+
+        # Create a queue for sending events
+        event_queue = asyncio.Queue()
+
+        # Create an EventSource producer
+        eventsource_handler = EventSource(event_queue)
+
+        # Create a custom object to attach the EventSource
+        class StreamObject:
+            pass
+
+        # Register as a consumer that returns the EventSource
+        async def stream_consumer(parent, segments, state, send):
+            return eventsource_handler
+
+        add_consumer(StreamObject, stream_consumer)
+
+        try:
+            root = StreamObject()
+            app = consumers_app(root)
+
+            sent_messages = []
+            receive_count = {'count': 0}
+
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():  # pragma: no cover
+                # Simulate client staying connected for a short time
+                await asyncio.sleep(0.1)
+                return {'type': 'http.request', 'body': b'', 'more_body': False}
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/stream',
+                'headers': [],
+                'state': {}
+            }
+
+            # Run the app in a task so we can cancel it (to trigger CancelledError)
+            app_task = asyncio.create_task(app(scope, receive, send))
+
+            # Give it a moment to start
+            await asyncio.sleep(0.01)
+
+            # Put events in the queue while it's running
+            await event_queue.put('event1')
+            await asyncio.sleep(0.01)
+            await event_queue.put('event2')
+            await asyncio.sleep(0.01)
+
+            # Cancel the task to trigger CancelledError in the writer
+            app_task.cancel()
+            try:
+                await app_task
+            except asyncio.CancelledError:  # pragma: no cover
+                pass  # Expected
+
+            # Verify SSE response was sent
+            self.assertGreater(len(sent_messages), 0)
+
+            # Check the response start has SSE headers
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 200)
+            headers_dict = dict(response_start['headers'])
+            self.assertEqual(headers_dict[b'content-type'], b'text/event-stream; charset=UTF-8')
+            self.assertEqual(headers_dict[b'cache-control'], b'no-cache')
+
+            # Check the initial ping event was sent
+            response_body_1 = sent_messages[1]
+            self.assertEqual(response_body_1['type'], 'http.response.body')
+            self.assertIn(b'event: ping', response_body_1['body'])
+            self.assertTrue(response_body_1['more_body'])
+
+            # Check that events from the queue were sent
+            event_bodies = [msg['body'] for msg in sent_messages if msg['type'] == 'http.response.body']
+            event_bodies_str = b''.join(event_bodies).decode('utf-8')
+
+            # At least one of our events should have been sent
+            self.assertTrue('event1' in event_bodies_str or 'event2' in event_bodies_str,
+                          f"Expected events in {event_bodies_str}")
+
+        finally:
+            # Clean up
+            from mumulib.consumers import _consumer_adapters
+            if StreamObject in _consumer_adapters:  # pragma: no cover
+                del _consumer_adapters[StreamObject]
+
+    def test_eventsource_streaming(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_eventsource_streaming())
+
+    async def async_test_eventsource_client_disconnect(self):
+        """Test EventSource with client disconnect (lines 295-296)"""
+        from mumulib.server import EventSource
+        from mumulib.consumers import add_consumer
+
+        # Create a queue for sending events
+        event_queue = asyncio.Queue()
+
+        # Create an EventSource producer
+        eventsource_handler = EventSource(event_queue)
+
+        # Create a custom object to attach the EventSource
+        class StreamObject2:
+            pass
+
+        # Register as a consumer that returns the EventSource
+        async def stream_consumer(parent, segments, state, send):
+            return eventsource_handler
+
+        add_consumer(StreamObject2, stream_consumer)
+
+        try:
+            root = StreamObject2()
+            app = consumers_app(root)
+
+            sent_messages = []
+
+            async def send(message):
+                sent_messages.append(message)
+
+            # This receive will complete immediately, simulating client disconnect
+            async def receive():
+                return {'type': 'http.disconnect'}
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/stream',
+                'headers': [],
+                'state': {}
+            }
+
+            # Run the app - it should handle the disconnect gracefully
+            await app(scope, receive, send)
+
+            # Verify SSE response was sent
+            self.assertGreater(len(sent_messages), 0)
+
+            # Check the response start has SSE headers
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 200)
+
+            # Check the initial ping event was sent
+            response_body_1 = sent_messages[1]
+            self.assertEqual(response_body_1['type'], 'http.response.body')
+            self.assertIn(b'event: ping', response_body_1['body'])
+
+        finally:
+            # Clean up
+            from mumulib.consumers import _consumer_adapters
+            if StreamObject2 in _consumer_adapters:  # pragma: no cover
+                del _consumer_adapters[StreamObject2]
+
+    def test_eventsource_client_disconnect(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_eventsource_client_disconnect())
+
+
 if __name__ == "__main__": # pragma: no cover
     unittest.main(exit=False) # pragma: no cover
     cov.stop() # pragma: no cover
