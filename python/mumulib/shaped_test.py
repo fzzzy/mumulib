@@ -1,13 +1,13 @@
 
 
-import coverage # pragma: no cover
-import unittest # pragma: no cover
+import coverage  # pragma: no cover
+import unittest  # pragma: no cover
 
-cov = coverage.Coverage(branch=True) # pragma: no cover
-cov.start() # pragma: no cover
+cov = coverage.Coverage(branch=True)  # pragma: no cover
+cov.start()  # pragma: no cover
 
-from mumulib.shaped import is_shaped, make_shape, would_retain_shape # pragma: no cover
-from mumulib.shaped import anything, HeterogenousList, AmbiguousShape # pragma: no cover
+from mumulib.shaped import is_shaped, make_shape, would_retain_shape  # pragma: no cover
+from mumulib.shaped import anything, HeterogenousList, AmbiguousShape  # pragma: no cover
 
 
 class TestShapedScalars(unittest.TestCase):
@@ -368,7 +368,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = {"a": 100}
         segs = ["a", "b"]
         leaf = 200
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Non-dictionary branch should fail")
 
     def test_malformed_list(self):
@@ -376,7 +377,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = [42, "hello"]
         segs = [0]
         leaf = 84
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Malformed list should fail")
 
     def test_malformed_list_index(self):
@@ -384,7 +386,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = [42]
         segs = ["hello"]
         leaf = 84
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(would_retain_shape(
+            shape, data, segs, leaf),
             "Malformed list index should fail")
 
     def test_out_of_range_list_index(self):
@@ -392,7 +395,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = [42]
         segs = ["5"]
         leaf = 84
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Out of range list index should fail")
 
     def test_bad_list(self):
@@ -400,7 +404,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = {"a": 42}
         segs = ["0"]
         leaf = 84
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Bad list data should fail")
 
     def test_malformed_tuple_index(self):
@@ -408,7 +413,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = (42, "hello")
         segs = ["hello"]
         leaf = 84
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Malformed tuple index should fail")
 
     def test_out_of_range_tuple_index(self):
@@ -416,7 +422,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = (42, "hello")
         segs = ["5"]
         leaf = 84
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Out of range tuple index should fail")
 
     def test_bad_tuple(self):
@@ -424,7 +431,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = [42]
         segs = ["0"]
         leaf = 84
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Bad tuple data should fail")
 
     def test_extra_segments(self):
@@ -432,7 +440,8 @@ class TestWouldRetainShape(unittest.TestCase):
         data = {"a": "hello"}
         segs = ["a", "b"]
         leaf = "goodbye"
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Extra segments should fail")
 
     def test_custom_class_bad_shape(self):
@@ -442,13 +451,15 @@ class TestWouldRetainShape(unittest.TestCase):
         data = {"a": "hello"}
         segs = ["a"]
         leaf = 42
-        self.assertFalse(would_retain_shape(shape, data, segs, leaf),
+        self.assertFalse(
+            would_retain_shape(shape, data, segs, leaf),
             "Custom class bad shape match should fail")
 
-if __name__ == "__main__": # pragma: no cover
-    unittest.main(exit=False) # pragma: no cover
-    cov.stop() # pragma: no cover
-    cov.save() # pragma: no cover
+
+if __name__ == "__main__":  # pragma: no cover
+    unittest.main(exit=False)  # pragma: no cover
+    cov.stop()  # pragma: no cover
+    cov.save()  # pragma: no cover
 
     # Print coverage report to the terminal
-    cov.report(show_missing=True) # pragma: no cover
+    cov.report(show_missing=True)  # pragma: no cover

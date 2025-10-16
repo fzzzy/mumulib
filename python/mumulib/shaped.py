@@ -92,7 +92,7 @@ def _is_shaped_exc(thing: Any, shape: Any) -> None:
                 raise SizeMismatch(
                     "wrong number of items in %s (for shape %s); "
                     "expected %s items" % (
-                    thing, shape, len(shape)))
+                        thing, shape, len(shape)))
 
             subitem_iter = iter(thing)
             for subtype in shape:
@@ -242,6 +242,7 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
         # If we reached a scalar or exact-match shape but still have segments,
         # it means the data is deeper than the shape. This should fail.
         raise ShapeMismatch(f"Extra segments {segs} not supported by shape {shape}") # TODO
+
 
 def would_retain_shape(shape: Any, data: Any, segs: list[str], leaf: Any, debug: bool = False) -> bool:
     """

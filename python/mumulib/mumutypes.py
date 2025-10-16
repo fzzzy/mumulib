@@ -8,7 +8,6 @@ class SpecialResponse(Exception):
         self.writer: Optional[Callable[..., Any]] = writer
 
 
-
 class HTTPResponse(SpecialResponse):
     def __init__(self, code: int, body: str) -> None:
         SpecialResponse.__init__(self, {

@@ -74,7 +74,6 @@ async def request(asgi_app, method, path, body): # pragma: no cover
     }
 
 
-
 class Foo(object):
     pass
 

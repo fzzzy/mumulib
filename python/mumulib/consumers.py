@@ -233,7 +233,6 @@ async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, 
 add_consumer(list, consume_list)
 
 
-
 async def _consume_immutabledict(parent: MappingProxyType, segments: List[str], state: Dict[str, Any], send: Callable) -> Optional[Any]:
     """Traverse a dictionary by treating the first segment as a key.
 
