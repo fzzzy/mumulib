@@ -73,12 +73,16 @@ class TestShapedContainers(unittest.TestCase):
         # Missing key
         shape = {"a": int, "b": str}
         data = {"a": 42}
-        self.assertFalse(is_shaped(data, shape), "{'a': 42} should not match {'a': int, 'b': str} due to missing key 'b'")
+        self.assertFalse(
+            is_shaped(data, shape),
+            "{'a': 42} should not match {'a': int, 'b': str} due to missing key 'b'")
 
         # Wrong type for a key
         shape = {"a": int, "b": str}
         data = {"a": "not int", "b": "hello"}
-        self.assertFalse(is_shaped(data, shape), "{'a': 'not int', 'b': 'hello'} should not match {'a': int, 'b': str} due to type mismatch on 'a'")
+        self.assertFalse(
+            is_shaped(data, shape),
+            "{'a': 'not int', 'b': 'hello'} should not match {'a': int, 'b': str} due to type mismatch on 'a'")
 
 
 class TestShapedNested(unittest.TestCase):

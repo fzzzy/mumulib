@@ -1,14 +1,14 @@
 
-import coverage # pragma: no cover
+import coverage  # pragma: no cover
 
-cov = coverage.Coverage(branch=True) # pragma: no cover
-cov.start() # pragma: no cover
+cov = coverage.Coverage(branch=True)  # pragma: no cover
+cov.start()  # pragma: no cover
 
-import unittest # pragma: no cover
-import asyncio # pragma: no cover
-import json # pragma: no cover
+import unittest  # pragma: no cover
+import asyncio  # pragma: no cover
+import json  # pragma: no cover
 
-from mumulib.server import ( # pragma: no cover
+from mumulib.server import (  # pragma: no cover
     parse_json,
     parse_urlencoded,
     parse_multipart,
@@ -257,6 +257,7 @@ class TestConsumersAppRouting(unittest.TestCase):
         json_body = json.dumps({'key': 'value'})
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -293,6 +294,7 @@ class TestConsumersAppRouting(unittest.TestCase):
         app = consumers_app(root)
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -325,6 +327,7 @@ class TestConsumersAppRouting(unittest.TestCase):
         app = consumers_app(root)
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -498,6 +501,7 @@ class TestBytesResultHandling(unittest.TestCase):
         app = consumers_app(root)
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -557,6 +561,7 @@ class TestExceptionHandling(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -614,6 +619,7 @@ class TestExceptionHandling(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -677,6 +683,7 @@ class TestExceptionHandling(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -733,6 +740,7 @@ class TestExceptionHandling(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -784,6 +792,7 @@ class TestExceptionHandling(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -841,6 +850,7 @@ class TestExceptionHandling(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -868,8 +878,9 @@ class TestExceptionHandling(unittest.TestCase):
         finally:
             # Clean up
             from mumulib.producers import _producer_adapters
-            if '*/*' in _producer_adapters and DelayedSpecialResponseProducer in _producer_adapters['*/*']:  # pragma: no cover
-                del _producer_adapters['*/*'][DelayedSpecialResponseProducer]
+            if '*/*' in _producer_adapters:  # pragma: no cover
+                if DelayedSpecialResponseProducer in _producer_adapters['*/*']:  # pragma: no cover
+                    del _producer_adapters['*/*'][DelayedSpecialResponseProducer]
 
     def test_special_response_exception_after_first_chunk(self):
         """Wrapper to run async test"""
@@ -895,6 +906,7 @@ class TestExceptionHandling(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -924,8 +936,9 @@ class TestExceptionHandling(unittest.TestCase):
         finally:
             # Clean up
             from mumulib.producers import _producer_adapters
-            if '*/*' in _producer_adapters and DelayedExceptionProducer in _producer_adapters['*/*']:  # pragma: no cover
-                del _producer_adapters['*/*'][DelayedExceptionProducer]
+            if '*/*' in _producer_adapters:  # pragma: no cover
+                if DelayedExceptionProducer in _producer_adapters['*/*']:  # pragma: no cover
+                    del _producer_adapters['*/*'][DelayedExceptionProducer]
 
     def test_generic_exception_after_first_chunk(self):
         """Wrapper to run async test"""
@@ -978,6 +991,7 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -1065,6 +1079,7 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
+
             async def send(message):
                 sent_messages.append(message)
 
@@ -1119,6 +1134,7 @@ class TestUnknownContentType(unittest.TestCase):
         app = consumers_app(root)
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -1155,6 +1171,7 @@ class TestRequestSizeLimits(unittest.TestCase):
         oversized_body = json.dumps({'data': 'x' * (DEFAULT_MAX_BODY_SIZE + 1000)}).encode('utf-8')
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -1198,6 +1215,7 @@ class TestRequestSizeLimits(unittest.TestCase):
         oversized_body = ('key=' + 'x' * (DEFAULT_MAX_BODY_SIZE + 1000)).encode('utf-8')
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -1248,6 +1266,7 @@ class TestRequestSizeLimits(unittest.TestCase):
         )
 
         sent_messages = []
+
         async def send(message):
             sent_messages.append(message)
 
@@ -1370,8 +1389,9 @@ class TestEventSource(unittest.TestCase):
             event_bodies_str = b''.join(event_bodies).decode('utf-8')
 
             # At least one of our events should have been sent
-            self.assertTrue('event1' in event_bodies_str or 'event2' in event_bodies_str,
-                          f"Expected events in {event_bodies_str}")
+            self.assertTrue(
+                'event1' in event_bodies_str or 'event2' in event_bodies_str,
+                f"Expected events in {event_bodies_str}")
 
         finally:
             # Clean up
