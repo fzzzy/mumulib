@@ -671,6 +671,96 @@ class TestExceptionHandling(unittest.TestCase):
         asyncio.run(self.async_test_generic_exception_during_produce())
 
 
+class TestSpecialResponseWithWriter(unittest.TestCase):
+    """Test handling of SpecialResponse with writer callback in produce"""
+
+    async def async_test_special_response_with_writer(self):
+        """Test that SpecialResponse with writer callback is handled correctly (lines 203-210)"""
+        from mumulib.producers import add_producer
+        from mumulib.mumutypes import SpecialResponse
+
+        # Track writer execution
+        writer_called = {'value': False}
+
+        async def test_writer(send, receive):
+            """A writer that sends additional data"""
+            writer_called['value'] = True
+            await send({
+                'type': 'http.response.body',
+                'body': b'Additional data from writer',
+                'more_body': False,
+            })
+
+        class WriterProducerObject:
+            """Object with a producer that yields SpecialResponse with writer"""
+            pass
+
+        async def produce_with_writer(thing, state):
+            """Producer that yields a SpecialResponse with writer callback"""
+            yield SpecialResponse(
+                {
+                    'type': 'http.response.start',
+                    'status': 200,
+                    'headers': [(b'content-type', b'text/plain')],
+                },
+                'Initial response',  # leaf_object as string (will be encoded)
+                test_writer
+            )
+
+        try:
+            # Register the producer (type, producer_func, mimetype)
+            add_producer(WriterProducerObject, produce_with_writer, '*/*')
+
+            root = {'test': WriterProducerObject()}
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Verify the response includes the special response headers
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 200)
+            self.assertEqual(response_start['headers'], [(b'content-type', b'text/plain')])
+
+            # Verify the initial body was sent (from SpecialResponse leaf_object)
+            response_body_1 = sent_messages[1]
+            self.assertEqual(response_body_1['type'], 'http.response.body')
+            self.assertEqual(response_body_1['body'], b'Initial response')
+            self.assertTrue(response_body_1['more_body'])
+
+            # Verify the writer was called and sent additional data
+            self.assertTrue(writer_called['value'])
+            response_body_2 = sent_messages[2]
+            self.assertEqual(response_body_2['type'], 'http.response.body')
+            self.assertEqual(response_body_2['body'], b'Additional data from writer')
+            self.assertFalse(response_body_2['more_body'])
+
+        finally:
+            # Clean up
+            from mumulib.producers import _producer_adapters
+            if '*/*' in _producer_adapters and WriterProducerObject in _producer_adapters['*/*']:
+                del _producer_adapters['*/*'][WriterProducerObject]
+
+    def test_special_response_with_writer(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_special_response_with_writer())
+
+
 class TestUnknownContentType(unittest.TestCase):
     """Test handling of unknown content types"""
 
