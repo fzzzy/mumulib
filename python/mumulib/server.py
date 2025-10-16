@@ -59,6 +59,7 @@ async def parse_json(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -
     body_text = body.decode('utf-8')
     if len(body_text):
         return json.loads(body_text)
+    return None
 
 
 async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -> Dict[str, Any]:
@@ -80,7 +81,7 @@ async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_S
             # Check if this is the last body chunk
             if not message.get('more_body', False):
                 break
-    result = {}
+    result: Dict[str, Any] = {}
     for (k, v) in parse.parse_qsl(body.decode('utf-8')):
         k = parse.unquote(k)
         v = parse.unquote(v)

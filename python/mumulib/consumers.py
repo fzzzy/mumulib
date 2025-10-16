@@ -229,7 +229,7 @@ async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, 
                 'headers': [(b'content-type', b'text/plain')],
             }, b'')
     # If we get here, we either haven't done PUT/DELETE, or the path continues.
-    return await consume_tuple(parent, segments, state, send)
+    return await consume_tuple(tuple(parent), segments, state, send)
 add_consumer(list, consume_list)
 
 
@@ -318,6 +318,6 @@ async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[
             }, b'')
 
     # If we get here, we either are doing a GET or traversing deeper.
-    return await _consume_immutabledict(parent, segments, state, send)
+    return await _consume_immutabledict(MappingProxyType(parent), segments, state, send)
 add_consumer(dict, consume_dict)
 
