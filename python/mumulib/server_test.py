@@ -249,6 +249,44 @@ class TestConsumersAppLifespan(unittest.TestCase):
 class TestConsumersAppRouting(unittest.TestCase):
     """Test content-type routing based on path extensions"""
 
+    async def async_test_json_content_type_header(self):
+        """Test that application/json content-type header is handled correctly"""
+        root = {'data': {'result': 'success'}}
+        app = consumers_app(root)
+
+        json_body = json.dumps({'key': 'value'})
+
+        sent_messages = []
+        async def send(message):
+            sent_messages.append(message)
+
+        async def receive():
+            return {
+                'type': 'http.request',
+                'body': json_body.encode('utf-8'),
+                'more_body': False
+            }
+
+        scope = {
+            'type': 'http',
+            'method': 'POST',
+            'path': '/data',
+            'headers': [(b'content-type', b'application/json')],
+            'state': {}
+        }
+
+        await app(scope, receive, send)
+
+        # Check that response has JSON content-type
+        response_start = sent_messages[0]
+        self.assertEqual(response_start['type'], 'http.response.start')
+        headers = dict(response_start['headers'])
+        self.assertIn(b'application/json', headers[b'content-type'])
+
+    def test_json_content_type_header(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_json_content_type_header())
+
     async def async_test_json_path_extension(self):
         """Test that .json paths set JSON accept headers"""
         root = {'message': 'hello'}
