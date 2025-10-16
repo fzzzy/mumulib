@@ -443,6 +443,147 @@ class TestUnknownContentType(unittest.TestCase):
         asyncio.run(self.async_test_unknown_content_type())
 
 
+class TestRequestSizeLimits(unittest.TestCase):
+    """Test request body size limit enforcement"""
+
+    async def async_test_json_size_limit_exceeded(self):
+        """Test that oversized JSON body triggers 413 error"""
+        root = {'data': 'test'}
+        app = consumers_app(root)
+
+        # Create a body that exceeds the default limit (10MB)
+        oversized_body = json.dumps({'data': 'x' * (DEFAULT_MAX_BODY_SIZE + 1000)}).encode('utf-8')
+
+        sent_messages = []
+        async def send(message):
+            sent_messages.append(message)
+
+        async def receive():
+            return {
+                'type': 'http.request',
+                'body': oversized_body,
+                'more_body': False
+            }
+
+        scope = {
+            'type': 'http',
+            'method': 'POST',
+            'path': '/data',
+            'headers': [(b'content-type', b'application/json')],
+            'state': {}
+        }
+
+        await app(scope, receive, send)
+
+        # Should get 413 Payload Too Large error
+        response_start = sent_messages[0]
+        self.assertEqual(response_start['type'], 'http.response.start')
+        self.assertEqual(response_start['status'], 413)
+
+        # Check error message
+        response_body = sent_messages[1]
+        body_data = json.loads(response_body['body'].decode('utf-8'))
+        self.assertEqual(body_data['error'], 'Payload Too Large')
+
+    def test_json_size_limit_exceeded(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_json_size_limit_exceeded())
+
+    async def async_test_urlencoded_size_limit_exceeded(self):
+        """Test that oversized urlencoded body triggers 413 error"""
+        root = {'data': 'test'}
+        app = consumers_app(root)
+
+        # Create a body that exceeds the default limit (10MB)
+        oversized_body = ('key=' + 'x' * (DEFAULT_MAX_BODY_SIZE + 1000)).encode('utf-8')
+
+        sent_messages = []
+        async def send(message):
+            sent_messages.append(message)
+
+        async def receive():
+            return {
+                'type': 'http.request',
+                'body': oversized_body,
+                'more_body': False
+            }
+
+        scope = {
+            'type': 'http',
+            'method': 'POST',
+            'path': '/data',
+            'headers': [(b'content-type', b'application/x-www-form-urlencoded')],
+            'state': {}
+        }
+
+        await app(scope, receive, send)
+
+        # Should get 413 Payload Too Large error
+        response_start = sent_messages[0]
+        self.assertEqual(response_start['type'], 'http.response.start')
+        self.assertEqual(response_start['status'], 413)
+
+        # Check error message
+        response_body = sent_messages[1]
+        body_data = json.loads(response_body['body'].decode('utf-8'))
+        self.assertEqual(body_data['error'], 'Payload Too Large')
+
+    def test_urlencoded_size_limit_exceeded(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_urlencoded_size_limit_exceeded())
+
+    async def async_test_multipart_size_limit_exceeded(self):
+        """Test that oversized multipart body triggers 413 error"""
+        root = {'data': 'test'}
+        app = consumers_app(root)
+
+        boundary = b'----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        # Create a body that exceeds the default limit (10MB)
+        oversized_content = b'x' * (DEFAULT_MAX_BODY_SIZE + 1000)
+        oversized_body = (
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="huge_field"\r\n'
+            b'\r\n'
+            + oversized_content + b'\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW--'
+        )
+
+        sent_messages = []
+        async def send(message):
+            sent_messages.append(message)
+
+        async def receive():
+            return {
+                'type': 'http.request',
+                'body': oversized_body,
+                'more_body': False
+            }
+
+        scope = {
+            'type': 'http',
+            'method': 'POST',
+            'path': '/data',
+            'headers': [(b'content-type', b'multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW')],
+            'state': {}
+        }
+
+        await app(scope, receive, send)
+
+        # Should get 413 Payload Too Large error
+        response_start = sent_messages[0]
+        self.assertEqual(response_start['type'], 'http.response.start')
+        self.assertEqual(response_start['status'], 413)
+
+        # Check error message
+        response_body = sent_messages[1]
+        body_data = json.loads(response_body['body'].decode('utf-8'))
+        self.assertEqual(body_data['error'], 'Payload Too Large')
+
+    def test_multipart_size_limit_exceeded(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_multipart_size_limit_exceeded())
+
+
 if __name__ == "__main__": # pragma: no cover
     unittest.main(exit=False) # pragma: no cover
     cov.stop() # pragma: no cover
