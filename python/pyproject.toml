@@ -38,4 +38,4 @@ Issues = "https://github.com/fzzzy/mumulib/issues"
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
-files = ["mumulib/mumutypes.py", "mumulib/shaped.py", "mumulib/tags.py"]
+files = ["mumulib"]
