@@ -58,7 +58,7 @@ mypy: mumulib-venv
 
 lint:
 	@echo "Running flake8 linter..."
-	@cd python/mumulib && flake8 . --exclude=mumulib-venv,__pycache__,.coverage*,*.pyc --max-line-length=120 --statistics
+	@cd python/mumulib && flake8 . --exclude=mumulib-venv,__pycache__,.coverage*,*.pyc --max-line-length=120 --ignore=E402 --statistics
 
 
 tags:

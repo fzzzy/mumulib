@@ -2,7 +2,10 @@ from typing import Any, Callable, Optional
 
 
 class SpecialResponse(Exception):
-    def __init__(self, asgi_send_dict: dict[str, Any], leaf_object: Any, writer: Optional[Callable[..., Any]] = None) -> None:
+    def __init__(
+        self, asgi_send_dict: dict[str, Any], leaf_object: Any,
+        writer: Optional[Callable[..., Any]] = None
+    ) -> None:
         self.asgi_send_dict: dict[str, Any] = asgi_send_dict
         self.leaf_object: Any = leaf_object
         self.writer: Optional[Callable[..., Any]] = writer
@@ -10,13 +13,17 @@ class SpecialResponse(Exception):
 
 class HTTPResponse(SpecialResponse):
     def __init__(self, code: int, body: str) -> None:
-        SpecialResponse.__init__(self, {
-                    'type': 'http.response.start',
-                    'status': code,
-                    'headers': [
-                        (b'content-type', b'text/plain'),
-                    ],
-        }, body)
+        SpecialResponse.__init__(
+            self,
+            {
+                'type': 'http.response.start',
+                'status': code,
+                'headers': [
+                    (b'content-type', b'text/plain'),
+                ],
+            },
+            body
+        )
 
 
 class BadRequestResponse(HTTPResponse):
@@ -41,13 +48,15 @@ class CreatedResponse(HTTPResponse):
 
 class SeeOtherResponse(SpecialResponse):
     def __init__(self, redirect_to: str) -> None:
-        SpecialResponse.__init__(self, {
-                    'type': 'http.response.start',
-                    'status': 303,
-                    'headers': [
-                        (b'content-type', b'application/json'),
-                        (b'location', redirect_to.encode('utf8')),
-                    ],
-        }, '')
-
-
+        SpecialResponse.__init__(
+            self,
+            {
+                'type': 'http.response.start',
+                'status': 303,
+                'headers': [
+                    (b'content-type', b'application/json'),
+                    (b'location', redirect_to.encode('utf8')),
+                ],
+            },
+            ''
+        )

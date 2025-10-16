@@ -1,17 +1,17 @@
 
-import coverage # pragma: no cover
+import coverage  # pragma: no cover
 
-cov = coverage.Coverage(branch=True) # pragma: no cover
-cov.start() # pragma: no cover
+cov = coverage.Coverage(branch=True)  # pragma: no cover
+cov.start()  # pragma: no cover
 
-from types import MappingProxyType # pragma: no cover
-import json # pragma: no cover
-import unittest # pragma: no cover
+from types import MappingProxyType  # pragma: no cover
+import json  # pragma: no cover
+import unittest  # pragma: no cover
 
-from mumulib.server import consumers_app # pragma: no cover
+from mumulib.server import consumers_app  # pragma: no cover
 
 
-async def request(asgi_app, method, path, body): # pragma: no cover
+async def request(asgi_app, method, path, body):  # pragma: no cover
     """
     Sends an HTTP request to an ASGI app without external dependencies.
 
@@ -78,7 +78,7 @@ class Foo(object):
     pass
 
 
-ASGI_APP = consumers_app( # pragma: no cover
+ASGI_APP = consumers_app(  # pragma: no cover
     {
         "hello": "world",
         "tuple": ("this", "is", "a", "tuple"),
@@ -341,4 +341,4 @@ if __name__ == "__main__":  # pragma: no cover
     cov.save()  # pragma: no cover
 
     # Print coverage report to the terminal
-    cov.report(show_missing=True) # pragma: no cover
+    cov.report(show_missing=True)  # pragma: no cover

@@ -189,7 +189,7 @@ async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, 
             if index_str == 'last':
                 # Append new element
                 parent.append(state.get("parsed_body", None))
-                location = f"{state.get("url", "")}/{len(parent)-1}"
+                location = f"{state.get("url", "")}/{len(parent) - 1}"
                 return SpecialResponse({
                     'type': 'http.response.start',
                     'status': 201,
@@ -233,7 +233,9 @@ async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, 
 add_consumer(list, consume_list)
 
 
-async def _consume_immutabledict(parent: MappingProxyType, segments: List[str], state: Dict[str, Any], send: Callable) -> Optional[Any]:
+async def _consume_immutabledict(
+    parent: MappingProxyType, segments: List[str], state: Dict[str, Any], send: Callable
+) -> Optional[Any]:
     """Traverse a dictionary by treating the first segment as a key.
 
     If the first segment is empty, returns the dictionary itself. Otherwise, returns
@@ -310,7 +312,7 @@ async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[
             if key in parent:
                 del parent[key]
 
-            return SpecialResponse({ # pragma: no cover
+            return SpecialResponse({  # pragma: no cover
                 'type': 'http.response.start',
                 'status': 200,
                 'headers': [(b'content-type', b'text/plain')],
@@ -319,5 +321,3 @@ async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[
     # If we get here, we either are doing a GET or traversing deeper.
     return await _consume_immutabledict(MappingProxyType(parent), segments, state, send)
 add_consumer(dict, consume_dict)
-
-

@@ -1260,8 +1260,7 @@ class TestRequestSizeLimits(unittest.TestCase):
         oversized_body = (
             b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
             b'Content-Disposition: form-data; name="huge_field"\r\n'
-            b'\r\n'
-            + oversized_content + b'\r\n'
+            b'\r\n' + oversized_content + b'\r\n'
             b'------WebKitFormBoundary7MA4YWxkTrZu0gW--'
         )
 

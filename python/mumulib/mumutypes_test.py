@@ -1,12 +1,12 @@
 
-import coverage # pragma: no cover
+import coverage  # pragma: no cover
 
-cov = coverage.Coverage(branch=True) # pragma: no cover
-cov.start() # pragma: no cover
+cov = coverage.Coverage(branch=True)  # pragma: no cover
+cov.start()  # pragma: no cover
 
-import unittest # pragma: no cover
+import unittest  # pragma: no cover
 
-from mumulib.mumutypes import ( # pragma: no cover
+from mumulib.mumutypes import (  # pragma: no cover
     SpecialResponse,
     HTTPResponse,
     BadRequestResponse,
@@ -169,10 +169,10 @@ class TestSeeOtherResponse(unittest.TestCase):
         self.assertEqual(headers[1][1], redirect_url.encode('utf8'))
 
 
-if __name__ == "__main__": # pragma: no cover
-    unittest.main(exit=False) # pragma: no cover
-    cov.stop() # pragma: no cover
-    cov.save() # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
+    unittest.main(exit=False)  # pragma: no cover
+    cov.stop()  # pragma: no cover
+    cov.save()  # pragma: no cover
 
     # Print coverage report to the terminal
-    cov.report(show_missing=True) # pragma: no cover
+    cov.report(show_missing=True)  # pragma: no cover
