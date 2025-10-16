@@ -2,6 +2,7 @@
 import asyncio
 import json
 import traceback
+from typing import Any, Callable, Dict, Optional
 from urllib import parse
 
 from mumulib.consumers import consume
@@ -12,7 +13,7 @@ from mumulib.producers import produce
 DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
 
 
-async def send_error_response(send, status, error_type, message):
+async def send_error_response(send: Callable, status: int, error_type: str, message: str) -> None:
     """
     Send a consistent JSON error response.
 
@@ -34,7 +35,7 @@ async def send_error_response(send, status, error_type, message):
     })
 
 
-async def parse_json(receive, max_size=DEFAULT_MAX_BODY_SIZE):
+async def parse_json(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -> Optional[Any]:
     body = b''
 
     # Receive request body chunks
@@ -60,7 +61,7 @@ async def parse_json(receive, max_size=DEFAULT_MAX_BODY_SIZE):
         return json.loads(body_text)
 
 
-async def parse_urlencoded(receive, max_size=DEFAULT_MAX_BODY_SIZE):
+async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -> Dict[str, Any]:
     body = b''
 
     # Receive request body chunks
@@ -92,7 +93,7 @@ async def parse_urlencoded(receive, max_size=DEFAULT_MAX_BODY_SIZE):
     return result
 
 
-async def parse_multipart(receive, boundary, max_size=DEFAULT_MAX_BODY_SIZE):
+async def parse_multipart(receive: Callable, boundary: bytes, max_size: int = DEFAULT_MAX_BODY_SIZE) -> Dict[str, Any]:
     body = b''
     # Receive request body chunks
     while True:
@@ -110,13 +111,13 @@ async def parse_multipart(receive, boundary, max_size=DEFAULT_MAX_BODY_SIZE):
             # Check if this is the last body chunk
             if not message.get('more_body', False):
                 break
-    result = {}
+    result: Dict[str, Any] = {}
     for part in body.split(boundary):
         if not part or part.strip() == b'--':
             continue
-        headers, content = part.split(b"\r\n\r\n", 1)
-        headers = headers.split(b"\r\n")
-        name = None
+        headers_bytes, content = part.split(b"\r\n\r\n", 1)
+        headers = headers_bytes.split(b"\r\n")
+        name: Optional[bytes] = None
         for header in headers:
             if header.startswith(b"Content-Disposition:"):
                 name = header.split(b";")[1].split(b"=")[1][1:-1]
@@ -130,8 +131,8 @@ async def parse_multipart(receive, boundary, max_size=DEFAULT_MAX_BODY_SIZE):
     return result
 
 
-def consumers_app(root):
-    async def app(scope, receive, send):
+def consumers_app(root: Any) -> Callable:
+    async def app(scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
         if scope['type'] == 'lifespan':
             while True:
                 message = await receive()
@@ -176,18 +177,6 @@ def consumers_app(root):
         except ValueError as exc:
             # Handle request body size limit errors
             await send_error_response(send, 413, "Payload Too Large", str(exc))
-            return
-        except json.JSONDecodeError as exc:
-            # Handle JSON parsing errors
-            await send_error_response(send, 400, "Bad Request", f"Invalid JSON: {str(exc)}")
-            return
-        except UnicodeDecodeError as exc:
-            # Handle encoding errors
-            await send_error_response(send, 400, "Bad Request", f"Invalid encoding: {str(exc)}")
-            return
-        except Exception as exc:
-            # Handle other parsing errors
-            await send_error_response(send, 400, "Bad Request", f"Failed to parse request body: {str(exc)}")
             return
 
         try:
