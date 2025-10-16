@@ -1,6 +1,6 @@
 
 
-.PHONY: all build serve clean test
+.PHONY: all build serve clean test mypy
 
 
 all: node_modules build serve
@@ -34,6 +34,10 @@ clean:
 
 test: mumulib-venv
 	. mumulib-venv/bin/activate && python3 -m unittest discover -s python/mumulib -p "*_test.py" -v
+
+
+mypy: mumulib-venv
+	. mumulib-venv/bin/activate && cd python && mypy
 
 
 tags:

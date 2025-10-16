@@ -25,8 +25,17 @@ license = {file = "LICENSE"}
 
 [project.optional-dependencies]
 dev = [
+    "mypy>=1.0.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/fzzzy/mumulib"
 Issues = "https://github.com/fzzzy/mumulib/issues"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+files = ["mumulib/mumutypes.py", "mumulib/shaped.py", "mumulib/tags.py"]
