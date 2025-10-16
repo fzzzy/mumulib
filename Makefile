@@ -1,6 +1,6 @@
 
 
-.PHONY: all build serve clean test mypy
+.PHONY: all build serve clean test mypy lint
 
 
 all: node_modules build serve
@@ -54,6 +54,11 @@ test: mumulib-venv
 
 mypy: mumulib-venv
 	. mumulib-venv/bin/activate && cd python && mypy
+
+
+lint:
+	@echo "Running flake8 linter..."
+	@cd python/mumulib && flake8 . --exclude=mumulib-venv,__pycache__,.coverage*,*.pyc --max-line-length=120 --statistics
 
 
 tags:

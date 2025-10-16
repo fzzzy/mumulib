@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Optional
 from urllib import parse
 
 from mumulib.consumers import consume
-from mumulib.mumutypes import SpecialResponse, HTTPResponse
+from mumulib.mumutypes import SpecialResponse
 from mumulib.producers import produce
 
 # Default max request body size: 10MB
@@ -88,9 +88,9 @@ async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_S
         k = parse.unquote(k)
         v = parse.unquote(v)
         if k.endswith("]") and "[" in k:
-            l = result.get(k, [])
-            l.append(v)
-            result[k] = l
+            values_list = result.get(k, [])
+            values_list.append(v)
+            result[k] = values_list
         else:
             result[k] = v
     return result

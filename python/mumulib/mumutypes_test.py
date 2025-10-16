@@ -35,7 +35,9 @@ class TestSpecialResponse(unittest.TestCase):
         """Test SpecialResponse initialization with writer"""
         asgi_dict = {'type': 'http.response.start', 'status': 200}
         leaf = 'test body'
-        writer = lambda x: x
+
+        def writer(x):
+            return x
 
         response = SpecialResponse(asgi_dict, leaf, writer)
 

@@ -28,7 +28,7 @@ THE SOFTWARE.
 from mumulib.mumutypes import SpecialResponse
 
 from types import MappingProxyType
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import sys
 
 
@@ -320,4 +320,5 @@ async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[
     # If we get here, we either are doing a GET or traversing deeper.
     return await _consume_immutabledict(MappingProxyType(parent), segments, state, send)
 add_consumer(dict, consume_dict)
+
 

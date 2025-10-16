@@ -265,9 +265,10 @@ def would_retain_shape(shape: Any, data: Any, segs: list[str], leaf: Any, debug:
     """
     try:
         _would_retain_shape_exc(shape, data, segs, leaf)
-    except Exception as e:
+    except Exception:
         if debug:
-            traceback.print_exc() # pragma: no cover
+            traceback.print_exc()  # pragma: no cover
         return False
     return True
+
 

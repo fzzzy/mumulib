@@ -336,11 +336,10 @@ class TestSecurityValidation(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response['status'], 404)
 
 
-if __name__ == "__main__": # pragma: no cover
-    import asyncio # pragma: no cover
-    unittest.main(exit=False) # pragma: no cover
-    cov.stop() # pragma: no cover
-    cov.save() # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
+    unittest.main(exit=False)  # pragma: no cover
+    cov.stop()  # pragma: no cover
+    cov.save()  # pragma: no cover
 
     # Print coverage report to the terminal
     cov.report(show_missing=True) # pragma: no cover

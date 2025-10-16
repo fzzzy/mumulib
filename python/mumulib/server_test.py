@@ -1237,7 +1237,6 @@ class TestRequestSizeLimits(unittest.TestCase):
         root = {'data': 'test'}
         app = consumers_app(root)
 
-        boundary = b'----WebKitFormBoundary7MA4YWxkTrZu0gW'
         # Create a body that exceeds the default limit (10MB)
         oversized_content = b'x' * (DEFAULT_MAX_BODY_SIZE + 1000)
         oversized_body = (
@@ -1313,7 +1312,6 @@ class TestEventSource(unittest.TestCase):
             app = consumers_app(root)
 
             sent_messages = []
-            receive_count = {'count': 0}
 
             async def send(message):
                 sent_messages.append(message)
