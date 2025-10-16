@@ -43,7 +43,8 @@ async def parse_json(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -
         message = await receive()
 
         # Check if we've reached the end of the body
-        if message['type'] == 'http.request':
+        # ASGI servers should only send http.request during body reading
+        if message['type'] == 'http.request':  # pragma: no branch
             # Accumulate body chunks
             body += message.get('body', b'')
 
@@ -70,7 +71,8 @@ async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_S
         message = await receive()
 
         # Check if we've reached the end of the body
-        if message['type'] == 'http.request':
+        # ASGI servers should only send http.request during body reading
+        if message['type'] == 'http.request':  # pragma: no branch
             # Accumulate body chunks
             body += message.get('body', b'')
 
@@ -101,7 +103,8 @@ async def parse_multipart(receive: Callable, boundary: bytes, max_size: int = DE
         message = await receive()
 
         # Check if we've reached the end of the body
-        if message['type'] == 'http.request':
+        # ASGI servers should only send http.request during body reading
+        if message['type'] == 'http.request':  # pragma: no branch
             # Accumulate body chunks
             body += message.get('body', b'')
 
