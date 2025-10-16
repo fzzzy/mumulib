@@ -508,6 +508,62 @@ class TestExceptionHandling(unittest.TestCase):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_exception_during_consume())
 
+    async def async_test_special_response_result(self):
+        """Test that SpecialResponse returned directly from consume is handled"""
+        from mumulib.mumutypes import HTTPResponse
+
+        # Create a custom object that returns a SpecialResponse
+        class CustomResponseObject:
+            pass
+
+        from mumulib.consumers import add_consumer
+
+        async def custom_consumer(parent, segments, state, send):
+            # Return a SpecialResponse directly (like PUT/DELETE operations do)
+            return HTTPResponse(201, 'Custom response body')
+
+        add_consumer(CustomResponseObject, custom_consumer)
+
+        try:
+            root = CustomResponseObject()
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Should get the custom response
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 201)
+
+            # Check body
+            response_body = sent_messages[1]
+            self.assertEqual(response_body['type'], 'http.response.body')
+            self.assertIn(b'Custom response body', response_body['body'])
+        finally:
+            # Clean up
+            from mumulib.consumers import _consumer_adapters
+            if CustomResponseObject in _consumer_adapters:
+                del _consumer_adapters[CustomResponseObject]
+
+    def test_special_response_result(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_special_response_result())
+
 
 class TestUnknownContentType(unittest.TestCase):
     """Test handling of unknown content types"""
