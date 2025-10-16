@@ -44,6 +44,8 @@ test: mumulib-venv
 		mv .coverage .coverage.mumutypes && \
 		python producers_test.py > /dev/null 2>&1 && \
 		mv .coverage .coverage.producers && \
+		python server_test.py > /dev/null 2>&1 && \
+		mv .coverage .coverage.server && \
 		coverage combine .coverage.* && \
 		echo "" && \
 		echo "=== Combined Coverage Report ===" && \
