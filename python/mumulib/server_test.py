@@ -11,6 +11,7 @@ import json # pragma: no cover
 from mumulib.server import ( # pragma: no cover
     parse_json,
     parse_urlencoded,
+    parse_multipart,
     consumers_app,
     DEFAULT_MAX_BODY_SIZE
 )
@@ -311,6 +312,135 @@ class TestConsumersAppRouting(unittest.TestCase):
     def test_html_path_extension(self):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_html_path_extension())
+
+
+class TestParseMultipart(unittest.TestCase):
+    """Test parse_multipart function"""
+
+    async def async_test_parse_multipart_basic(self):
+        """Test parsing basic multipart form data"""
+        boundary = b'----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        body = (
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="field1"\r\n'
+            b'\r\n'
+            b'value1\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="field2"\r\n'
+            b'\r\n'
+            b'value2\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW--'
+        )
+
+        async def receive():
+            return {
+                'type': 'http.request',
+                'body': body,
+                'more_body': False
+            }
+
+        result = await parse_multipart(receive, boundary)
+        self.assertEqual(result, {'field1': 'value1', 'field2': 'value2'})
+
+    def test_parse_multipart_basic(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_parse_multipart_basic())
+
+    async def async_test_parse_multipart_with_file(self):
+        """Test parsing multipart with binary file content"""
+        boundary = b'----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        body = (
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="file"; filename="test.bin"\r\n'
+            b'Content-Type: application/octet-stream\r\n'
+            b'\r\n'
+            b'binary content\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW--'
+        )
+
+        async def receive():
+            return {
+                'type': 'http.request',
+                'body': body,
+                'more_body': False
+            }
+
+        result = await parse_multipart(receive, boundary)
+        self.assertEqual(result, {'file': b'binary content'})
+
+    def test_parse_multipart_with_file(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_parse_multipart_with_file())
+
+
+class TestBytesResultHandling(unittest.TestCase):
+    """Test handling of bytes results"""
+
+    async def async_test_bytes_result(self):
+        """Test that routes returning bytes are handled correctly"""
+        root = {'binary': b'binary data here'}
+        app = consumers_app(root)
+
+        sent_messages = []
+        async def send(message):
+            sent_messages.append(message)
+
+        async def receive():
+            return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+        scope = {
+            'type': 'http',
+            'method': 'GET',
+            'path': '/binary',
+            'headers': [],
+            'state': {}
+        }
+
+        await app(scope, receive, send)
+
+        # Check that we got a response
+        self.assertGreater(len(sent_messages), 0)
+        response_body = sent_messages[-1]
+        self.assertEqual(response_body['type'], 'http.response.body')
+        # The bytes result should be in the body
+        self.assertIn(b'binary data here', response_body['body'])
+
+    def test_bytes_result(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_bytes_result())
+
+
+class TestUnknownContentType(unittest.TestCase):
+    """Test handling of unknown content types"""
+
+    async def async_test_unknown_content_type(self):
+        """Test that unknown content types print a message"""
+        root = {'data': 'test'}
+        app = consumers_app(root)
+
+        sent_messages = []
+        async def send(message):
+            sent_messages.append(message)
+
+        async def receive():
+            return {'type': 'http.request', 'body': b'test data', 'more_body': False}  # pragma: no cover
+
+        scope = {
+            'type': 'http',
+            'method': 'POST',
+            'path': '/data',
+            'headers': [(b'content-type', b'application/x-custom-type')],
+            'state': {}
+        }
+
+        await app(scope, receive, send)
+
+        # Should still get a response (unknown types are just printed, not rejected)
+        self.assertGreater(len(sent_messages), 0)
+
+    def test_unknown_content_type(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_unknown_content_type())
 
 
 if __name__ == "__main__": # pragma: no cover
