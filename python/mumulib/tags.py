@@ -386,9 +386,9 @@ def parse_template(source: IO[bytes]) -> Stan | None:
     context = etree.iterparse(
         source, events=("start", "end"), html=True, encoding="UTF-8")
 
-    root = None
-    current = None
-    stack = []
+    root: Stan | None = None
+    current: Stan | None = None
+    stack: list[Stan] = []
     indent = 0
 
     for event, elem in context:
@@ -407,7 +407,7 @@ def parse_template(source: IO[bytes]) -> Stan | None:
                 current[elem.text]
 
         elif event == "end":
-            if elem.tail and elem.tail.strip():
+            if elem.tail and elem.tail.strip() and current:
                 current[elem.tail]
 
             if current and current.tagname == elem.tag:
