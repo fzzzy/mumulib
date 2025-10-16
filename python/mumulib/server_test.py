@@ -453,6 +453,41 @@ class TestParseMultipart(unittest.TestCase):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_parse_multipart_multiple_chunks())
 
+    async def async_test_parse_multipart_malformed_part(self):
+        """Test parsing multipart with malformed part missing Content-Disposition (line 125->116)"""
+        boundary = b'----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        body = (
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="field1"\r\n'
+            b'\r\n'
+            b'value1\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            # Malformed part - no Content-Disposition header at all
+            b'Some-Other-Header: value\r\n'
+            b'\r\n'
+            b'ignored content\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="field2"\r\n'
+            b'\r\n'
+            b'value2\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW--'
+        )
+
+        async def receive():
+            return {
+                'type': 'http.request',
+                'body': body,
+                'more_body': False
+            }
+
+        result = await parse_multipart(receive, boundary)
+        # Should only contain the valid fields, malformed part is skipped
+        self.assertEqual(result, {'field1': 'value1', 'field2': 'value2'})
+
+    def test_parse_multipart_malformed_part(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_parse_multipart_malformed_part())
+
 
 class TestBytesResultHandling(unittest.TestCase):
     """Test handling of bytes results"""
