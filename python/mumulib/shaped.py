@@ -99,14 +99,14 @@ def _is_shaped_exc(thing: Any, shape: Any) -> None:
                 subitem = next(subitem_iter)
                 _is_shaped_exc(subitem, subtype)
             return
-        return # pragma: no cover
+        return  # pragma: no cover
     elif shape in SCALAR_TYPES:
         if type(thing) is not shape:
             raise TypeMismatch(
                 "wrong type for shape %s: %s" % (
                     shape, thing))
         return
-    raise TypeMismatch( #TODO
+    raise TypeMismatch(  # TODO
         "wrong type for shape %s: %s" % (
             shape, thing))
 
@@ -166,7 +166,7 @@ def make_shape(what: Any) -> dict[str, Any] | list[Any] | tuple[Any, ...] | type
 
 
 def anything(item: Any) -> None:
-    raise NotImplementedError # pragma: no cover
+    raise NotImplementedError  # pragma: no cover
 
 
 def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -> None:
@@ -241,7 +241,7 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
     else:
         # If we reached a scalar or exact-match shape but still have segments,
         # it means the data is deeper than the shape. This should fail.
-        raise ShapeMismatch(f"Extra segments {segs} not supported by shape {shape}") # TODO
+        raise ShapeMismatch(f"Extra segments {segs} not supported by shape {shape}")  # TODO
 
 
 def would_retain_shape(shape: Any, data: Any, segs: list[str], leaf: Any, debug: bool = False) -> bool:
@@ -271,5 +271,3 @@ def would_retain_shape(shape: Any, data: Any, segs: list[str], leaf: Any, debug:
             traceback.print_exc()  # pragma: no cover
         return False
     return True
-
-
