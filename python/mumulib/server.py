@@ -123,12 +123,14 @@ async def parse_multipart(receive: Callable, boundary: bytes, max_size: int = DE
             if header.startswith(b"Content-Disposition:"):
                 name = header.split(b";")[1].split(b"=")[1][1:-1]
         if name:
+            # Strip trailing \r\n-- or \r\n from content
+            stripped_content = content.rstrip(b'-').rstrip(b'\r\n')
             for x in headers:
                 if b'Content-Type' in x:
-                    result[name.decode("utf-8")] = content[:-2]
+                    result[name.decode("utf-8")] = stripped_content
                     break
             else:
-                result[name.decode("utf-8")] = content[:-2].decode("utf-8")
+                result[name.decode("utf-8")] = stripped_content.decode("utf-8")
     return result
 
 
