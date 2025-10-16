@@ -410,6 +410,49 @@ class TestParseMultipart(unittest.TestCase):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_parse_multipart_with_file())
 
+    async def async_test_parse_multipart_multiple_chunks(self):
+        """Test parsing multipart with multiple chunks (line 113->100)"""
+        boundary = b'----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        # Split the multipart body into multiple chunks
+        chunk1 = (
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="field1"\r\n'
+            b'\r\n'
+            b'value1\r\n'
+        )
+        chunk2 = (
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n'
+            b'Content-Disposition: form-data; name="field2"\r\n'
+            b'\r\n'
+            b'value2\r\n'
+            b'------WebKitFormBoundary7MA4YWxkTrZu0gW--'
+        )
+
+        chunks = [chunk1, chunk2]
+        chunk_index = {'current': 0}
+
+        async def receive():
+            idx = chunk_index['current']
+            chunk_index['current'] += 1
+            if idx < len(chunks):
+                return {
+                    'type': 'http.request',
+                    'body': chunks[idx],
+                    'more_body': idx < len(chunks) - 1  # True for all but last chunk
+                }
+            return {  # pragma: no cover
+                'type': 'http.request',
+                'body': b'',
+                'more_body': False
+            }
+
+        result = await parse_multipart(receive, boundary)
+        self.assertEqual(result, {'field1': 'value1', 'field2': 'value2'})
+
+    def test_parse_multipart_multiple_chunks(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_parse_multipart_multiple_chunks())
+
 
 class TestBytesResultHandling(unittest.TestCase):
     """Test handling of bytes results"""
@@ -742,6 +785,117 @@ class TestExceptionHandling(unittest.TestCase):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_generic_exception_during_produce())
 
+    async def async_test_special_response_exception_after_first_chunk(self):
+        """Test SpecialResponse exception after first chunk sent (line 237->240)"""
+        from mumulib.mumutypes import HTTPResponse
+        from mumulib.producers import add_producer
+
+        class DelayedSpecialResponseProducer:
+            pass
+
+        async def produce_then_special_response(thing, state):
+            """Producer that yields a chunk, then raises SpecialResponse"""
+            yield 'First chunk'
+            # After first chunk is sent, raise SpecialResponse
+            raise HTTPResponse(403, 'Delayed forbidden')
+
+        add_producer(DelayedSpecialResponseProducer, produce_then_special_response, '*/*')
+
+        try:
+            root = {'test': DelayedSpecialResponseProducer()}
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Should have sent the first chunk normally
+            self.assertEqual(sent_messages[0]['type'], 'http.response.start')
+            self.assertEqual(sent_messages[1]['body'], b'First chunk')
+
+            # Final body should contain the SpecialResponse leaf_object
+            final_body = sent_messages[-1]
+            self.assertEqual(final_body['type'], 'http.response.body')
+            self.assertIn(b'Delayed forbidden', final_body['body'])
+        finally:
+            # Clean up
+            from mumulib.producers import _producer_adapters
+            if '*/*' in _producer_adapters and DelayedSpecialResponseProducer in _producer_adapters['*/*']:  # pragma: no cover
+                del _producer_adapters['*/*'][DelayedSpecialResponseProducer]
+
+    def test_special_response_exception_after_first_chunk(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_special_response_exception_after_first_chunk())
+
+    async def async_test_generic_exception_after_first_chunk(self):
+        """Test generic exception after first chunk sent (line 243->250)"""
+        from mumulib.producers import add_producer
+
+        class DelayedExceptionProducer:
+            pass
+
+        async def produce_then_error(thing, state):
+            """Producer that yields a chunk, then raises generic exception"""
+            yield 'First chunk'
+            # After first chunk is sent, raise a generic exception
+            raise RuntimeError('Delayed error')
+
+        add_producer(DelayedExceptionProducer, produce_then_error, '*/*')
+
+        try:
+            root = {'test': DelayedExceptionProducer()}
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Should have sent the first chunk normally
+            self.assertEqual(sent_messages[0]['type'], 'http.response.start')
+            self.assertEqual(sent_messages[1]['body'], b'First chunk')
+
+            # Final body should contain the error as JSON
+            final_body = sent_messages[-1]
+            self.assertEqual(final_body['type'], 'http.response.body')
+            body_data = json.loads(final_body['body'].decode('utf-8'))
+            self.assertEqual(body_data['error'], 'Internal Server Error')
+            self.assertIn('Delayed error', body_data['message'])
+        finally:
+            # Clean up
+            from mumulib.producers import _producer_adapters
+            if '*/*' in _producer_adapters and DelayedExceptionProducer in _producer_adapters['*/*']:  # pragma: no cover
+                del _producer_adapters['*/*'][DelayedExceptionProducer]
+
+    def test_generic_exception_after_first_chunk(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_generic_exception_after_first_chunk())
+
 
 class TestSpecialResponseWithWriter(unittest.TestCase):
     """Test handling of SpecialResponse with writer callback in produce"""
@@ -846,6 +1000,79 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
     def test_special_response_with_writer(self):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_special_response_with_writer())
+
+    async def async_test_special_response_without_writer(self):
+        """Test that SpecialResponse without writer callback is handled correctly (line 211->226)"""
+        from mumulib.producers import add_producer
+        from mumulib.mumutypes import SpecialResponse
+
+        class NoWriterProducerObject:
+            """Object with a producer that yields SpecialResponse without writer"""
+            pass
+
+        async def produce_without_writer(thing, state):
+            """Producer that yields a SpecialResponse without writer callback"""
+            yield SpecialResponse(
+                {
+                    'type': 'http.response.start',
+                    'status': 200,
+                    'headers': [(b'content-type', b'text/plain')],
+                },
+                'Response without writer'
+            )
+            # No writer parameter, so chunk.writer will be None
+
+        try:
+            # Register the producer (type, producer_func, mimetype)
+            add_producer(NoWriterProducerObject, produce_without_writer, '*/*')
+
+            root = {'test': NoWriterProducerObject()}
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Verify the response includes the special response headers
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 200)
+            self.assertEqual(response_start['headers'], [(b'content-type', b'text/plain')])
+
+            # Verify the body was sent
+            response_body_1 = sent_messages[1]
+            self.assertEqual(response_body_1['type'], 'http.response.body')
+            self.assertEqual(response_body_1['body'], b'Response without writer')
+            self.assertTrue(response_body_1['more_body'])
+
+            # Final newline chunk
+            response_body_2 = sent_messages[2]
+            self.assertEqual(response_body_2['type'], 'http.response.body')
+            self.assertEqual(response_body_2['body'], b'\n')
+            self.assertFalse(response_body_2['more_body'])
+
+        finally:
+            # Clean up
+            from mumulib.producers import _producer_adapters
+            if '*/*' in _producer_adapters and NoWriterProducerObject in _producer_adapters['*/*']:  # pragma: no cover
+                del _producer_adapters['*/*'][NoWriterProducerObject]
+
+    def test_special_response_without_writer(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_special_response_without_writer())
 
 
 class TestUnknownContentType(unittest.TestCase):
