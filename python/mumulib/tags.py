@@ -1,4 +1,4 @@
-
+from typing import Any, AsyncIterator, IO
 
 from mumulib import producers
 
@@ -6,7 +6,7 @@ from lxml import etree
 
 
 # From MDN reference
-VOID_ELEMENTS = [
+VOID_ELEMENTS: list[str] = [
     'area',
     'base',
     'br',
@@ -23,15 +23,15 @@ VOID_ELEMENTS = [
 ]
 
 
-VOID_ELEMENTS_SET = set(VOID_ELEMENTS)
+VOID_ELEMENTS_SET: set[str] = set(VOID_ELEMENTS)
 
 
-MAIN_ROOT = [
+MAIN_ROOT: list[str] = [
     'html'
 ]
 
 
-DOCUMENT_METADATA = [
+DOCUMENT_METADATA: list[str] = [
     'base',
     'head',
     'link',
@@ -41,12 +41,12 @@ DOCUMENT_METADATA = [
 ]
 
 
-SECTIONING_ROOT = [
+SECTIONING_ROOT: list[str] = [
     'body'
 ]
 
 
-CONTENT_SECTIONING = [
+CONTENT_SECTIONING: list[str] = [
     'address',
     'article',
     'aside',
@@ -66,7 +66,7 @@ CONTENT_SECTIONING = [
 ]
 
 
-TEXT_CONTENT = [
+TEXT_CONTENT: list[str] = [
     'blockquote',
     'dd',
     'div',
@@ -84,7 +84,7 @@ TEXT_CONTENT = [
 ]
 
 
-INLINE_TEXT_SEMANTICS = [
+INLINE_TEXT_SEMANTICS: list[str] = [
     'a',
     'abbr',
     'b',
@@ -117,7 +117,7 @@ INLINE_TEXT_SEMANTICS = [
 ]
 
 
-IMAGE_AND_MULTIMEDIA = [
+IMAGE_AND_MULTIMEDIA: list[str] = [
     'area',
     'audio',
     'img',
@@ -127,7 +127,7 @@ IMAGE_AND_MULTIMEDIA = [
 ]
 
 
-EMBEDDED_CONTENT = [
+EMBEDDED_CONTENT: list[str] = [
     'embed',
     'fencedframe',
     'iframe',
@@ -137,26 +137,26 @@ EMBEDDED_CONTENT = [
 ]
 
 
-SVG_AND_MATHML = [
+SVG_AND_MATHML: list[str] = [
     'svg',
     'math'
 ]
 
 
-SCRIPTING = [
+SCRIPTING: list[str] = [
     'canvas',
     'noscript',
     'script'
 ]
 
 
-DEMARCATING_EDITS = [
+DEMARCATING_EDITS: list[str] = [
     'del',
     'ins'
 ]
 
 
-TABLE_CONTENT = [
+TABLE_CONTENT: list[str] = [
     'caption',
     'col',
     'colgroup',
@@ -170,7 +170,7 @@ TABLE_CONTENT = [
 ]
 
 
-FORMS = [
+FORMS: list[str] = [
     'button',
     'datalist',
     'fieldset',
@@ -188,7 +188,7 @@ FORMS = [
 ]
 
 
-INTERACTIVE_ELEMENTS = [
+INTERACTIVE_ELEMENTS: list[str] = [
     'details',
     'dialog',
     'menu',
@@ -196,16 +196,16 @@ INTERACTIVE_ELEMENTS = [
 ]
 
 
-WEB_COMPONENTS = [
+WEB_COMPONENTS: list[str] = [
     'slot',
     'template'
 ]
 
 
-ALL_ELEMENTS = MAIN_ROOT + DOCUMENT_METADATA + SECTIONING_ROOT + CONTENT_SECTIONING + TEXT_CONTENT + INLINE_TEXT_SEMANTICS + IMAGE_AND_MULTIMEDIA + EMBEDDED_CONTENT + SVG_AND_MATHML + SCRIPTING + DEMARCATING_EDITS + TABLE_CONTENT + FORMS + INTERACTIVE_ELEMENTS + WEB_COMPONENTS
+ALL_ELEMENTS: list[str] = MAIN_ROOT + DOCUMENT_METADATA + SECTIONING_ROOT + CONTENT_SECTIONING + TEXT_CONTENT + INLINE_TEXT_SEMANTICS + IMAGE_AND_MULTIMEDIA + EMBEDDED_CONTENT + SVG_AND_MATHML + SCRIPTING + DEMARCATING_EDITS + TABLE_CONTENT + FORMS + INTERACTIVE_ELEMENTS + WEB_COMPONENTS
 
 
-def reindent_tree(node, indent):
+def reindent_tree(node: 'Stan', indent: int) -> None:
     node.indent = indent
     for child in node.children:
         if isinstance(child, Stan):
@@ -213,14 +213,14 @@ def reindent_tree(node, indent):
 
 
 class Stan(object):
-    def __init__(self, tagname, indent, *args, **kwargs):
-        self.clone = False
-        self.tagname = tagname
-        self.indent = indent
-        self.attributes = dict(kwargs)
-        self.children = list(args)
+    def __init__(self, tagname: str, indent: int, *args: Any, **kwargs: Any) -> None:
+        self.clone: bool = False
+        self.tagname: str = tagname
+        self.indent: int = indent
+        self.attributes: dict[str, Any] = dict(kwargs)
+        self.children: list[Any] = list(args)
 
-    def __call__(self, **kwargs):
+    def __call__(self, **kwargs: Any) -> 'Stan':
         if self.clone:
             self = self.copy()
         if 'indent' in kwargs:
@@ -228,7 +228,7 @@ class Stan(object):
         self.attributes = self.attributes | kwargs
         return self
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Any) -> 'Stan':
         if self.clone:
             self = self.copy()
         if isinstance(item, list):
@@ -242,7 +242,7 @@ class Stan(object):
             self.children.append(item)
         return self
 
-    def copy(self):
+    def copy(self) -> 'Stan':
         children = [
             getattr(child, 'copy', lambda: child)()
             for child in self.children]
@@ -253,7 +253,7 @@ class Stan(object):
             self.tagname, 0, *children, **attributes)
         return result
 
-    def clone_pat(self, patname, **slots):
+    def clone_pat(self, patname: str, **slots: Any) -> 'Stan | None':
         if self.attributes.get("data-pat") == patname:
             copy = self.copy()
             reindent_tree(copy, 0)
@@ -266,8 +266,9 @@ class Stan(object):
                 result = child.clone_pat(patname, **slots)
                 if result:
                     return result
+        return None
 
-    def clear_slots(self, slotname):
+    def clear_slots(self, slotname: str) -> None:
         for child in self.children:
             if not isinstance(child, Stan):
                 continue
@@ -276,7 +277,7 @@ class Stan(object):
                 continue
             child.children = []
 
-    def fill_slots(self, slotname, value):
+    def fill_slots(self, slotname: str, value: Any) -> None:
         for i, child in enumerate(self.children):
             if not isinstance(child, Stan):
                 continue
@@ -309,7 +310,7 @@ class Stan(object):
             else:
                 child.children = [value]
 
-    def append_slots(self, slotname, value):
+    def append_slots(self, slotname: str, value: Any) -> None:
         for child in self.children:
             if not isinstance(child, Stan):
                 continue
@@ -336,7 +337,7 @@ class Stan(object):
             else:
                 child.children.append(value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         result = f"all.{self.tagname}"
         if self.attributes:
             result += "("
@@ -356,7 +357,7 @@ class Stan(object):
 
 
 class TagGroup(object):
-    def __init__(self, *tags):
+    def __init__(self, *tags: str) -> None:
         for tag in tags:
             newtag = Stan(tag, 0)
             newtag.clone = True
@@ -381,7 +382,7 @@ web_components = TagGroup(*WEB_COMPONENTS)
 all = TagGroup(*ALL_ELEMENTS)
 
 
-def parse_template(source):
+def parse_template(source: IO[bytes]) -> Stan | None:
     context = etree.iterparse(
         source, events=("start", "end"), html=True, encoding="UTF-8")
 
@@ -421,20 +422,25 @@ def parse_template(source):
 
 
 class Template(object):
-    def __init__(self, filename):
-        self.filename = filename
-        self.loaded = False
+    def __init__(self, filename: str) -> None:
+        self.filename: str = filename
+        self.loaded: bool = False
+        self.template: Stan | None = None
+        self.root: Stan | None = None
 
-    def load(self):
+    def load(self) -> 'Template':
         self.loaded = True
         self.template = parse_template(open(self.filename, 'rb'))
-        self.root = self.template.copy()
+        if self.template:
+            self.root = self.template.copy()
         return self
 
-    def clone_pat(self, patname, **slots):
+    def clone_pat(self, patname: str, **slots: Any) -> Stan:
         if not self.loaded:
             self.load()
         current = self.template
+        if not current:
+            raise ValueError("Template failed to load")
         for child in current.children:
             if not isinstance(child, Stan):
                 continue
@@ -457,35 +463,38 @@ class Template(object):
         else:
             raise ValueError(f"Pattern {patname} not found in template.")
 
-    def fill_slots(self, slotname, value):
+    def fill_slots(self, slotname: str, value: Any) -> None:
         if not self.loaded:
             self.load()
-        self.root.fill_slots(slotname, value)
+        if self.root:
+            self.root.fill_slots(slotname, value)
 
-    def clear_slots(self, slotname):
+    def clear_slots(self, slotname: str) -> None:
         if not self.loaded:
             self.load()
-        self.root.clear_slots(slotname)
+        if self.root:
+            self.root.clear_slots(slotname)
 
-    def append_slots(self, slotname, value):
+    def append_slots(self, slotname: str, value: Any) -> None:
         if not self.loaded:
             self.load()
-        self.root.append_slots(slotname, value)
+        if self.root:
+            self.root.append_slots(slotname, value)
 
 
-def clear_slots(node, slotname):
+def clear_slots(node: Stan, slotname: str) -> None:
     return node.clear_slots(slotname)
 
 
-def fill_slots(node, slotname, value):
+def fill_slots(node: Stan, slotname: str, value: Any) -> None:
     return node.fill_slots(slotname, value)
 
 
-def append_slots(node, slotname, value):
+def append_slots(node: Stan, slotname: str, value: Any) -> None:
     return node.append_slots(slotname, value)
 
 
-async def produce_html(thing, state):
+async def produce_html(thing: Stan, state: Any) -> AsyncIterator[str]:
     indent = "    " * thing.indent
     yield f"{indent}<{thing.tagname}"
     if thing.attributes:
