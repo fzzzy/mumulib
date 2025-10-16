@@ -24,7 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-from io import TextIOWrapper
+from io import TextIOWrapper, BufferedReader
 import aiofiles
 import json
 import mimetypes
@@ -83,6 +83,7 @@ async def produce_file(thing: TextIOWrapper, state: Dict[str, Any]) -> AsyncGene
         'headers': [(b'content-type', (content_type[0] or 'application/octet-stream').encode("utf8") + charset)],
     }, content)
 add_producer(TextIOWrapper, produce_file)
+add_producer(BufferedReader, produce_file)
 
 
 async def produce_json(thing: Any, state: Dict[str, Any]) -> AsyncGenerator[str, None]:

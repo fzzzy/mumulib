@@ -33,7 +33,21 @@ clean:
 
 
 test: mumulib-venv
-	. mumulib-venv/bin/activate && python3 -m unittest discover -s python/mumulib -p "*_test.py" -v
+	@echo "Running tests with coverage..."
+	@. mumulib-venv/bin/activate && cd python/mumulib && \
+		rm -f .coverage .coverage.* && \
+		python consumers_test.py > /dev/null 2>&1 && \
+		mv .coverage .coverage.consumers && \
+		python shaped_test.py > /dev/null 2>&1 && \
+		mv .coverage .coverage.shaped && \
+		python mumutypes_test.py > /dev/null 2>&1 && \
+		mv .coverage .coverage.mumutypes && \
+		python producers_test.py > /dev/null 2>&1 && \
+		mv .coverage .coverage.producers && \
+		coverage combine .coverage.* && \
+		echo "" && \
+		echo "=== Combined Coverage Report ===" && \
+		coverage report -m
 
 
 mypy: mumulib-venv
