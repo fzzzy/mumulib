@@ -448,6 +448,67 @@ class TestBytesResultHandling(unittest.TestCase):
         asyncio.run(self.async_test_bytes_result())
 
 
+class TestExceptionHandling(unittest.TestCase):
+    """Test exception handling during routing and processing"""
+
+    async def async_test_exception_during_consume(self):
+        """Test that exceptions during consume are caught and return 500"""
+        # Create a broken consumer that raises an exception
+        class BrokenObject:
+            pass
+
+        # Register a consumer that will raise an exception
+        from mumulib.consumers import add_consumer
+
+        async def broken_consumer(parent, segments, state, send):
+            raise RuntimeError("Intentional error during consume")
+
+        # Temporarily register the broken consumer
+        add_consumer(BrokenObject, broken_consumer)
+
+        try:
+            # Use BrokenObject as the root so it gets consumed directly
+            root = BrokenObject()
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/anything',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Should get 500 Internal Server Error
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 500)
+
+            # Check error message
+            response_body = sent_messages[1]
+            body_data = json.loads(response_body['body'].decode('utf-8'))
+            self.assertEqual(body_data['error'], 'Internal Server Error')
+            self.assertIn('Intentional error', body_data['message'])
+        finally:
+            # Clean up - remove the broken consumer
+            from mumulib.consumers import _consumer_adapters
+            if BrokenObject in _consumer_adapters:
+                del _consumer_adapters[BrokenObject]
+
+    def test_exception_during_consume(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_exception_during_consume())
+
+
 class TestUnknownContentType(unittest.TestCase):
     """Test handling of unknown content types"""
 
