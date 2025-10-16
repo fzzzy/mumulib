@@ -564,6 +564,112 @@ class TestExceptionHandling(unittest.TestCase):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_special_response_result())
 
+    async def async_test_special_response_exception_during_produce(self):
+        """Test that SpecialResponse raised as exception during produce is handled"""
+        from mumulib.mumutypes import HTTPResponse
+        from mumulib.producers import add_producer
+
+        # Create an object with a producer that raises SpecialResponse
+        class ProducerObject:
+            async def __aiter__(self):
+                # Raise SpecialResponse as exception during iteration
+                raise HTTPResponse(403, 'Forbidden by producer')
+                yield  # pragma: no cover
+
+        add_producer(ProducerObject, lambda obj, state: obj, '*/*')
+
+        try:
+            root = {'test': ProducerObject()}
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Should get the special response
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 403)
+
+            # Check body contains the leaf object
+            response_body = sent_messages[1]
+            self.assertIn(b'Forbidden by producer', response_body['body'])
+        finally:
+            # Clean up
+            from mumulib.producers import _producer_adapters
+            if '*/*' in _producer_adapters and ProducerObject in _producer_adapters['*/*']:
+                del _producer_adapters['*/*'][ProducerObject]
+
+    def test_special_response_exception_during_produce(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_special_response_exception_during_produce())
+
+    async def async_test_generic_exception_during_produce(self):
+        """Test that generic exception during produce returns 500"""
+        from mumulib.producers import add_producer
+
+        # Create an object with a producer that raises an exception
+        class BrokenProducer:
+            async def __aiter__(self):
+                raise RuntimeError("Producer error during iteration")
+                yield  # pragma: no cover
+
+        add_producer(BrokenProducer, lambda obj, state: obj, '*/*')
+
+        try:
+            root = {'test': BrokenProducer()}
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Should get 500 error
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 500)
+
+            # Check error message
+            response_body = sent_messages[1]
+            body_data = json.loads(response_body['body'].decode('utf-8'))
+            self.assertEqual(body_data['error'], 'Internal Server Error')
+            self.assertIn('Producer error', body_data['message'])
+        finally:
+            # Clean up
+            from mumulib.producers import _producer_adapters
+            if '*/*' in _producer_adapters and BrokenProducer in _producer_adapters['*/*']:
+                del _producer_adapters['*/*'][BrokenProducer]
+
+    def test_generic_exception_during_produce(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_generic_exception_during_produce())
+
 
 class TestUnknownContentType(unittest.TestCase):
     """Test handling of unknown content types"""
