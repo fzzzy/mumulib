@@ -26,10 +26,11 @@ THE SOFTWARE.
 
 
 import traceback
+from typing import Any, Callable
 
 
-CONTAINER_TYPES = [dict, list, tuple]
-SCALAR_TYPES = [int, float, str, bool]
+CONTAINER_TYPES: list[type] = [dict, list, tuple]
+SCALAR_TYPES: list[type] = [int, float, str, bool]
 
 
 class ShapeMismatch(Exception):
@@ -52,7 +53,7 @@ class PredicateMismatch(ShapeMismatch):
     pass
 
 
-def is_shaped(thing, shape):
+def is_shaped(thing: Any, shape: Any) -> bool:
     """Check if `thing` matches the given `shape` without raising exceptions.
 
     This function validates that `thing` has the structure and types defined
@@ -69,7 +70,7 @@ def is_shaped(thing, shape):
         return False
 
 
-def _is_shaped_exc(thing, shape):
+def _is_shaped_exc(thing: Any, shape: Any) -> None:
     if type(shape) in CONTAINER_TYPES:
         shape_type = type(shape)
 
@@ -122,7 +123,7 @@ class HeterogenousList(MalformedShape):
     pass
 
 
-def make_shape(what):
+def make_shape(what: Any) -> dict[str, Any] | list[Any] | tuple[Any, ...] | type | Callable[[Any], None]:
     """Infer a shape definition from the given object.
 
     This function inspects `what` and constructs a shape that represents
@@ -164,11 +165,11 @@ def make_shape(what):
         return type(what)
 
 
-def anything(item):
+def anything(item: Any) -> None:
     raise NotImplementedError # pragma: no cover
 
 
-def _would_retain_shape_exc(shape, data, segs, leaf):
+def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -> None:
     # If no more segments, we should validate leaf against shape
     if not segs:
         _is_shaped_exc(leaf, shape)
@@ -242,7 +243,7 @@ def _would_retain_shape_exc(shape, data, segs, leaf):
         # it means the data is deeper than the shape. This should fail.
         raise ShapeMismatch(f"Extra segments {segs} not supported by shape {shape}") # TODO
 
-def would_retain_shape(shape, data, segs, leaf, debug=False):
+def would_retain_shape(shape: Any, data: Any, segs: list[str], leaf: Any, debug: bool = False) -> bool:
     """
     Check if inserting `leaf` at the path described by `segs` in `data` would still
     produce a structure matching `shape`.
