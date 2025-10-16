@@ -508,7 +508,7 @@ class TestExceptionHandling(unittest.TestCase):
         finally:
             # Clean up - remove the broken consumer
             from mumulib.consumers import _consumer_adapters
-            if BrokenObject in _consumer_adapters:
+            if BrokenObject in _consumer_adapters:  # pragma: no cover
                 del _consumer_adapters[BrokenObject]
 
     def test_exception_during_consume(self):
@@ -564,7 +564,7 @@ class TestExceptionHandling(unittest.TestCase):
         finally:
             # Clean up
             from mumulib.consumers import _consumer_adapters
-            if CustomResponseObject in _consumer_adapters:
+            if CustomResponseObject in _consumer_adapters:  # pragma: no cover
                 del _consumer_adapters[CustomResponseObject]
 
     def test_special_response_result(self):
@@ -617,7 +617,7 @@ class TestExceptionHandling(unittest.TestCase):
         finally:
             # Clean up
             from mumulib.producers import _producer_adapters
-            if '*/*' in _producer_adapters and ProducerObject in _producer_adapters['*/*']:
+            if '*/*' in _producer_adapters and ProducerObject in _producer_adapters['*/*']:  # pragma: no cover
                 del _producer_adapters['*/*'][ProducerObject]
 
     def test_special_response_exception_during_produce(self):
@@ -670,7 +670,7 @@ class TestExceptionHandling(unittest.TestCase):
         finally:
             # Clean up
             from mumulib.producers import _producer_adapters
-            if '*/*' in _producer_adapters and BrokenProducer in _producer_adapters['*/*']:
+            if '*/*' in _producer_adapters and BrokenProducer in _producer_adapters['*/*']:  # pragma: no cover
                 del _producer_adapters['*/*'][BrokenProducer]
 
     def test_generic_exception_during_produce(self):
@@ -760,7 +760,7 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
         finally:
             # Clean up
             from mumulib.producers import _producer_adapters
-            if '*/*' in _producer_adapters and WriterProducerObject in _producer_adapters['*/*']:
+            if '*/*' in _producer_adapters and WriterProducerObject in _producer_adapters['*/*']:  # pragma: no cover
                 del _producer_adapters['*/*'][WriterProducerObject]
 
     def test_special_response_with_writer(self):
