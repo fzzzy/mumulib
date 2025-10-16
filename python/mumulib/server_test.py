@@ -258,7 +258,7 @@ class TestConsumersAppRouting(unittest.TestCase):
             sent_messages.append(message)
 
         async def receive():
-            return {'type': 'http.request', 'body': b'', 'more_body': False}
+            return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
 
         scope = {
             'type': 'http',
@@ -290,7 +290,7 @@ class TestConsumersAppRouting(unittest.TestCase):
             sent_messages.append(message)
 
         async def receive():
-            return {'type': 'http.request', 'body': b'', 'more_body': False}
+            return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
 
         scope = {
             'type': 'http',
