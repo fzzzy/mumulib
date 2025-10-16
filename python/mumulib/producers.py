@@ -65,15 +65,18 @@ async def produce(thing: Any, state: Dict[str, Any]) -> AsyncGenerator[str, None
 
 
 async def produce_file(thing: TextIOWrapper, state: Dict[str, Any]) -> AsyncGenerator[mumutypes.SpecialResponse, None]:
-    content_type = mimetypes.guess_type(thing.name)
-    read_mode = 'r'
+    filename = str(thing.name)
+    content_type = mimetypes.guess_type(filename)
+
+    content: str | bytes
     if content_type[0] == "font/ttf":
-        read_mode = 'rb'
-    async with aiofiles.open(thing.name, read_mode) as newthing:
-        content = await newthing.read()
-    charset = b'; charset=UTF-8'
-    if read_mode == 'rb':
+        async with aiofiles.open(filename, 'rb') as newthing:
+            content = await newthing.read()
         charset = b''
+    else:
+        async with aiofiles.open(filename, 'r') as newthing:
+            content = await newthing.read()
+        charset = b'; charset=UTF-8'
     yield mumutypes.SpecialResponse({
         'type': 'http.response.start',
         'status': 200,
