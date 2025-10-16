@@ -571,6 +571,71 @@ class TestExceptionHandling(unittest.TestCase):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_special_response_result())
 
+    async def async_test_special_response_with_non_string_leaf(self):
+        """Test that SpecialResponse with non-string/non-bytes leaf_object is handled (line 258)"""
+        from mumulib.mumutypes import SpecialResponse
+
+        # Create a custom object that returns a SpecialResponse with dict leaf_object
+        class DictResponseObject:
+            pass
+
+        from mumulib.consumers import add_consumer
+
+        async def dict_consumer(parent, segments, state, send):
+            # Return a SpecialResponse with a dict as leaf_object
+            return SpecialResponse(
+                {
+                    'type': 'http.response.start',
+                    'status': 200,
+                    'headers': [(b'content-type', b'text/plain')],
+                },
+                {'status': 'ok', 'count': 42}  # dict leaf_object
+            )
+
+        add_consumer(DictResponseObject, dict_consumer)
+
+        try:
+            root = DictResponseObject()
+            app = consumers_app(root)
+
+            sent_messages = []
+            async def send(message):
+                sent_messages.append(message)
+
+            async def receive():
+                return {'type': 'http.request', 'body': b'', 'more_body': False}  # pragma: no cover
+
+            scope = {
+                'type': 'http',
+                'method': 'GET',
+                'path': '/test',
+                'headers': [],
+                'state': {}
+            }
+
+            await app(scope, receive, send)
+
+            # Should get the custom response
+            response_start = sent_messages[0]
+            self.assertEqual(response_start['type'], 'http.response.start')
+            self.assertEqual(response_start['status'], 200)
+
+            # Check body - dict should be converted to string
+            response_body = sent_messages[1]
+            self.assertEqual(response_body['type'], 'http.response.body')
+            # The dict gets str() applied, which gives something like "{'status': 'ok', 'count': 42}"
+            self.assertIn(b'status', response_body['body'])
+            self.assertIn(b'ok', response_body['body'])
+        finally:
+            # Clean up
+            from mumulib.consumers import _consumer_adapters
+            if DictResponseObject in _consumer_adapters:  # pragma: no cover
+                del _consumer_adapters[DictResponseObject]
+
+    def test_special_response_with_non_string_leaf(self):
+        """Wrapper to run async test"""
+        asyncio.run(self.async_test_special_response_with_non_string_leaf())
+
     async def async_test_special_response_exception_during_produce(self):
         """Test that SpecialResponse raised as exception during produce is handled"""
         from mumulib.mumutypes import HTTPResponse
