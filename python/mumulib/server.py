@@ -216,16 +216,20 @@ def consumers_app(root: Any) -> Callable:
                                 'status': 200,
                                 'headers': [(b'content-type', content_type.encode('utf8'))],
                             })
+                            # Handle both str and bytes chunks
+                            chunk_bytes = chunk if isinstance(chunk, bytes) else str(chunk).encode('utf8')
                             await send({
                                 'type': 'http.response.body',
-                                'body': str(chunk).encode('utf8'),
+                                'body': chunk_bytes,
                                 'more_body': True,
                             })
                         first_chunk = False
                     else:
+                        # Handle both str and bytes chunks
+                        chunk_bytes = chunk if isinstance(chunk, bytes) else str(chunk).encode('utf8')
                         await send({
                             'type': 'http.response.body',
-                            'body': str(chunk).encode('utf8'),
+                            'body': chunk_bytes,
                             'more_body': True,
                         })
                 result = "\n"

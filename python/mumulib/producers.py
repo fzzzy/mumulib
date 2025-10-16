@@ -90,11 +90,19 @@ async def produce_json(thing: Any, state: Dict[str, Any]) -> AsyncGenerator[str,
     yield json.dumps(thing, default=custom_serializer)
 
 
+async def produce_bytes(thing: bytes, state: Dict[str, Any]) -> AsyncGenerator[bytes, None]:
+    """Producer for bytes that yields them directly as binary data"""
+    yield thing
+
+
 JSON_TYPES = [
-    dict, list, tuple, str, bytes, int, float,
+    dict, list, tuple, str, int, float,
     bool, MappingProxyType, type(None)]
 
 
 for typ in JSON_TYPES:
     add_producer(typ, produce_json, 'application/json')
+
+# Add bytes producer for binary data (using */* to match all content types)
+add_producer(bytes, produce_bytes)
 

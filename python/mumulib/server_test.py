@@ -437,11 +437,18 @@ class TestBytesResultHandling(unittest.TestCase):
         await app(scope, receive, send)
 
         # Check that we got a response
-        self.assertGreater(len(sent_messages), 0)
-        response_body = sent_messages[-1]
-        self.assertEqual(response_body['type'], 'http.response.body')
-        # The bytes result should be in the body
-        self.assertIn(b'binary data here', response_body['body'])
+        self.assertGreater(len(sent_messages), 1)
+
+        # The first message should be http.response.start
+        self.assertEqual(sent_messages[0]['type'], 'http.response.start')
+
+        # The bytes result should be in one of the body messages
+        body_messages = [msg for msg in sent_messages if msg['type'] == 'http.response.body']
+        self.assertGreater(len(body_messages), 0)
+
+        # Find the message with our binary data
+        found = any(b'binary data here' in msg['body'] for msg in body_messages)
+        self.assertTrue(found, f"Binary data not found in body messages: {body_messages}")
 
     def test_bytes_result(self):
         """Wrapper to run async test"""
