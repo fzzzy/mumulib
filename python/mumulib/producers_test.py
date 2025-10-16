@@ -1,21 +1,21 @@
 
-import coverage # pragma: no cover
+import coverage  # pragma: no cover
 
-cov = coverage.Coverage(branch=True) # pragma: no cover
-cov.start() # pragma: no cover
+cov = coverage.Coverage(branch=True)  # pragma: no cover
+cov.start()  # pragma: no cover
 
-import unittest # pragma: no cover
-import asyncio # pragma: no cover
+import unittest  # pragma: no cover
+import asyncio  # pragma: no cover
 
-from mumulib.producers import ( # pragma: no cover
+from mumulib.producers import (  # pragma: no cover
     add_producer,
     produce,
     custom_serializer,
     produce_json,
     produce_file
 )
-from types import MappingProxyType # pragma: no cover
-from mumulib import mumutypes # pragma: no cover
+from types import MappingProxyType  # pragma: no cover
+from mumulib import mumutypes  # pragma: no cover
 
 
 class TestCustomSerializer(unittest.TestCase):
@@ -412,10 +412,10 @@ class TestProduceFile(unittest.TestCase):
         asyncio.run(self.async_test_produce_ttf_file())
 
 
-if __name__ == "__main__": # pragma: no cover
-    unittest.main(exit=False) # pragma: no cover
-    cov.stop() # pragma: no cover
-    cov.save() # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
+    unittest.main(exit=False)  # pragma: no cover
+    cov.stop()  # pragma: no cover
+    cov.save()  # pragma: no cover
 
     # Print coverage report to the terminal
-    cov.report(show_missing=True) # pragma: no cover
+    cov.report(show_missing=True)  # pragma: no cover
