@@ -1,6 +1,6 @@
 
 
-.PHONY: all build serve clean test mypy lint python-sync mumulib-venv tags
+.PHONY: all build serve clean test mypy lint dist python-sync mumulib-venv tags
 
 
 all: node_modules build serve
@@ -23,11 +23,11 @@ node_modules: package.json package-lock.json
 
 
 dist: node_modules
-	node esbuild.js
+	node esbuild.mjs
 
 
 serve:
-	node esbuild.js --serve
+	node esbuild.mjs --serve
 
 
 clean:

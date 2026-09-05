@@ -7,18 +7,28 @@
     "README.md",
     "LICENSE"
   ],
-  "main": "dist/src/cjs/index.js",
-  "module": "dist/src/esm/index.js",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/browser/src/index.mjs",
   "types": "dist/types/index.d.ts",
   "exports": {
-    "types": "./dist/types/index.d.ts",
-    "default": "./dist/esm/src/index.js",
-    "import": "./dist/esm/src/index.js",
-    "require": "./dist/cjs/src/index.js"
+    "browser": {
+      "types": "./dist/esm/types/index.d.ts",
+      "default": "./dist/browser/src/index.mjs"
+    },
+    "import": {
+      "types": "./dist/esm/types/index.d.ts",
+      "default": "./dist/esm/index.mjs"
+    },
+    "require": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/cjs/index.cjs"
+    },
+    "default": "./dist/browser/src/index.mjs"
   },
   "type": "commonjs",
   "scripts": {
-    "start": "make"
+    "start": "node esbuild.mjs --serve",
+    "build": "node esbuild.mjs"
   },
   "keywords": [
     "html templating",
@@ -35,14 +45,14 @@
     "@types/morphdom": "^2.3.0",
     "@types/node": "^22.8.6",
     "@types/object-path": "^0.11.4",
-    "chokidar": "^3.5.3",
-    "esbuild": "^0.19.12",
-    "typescript": "^5.7.2",
-    "playwright": "^1.49.1"
+    "chokidar": "^5.0.0",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.49.1",
+    "typescript": "^5.7.2"
   },
   "dependencies": {
+    "domino": "^2.1.6",
     "morphdom": "^2.7.2",
-    "object-path": "^0.11.8",
-    "domino": "^2.1.6"
+    "object-path": "^0.11.8"
   }
 }

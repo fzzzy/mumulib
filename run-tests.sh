@@ -3,7 +3,7 @@
 # Start the development server in the background
 echo "Starting development server..."
 cd /workspaces/mumulib
-node esbuild.js --serve &
+node esbuild.mjs --serve &
 SERVER_PID=$!
 
 # Wait for server to start

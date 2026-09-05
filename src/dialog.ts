@@ -18,7 +18,7 @@
 
 import { set, get } from "object-path";
 import morphdom from "morphdom";
-import { set_state, state } from "./state";
+import { set_state, state } from "./state.js";
 
 type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 
