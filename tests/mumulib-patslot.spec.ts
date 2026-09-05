@@ -7,7 +7,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   });
 
   test('should handle basic pattern slots', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_patslot/');
+    await page.goto('examples/use_patslot/');
     
     await page.waitForSelector('dl[data-pat="person"]');
     
@@ -33,7 +33,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   });
 
   test('should handle pattern slot filling', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_patslot_fill/');
+    await page.goto('examples/use_patslot_fill/');
     
     await page.waitForSelector('dl[data-attr="style=color"]');
     
@@ -55,7 +55,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   });
 
   test('should handle pattern slot templates', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_patslot_template/');
+    await page.goto('examples/use_patslot_template/');
     
     await page.waitForSelector('dl[data-pat="person"]');
     
@@ -81,7 +81,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   });
 
   test('should handle nested pattern slots', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_patslot_nested/');
+    await page.goto('examples/use_patslot_nested/');
     
     await page.waitForSelector('ol[data-slot="towns"]');
     
@@ -104,7 +104,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   });
 
   test('should handle nodes that are both patterns and slots', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_patslot_pattern_and_slot_node/');
+    await page.goto('examples/use_patslot_pattern_and_slot_node/');
 
     await page.waitForTimeout(1000);
 

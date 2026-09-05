@@ -7,7 +7,7 @@ test.describe('Mumulib Dialog Tests', () => {
   });
 
   test('should handle dialog interactions', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_dialog/');
+    await page.goto('examples/use_dialog/');
     
     await page.waitForSelector('dialog[id="my_dialog"]');
     await page.fill('input[name="name"]', 'askdjhfajks');

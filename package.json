@@ -28,7 +28,10 @@
   "type": "commonjs",
   "scripts": {
     "start": "node esbuild.mjs --serve",
-    "build": "node esbuild.mjs"
+    "build": "node esbuild.mjs",
+    "test": "npm run build && playwright test",
+    "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
+    "test:browser": "playwright test"
   },
   "keywords": [
     "html templating",

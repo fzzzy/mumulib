@@ -7,7 +7,7 @@ test.describe('Mumulib State Tests', () => {
   });
 
   test('should handle basic state values', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_state/');
+    await page.goto('examples/use_state/');
     await page.waitForSelector('div');
     
     const divContents = await page.$$eval('div', (divs: HTMLDivElement[]) => 
@@ -26,7 +26,7 @@ test.describe('Mumulib State Tests', () => {
   });
 
   test('should handle input state changes', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_state_input/');
+    await page.goto('examples/use_state_input/');
     
     await page.waitForSelector('input[name="this.name"]');
     await page.fill('input[name="this.name"]', 'sdfgfggh');
@@ -55,7 +55,7 @@ test.describe('Mumulib State Tests', () => {
   });
 
   test('should handle select and textarea state changes', async ({ page }) => {
-    await page.goto('http://127.0.0.1:8000/examples/use_state_select_textarea/');
+    await page.goto('examples/use_state_select_textarea/');
     
     await page.waitForSelector('select[name="this.option"]');
     await page.selectOption('select[name="this.option"]', 'hello');
@@ -84,7 +84,7 @@ test.describe('Mumulib State Tests', () => {
   });
 
   test('should handle selected state updates', async ({ page }) => {
-    await page.goto('http://127.0.0.1:8000/examples/use_state_selected/');
+    await page.goto('examples/use_state_selected/');
 
     await page.waitForSelector('input[value="person1"]');
     await page.click('input[value="person1"]');
@@ -111,7 +111,7 @@ test.describe('Mumulib State Tests', () => {
   });
 
   test('should handle automatic state updates', async ({ page }) => {
-    await page.goto('http://127.0.0.1:8000/examples/use_state_update/');
+    await page.goto('examples/use_state_update/');
     
     await page.waitForSelector('input[name="this.number"]');
     
@@ -137,7 +137,7 @@ test.describe('Mumulib State Tests', () => {
   });
 
   test('should handle selected state with automatic updates', async ({ page }) => {
-    await page.goto('http://localhost:8000/examples/use_state_selected_update/');
+    await page.goto('examples/use_state_selected_update/');
 
     await page.waitForSelector('input[value="person1"]');
     await page.click('input[value="person1"]');
