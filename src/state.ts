@@ -147,7 +147,7 @@ function possibly_changed(e: Event) {
   }
   let name = target.name;
   let value = target.value;
-  if (initialValues[name] === value) {
+  if (name !== "selected" && initialValues[name] === value) {
     return;
   }
   //console.log('Input event fired:', e.target.name, e.target.value);
@@ -240,5 +240,4 @@ async function update_dom_state(state: State) {
 
 export { onstate, set_state, set_path, state, debug };
 export type { State, OnStateChange };
-
 

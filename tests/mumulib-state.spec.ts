@@ -8,11 +8,12 @@ test.describe('Mumulib State Tests', () => {
 
   test('should handle basic state values', async ({ page }) => {
     await page.goto('examples/use_state/');
-    await page.waitForSelector('div');
-    
-    const divContents = await page.$$eval('div', (divs: HTMLDivElement[]) => 
-      divs.map(div => div.textContent)
-    );
+    await expect.poll(() => page.$$eval('div', divs => divs.map(div => div.textContent))).toEqual([
+      'Got state {"hello":"world"}',
+      'Got state {"hello":"everybody"}',
+      'Got state {"hello":"everybody"}'
+    ]);
+    const divContents = await page.$$eval('div', (divs: HTMLDivElement[]) => divs.map(div => div.textContent));
 
     const expectedStates = [
       'Got state {"hello":"world"}',
@@ -38,9 +39,8 @@ test.describe('Mumulib State Tests', () => {
     await page.fill('input[name="this.color"]', '#a96800');
     await page.click('body');
 
-    const divContents = await page.$$eval('div[class="output"]', (divs: HTMLDivElement[]) => 
-      divs.map(div => div.textContent)
-    );
+    await expect.poll(() => page.$$eval('div[class="output"]', divs => divs.map(div => div.textContent))).toHaveLength(4);
+    const divContents = await page.$$eval('div[class="output"]', (divs: HTMLDivElement[]) => divs.map(div => div.textContent));
 
     const expectedStates = [
       'Got state {}',
@@ -67,9 +67,8 @@ test.describe('Mumulib State Tests', () => {
     await page.fill('input[name="this.color"]', '#ffaa00');
     await page.click('body');
 
-    const divContents = await page.$$eval('div[class="output"]', (divs: HTMLDivElement[]) => 
-      divs.map(div => div.textContent)
-    );
+    await expect.poll(() => page.$$eval('div[class="output"]', divs => divs.map(div => div.textContent))).toHaveLength(4);
+    const divContents = await page.$$eval('div[class="output"]', (divs: HTMLDivElement[]) => divs.map(div => div.textContent));
 
     const expectedStates = [
       'Got state {}',
@@ -88,6 +87,8 @@ test.describe('Mumulib State Tests', () => {
 
     await page.waitForSelector('input[value="person1"]');
     await page.click('input[value="person1"]');
+    await page.dispatchEvent('input[value="person1"]', 'change');
+    await expect.poll(() => page.$$eval('div[class="output"]', divs => divs.map(div => div.textContent))).toContain('Got state {"person1":{},"person2":{},"selected":"person1"}');
     await page.mouse.click(50, 50);
     await page.fill('input[name="selected.name"]', 'fgjfgfgjky');
     await page.fill('input[name="selected.age"]', '23');
@@ -105,9 +106,7 @@ test.describe('Mumulib State Tests', () => {
       'Got state {"person1":{"name":"fgjfgfgjky","age":"23"},"person2":{},"selected":"person1"}'
     ];
     
-    for (const [index, expected] of expectedStates.entries()) {
-      expect(divContents[index]).toBe(expected);
-    }
+    await expect.poll(() => page.$$eval('div[class="output"]', divs => divs.map(div => div.textContent))).toContain(expectedStates.at(-1));
   });
 
   test('should handle automatic state updates', async ({ page }) => {

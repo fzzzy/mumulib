@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: latest
+          enable-cache: true
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: uv sync --project python --extra dev --locked
+      - run: npm run build
+      - run: npm run test:unit
+      - run: npm run test:browser
+      - run: make test
+      - run: make mypy
+      - run: make lint
