@@ -1,6 +1,6 @@
 
 
-.PHONY: all build serve clean test mypy lint
+.PHONY: all build serve clean test mypy lint python-sync mumulib-venv tags
 
 
 all: node_modules build serve
@@ -10,14 +10,16 @@ all: node_modules build serve
 build: mumulib-venv dist
 
 
-mumulib-venv:
-	uv venv mumulib-venv
-	uv pip install --python mumulib-venv -e "python[dev]"
+# Keep the old target as an alias for callers; uv owns python/.venv.
+mumulib-venv: python-sync
+
+python-sync:
+	uv sync --project python --extra dev --locked
 
 
-
-node_modules:
-	npm install
+node_modules: package.json package-lock.json
+	npm ci
+	touch node_modules
 
 
 dist: node_modules
@@ -29,38 +31,38 @@ serve:
 
 
 clean:
-	rm -rf node_modules && rm -rf mumulib-venv && rm -rf dist && rm -rf python/mumulib/__pycache__
+	rm -rf node_modules && rm -rf mumulib-venv python/.venv && rm -rf dist && rm -rf python/mumulib/__pycache__
 
 
 test: mumulib-venv
 	@echo "Running tests with coverage..."
-	@. mumulib-venv/bin/activate && cd python/mumulib && \
+	@cd python/mumulib && \
 		rm -f .coverage .coverage.* && \
-		python consumers_test.py > /dev/null 2>&1 && \
+		uv run --project .. --extra dev --locked python consumers_test.py && \
 		mv .coverage .coverage.consumers && \
-		python shaped_test.py > /dev/null 2>&1 && \
+		uv run --project .. --extra dev --locked python shaped_test.py && \
 		mv .coverage .coverage.shaped && \
-		python mumutypes_test.py > /dev/null 2>&1 && \
+		uv run --project .. --extra dev --locked python mumutypes_test.py && \
 		mv .coverage .coverage.mumutypes && \
-		python producers_test.py > /dev/null 2>&1 && \
+		uv run --project .. --extra dev --locked python producers_test.py && \
 		mv .coverage .coverage.producers && \
-		python server_test.py > /dev/null 2>&1 && \
+		uv run --project .. --extra dev --locked python server_test.py && \
 		mv .coverage .coverage.server && \
-		coverage combine .coverage.* && \
+		uv run --project .. --extra dev --locked coverage combine .coverage.* && \
 		echo "" && \
 		echo "=== Combined Coverage Report ===" && \
-		coverage report -m
+		uv run --project .. --extra dev --locked coverage report -m
 
 
 mypy: mumulib-venv
-	. mumulib-venv/bin/activate && cd python && mypy
+	cd python && uv run --extra dev --locked mypy
 
 
-lint:
+lint: python-sync
 	@echo "Running flake8 linter..."
-	@cd python/mumulib && flake8 . --exclude=mumulib-venv,__pycache__,.coverage*,*.pyc --max-line-length=120 --ignore=E402 --statistics
+	@cd python/mumulib && uv run --project .. --extra dev --locked flake8 . --exclude=mumulib-venv,__pycache__,.coverage*,*.pyc --max-line-length=120 --ignore=E402 --statistics
 
 
-tags:
-	. mumulib-venv/bin/activate && python3 python/mumulib/tags.py
+tags: python-sync
+	uv run --project python --extra dev --locked python python/mumulib/tags.py
 

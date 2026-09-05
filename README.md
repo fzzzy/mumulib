@@ -16,6 +16,24 @@ Building
 
 Running `make build` converts the typescript files into JavaScript files ready for the browser in the `dist` directory.
 
+Python development
+=====
+
+The Python package lives in `python/`, with its own README, MIT license copy,
+and uv lockfile. From the repository root, use:
+
+```sh
+make python-sync
+make test
+make mypy
+make lint
+```
+
+These commands use `uv sync` / `uv run` with `--locked --extra dev`, and uv
+manages `python/.venv`. The old `make mumulib-venv` target remains an alias.
+Run `uv lock --project python` after intentionally editing Python dependencies.
+JavaScript dependencies install from `package-lock.json` using `npm ci`.
+
 Examples
 =====
 
