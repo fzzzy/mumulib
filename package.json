@@ -11,28 +11,37 @@
   "module": "./dist/browser/src/index.mjs",
   "types": "dist/types/index.d.ts",
   "exports": {
-    "browser": {
-      "types": "./dist/esm/types/index.d.ts",
+    ".": {
+      "browser": {
+        "types": "./dist/esm/types/index.d.ts",
+        "default": "./dist/browser/src/index.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/index.d.ts",
+        "default": "./dist/esm/index.mjs"
+      },
+      "require": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/cjs/index.cjs"
+      },
       "default": "./dist/browser/src/index.mjs"
     },
-    "import": {
-      "types": "./dist/esm/types/index.d.ts",
-      "default": "./dist/esm/index.mjs"
+    "./vite-plugin-sfc": {
+      "types": "./dist/esm/types/vite/sfc.d.mts",
+      "import": "./dist/vite/sfc.mjs"
     },
-    "require": {
-      "types": "./dist/types/index.d.ts",
-      "default": "./dist/cjs/index.cjs"
-    },
-    "default": "./dist/browser/src/index.mjs"
+    "./sfc-client": {
+      "types": "./dist/types/vite/sfc-client.d.ts"
+    }
   },
   "type": "commonjs",
   "scripts": {
     "start": "vite",
-    "build": "rm -rf dist && vite build && vite build --mode node && tsc && node scripts/esm-types.mjs",
+    "build": "rm -rf dist && vite build && vite build --mode node && vite build --mode plugin && tsc && node scripts/esm-types.mjs",
     "test": "npm run build && playwright test",
     "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
     "test:browser": "rm -rf .nyc_output && playwright test",
-    "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --reporter=text --reporter=html --report-dir coverage-frontend",
+    "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --extension=.html --reporter=text --reporter=html --report-dir coverage-frontend",
     "lint": "eslint . && prettier --check .",
     "format": "eslint . --fix && prettier --write ."
   },
@@ -46,14 +55,26 @@
   ],
   "author": "Donovan Preston",
   "license": "MIT",
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@types/istanbul-lib-coverage": "^2.0.6",
+    "@types/istanbul-lib-source-maps": "^4.0.4",
     "@types/morphdom": "^2.3.0",
     "@types/node": "^26.4.1",
     "@types/object-path": "^0.11.4",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.12.0",
+    "istanbul-lib-coverage": "^3.2.2",
+    "istanbul-lib-source-maps": "^5.0.6",
     "nyc": "^18.0.0",
     "playwright": "^1.63.0",
     "prettier": "^3.9.9",
@@ -64,6 +85,7 @@
   },
   "dependencies": {
     "domino": "^2.1.6",
+    "magic-string": "^1.4.2",
     "morphdom": "^2.7.8",
     "object-path": "^0.11.8"
   }

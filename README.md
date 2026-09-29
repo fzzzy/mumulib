@@ -325,3 +325,34 @@ dialog api
 type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 
 do_dialog(dialog_id: string, path: string, render: RenderFunc) => HTMLElement: Fetch the state at path, call the render function, set the contents of the &lt;dialog&gt; element with the id dialog_id to the result of the render function, and display the dialog.
+
+single-file components
+=====
+
+`mumulib/vite-plugin-sfc` is a Vite plugin for components written as one HTML
+file: a `<template>`, which may hold a `<style>`, and a `<script>` in
+TypeScript. Importing a `.sfc.html` gives the custom element class its script
+exports as default. With no script, it is a class that renders the template
+into its shadow root. The script sees `template`, the parsed `<template>`, and
+`defineComponent(template)`, which makes that default class.
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { sfcPlugin } from 'mumulib/vite-plugin-sfc'
+
+export default defineConfig({ plugins: [sfcPlugin()] })
+```
+
+```typescript
+/// <reference types="mumulib/sfc-client" />
+import Counter from './counter.sfc.html'
+
+customElements.define('my-counter', Counter)
+```
+
+A component's script has a source map back to its own lines in the
+`.sfc.html`, and coverage tools such as vite-plugin-istanbul count it -- give
+them `.html` among their extensions.
+
+[http://127.0.0.1:8000/examples/use_sfc/](http://127.0.0.1:8000/examples/use_sfc/)

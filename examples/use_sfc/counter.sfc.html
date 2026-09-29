@@ -1,0 +1,28 @@
+<template>
+  <style>
+    :host {
+      display: block;
+    }
+    p {
+      color: rgb(0, 128, 0);
+    }
+  </style>
+  <p>Count: <span class="count">0</span></p>
+  <button>Add one</button>
+</template>
+
+<script>
+  export default class Counter extends HTMLElement {
+    count = 0
+
+    connectedCallback() {
+      const root = this.attachShadow({ mode: 'open' })
+      root.appendChild(template.content.cloneNode(true))
+      const shown = root.querySelector('.count') as HTMLElement
+      root.querySelector('button')!.addEventListener('click', () => {
+        this.count += 1
+        shown.textContent = String(this.count)
+      })
+    }
+  }
+</script>

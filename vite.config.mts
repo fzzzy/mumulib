@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import istanbul from 'vite-plugin-istanbul'
 import { resolve } from 'node:path'
+import { sfcPlugin } from './src/vite/sfc.mts'
 
 const root = import.meta.dirname
 const entry = resolve(root, 'src/index.ts')
@@ -13,21 +14,30 @@ const dominoCjs =
   "if (typeof document === 'undefined') globalThis.document = require('domino').createWindow('').document;"
 
 // `vite` serves the examples from source, with `mumulib` resolving to src/.
-// `vite build` writes the browser bundle; `vite build --mode node` writes the
-// two Node bundles. The paths are the ones package.json exports.
+// `vite build` writes the browser bundle; `vite build --mode node` the two
+// Node bundles; `vite build --mode plugin` the Vite plugin for .sfc.html.
+// The paths are the ones package.json exports.
 export default defineConfig(({ mode }) => ({
   plugins: [
+    // The examples' own components go through the plugin as it ships
+    sfcPlugin(),
     // Counters in src/ for the Playwright tests to collect, when the dev
     // server is started with VITE_COVERAGE=true -- as the tests start it.
-    // The fork is the one s2smde, ltui and agent_daedalus use.
+    // The fork is the one s2smde, ltui and agent_daedalus use. The sfc
+    // example is counted too, as proof that a component's script can be.
     istanbul({
-      include: 'src/**',
-      extension: ['.ts'],
+      include: ['src/**', 'examples/use_sfc/**'],
+      extension: ['.ts', '.html'],
       requireEnv: true,
     }),
   ],
   resolve: {
     alias: { mumulib: entry },
+  },
+  // The pages, not every .html under the root: python/ has templates of its
+  // own, which are not pages at all
+  optimizeDeps: {
+    entries: ['index.html', 'examples/**/index.html'],
   },
   server: {
     host: '127.0.0.1',
@@ -42,36 +52,52 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build:
-    mode === 'node'
+    mode === 'plugin'
       ? {
           outDir: 'dist',
           emptyOutDir: false,
           sourcemap: true,
           minify: false,
           target: 'node20',
-          lib: { entry, formats: ['es', 'cjs'] },
+          lib: {
+            entry: resolve(root, 'src/vite/sfc.mts'),
+            formats: ['es'],
+            fileName: () => 'vite/sfc.mjs',
+          },
           rolldownOptions: {
-            external: ['domino'],
-            output: [
-              {
-                format: 'es',
-                entryFileNames: 'esm/index.mjs',
-                banner: dominoEsm,
-              },
-              {
-                format: 'cjs',
-                entryFileNames: 'cjs/index.cjs',
-                banner: dominoCjs,
-                exports: 'named',
-              },
-            ],
+            external: ['vite', 'magic-string', /^node:/],
           },
         }
-      : {
-          outDir: 'dist/browser/src',
-          emptyOutDir: false,
-          sourcemap: true,
-          target: 'es2020',
-          lib: { entry, formats: ['es'], fileName: () => 'index.mjs' },
-        },
+      : mode === 'node'
+        ? {
+            outDir: 'dist',
+            emptyOutDir: false,
+            sourcemap: true,
+            minify: false,
+            target: 'node20',
+            lib: { entry, formats: ['es', 'cjs'] },
+            rolldownOptions: {
+              external: ['domino'],
+              output: [
+                {
+                  format: 'es',
+                  entryFileNames: 'esm/index.mjs',
+                  banner: dominoEsm,
+                },
+                {
+                  format: 'cjs',
+                  entryFileNames: 'cjs/index.cjs',
+                  banner: dominoCjs,
+                  exports: 'named',
+                },
+              ],
+            },
+          }
+        : {
+            outDir: 'dist/browser/src',
+            emptyOutDir: false,
+            sourcemap: true,
+            target: 'es2020',
+            lib: { entry, formats: ['es'], fileName: () => 'index.mjs' },
+          },
 }))
