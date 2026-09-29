@@ -14,30 +14,29 @@ dialog provides functionality to show html dialog elements populated with state 
 Building
 =====
 
-Running `make build` converts the typescript files into JavaScript files ready for the browser in the `dist` directory.
+`make build` writes the packages to `dist`: the browser bundle, the Node ESM
+and CommonJS bundles, and the type declarations, built with Vite.
 
-Python development
+Checking
 =====
 
-The Python package lives in `python/`, with its own README, MIT license copy,
-and uv lockfile. From the repository root, use:
+`make check` runs everything CI runs: ruff and pyright (strict) over the Python,
+`tsc` over the TypeScript, the build, the Python tests with branch coverage (the
+floor is in `python/pyproject.toml`), and the Playwright tests in Chromium and
+WebKit against the examples, with the coverage of `src/` they reach. `make fix`
+applies ruff's fixes and formatting.
 
-```sh
-make python-sync
-make test
-make mypy
-make lint
-```
-
-These commands use `uv sync` / `uv run` with `--locked --extra dev`, and uv
-manages `python/.venv`. The old `make mumulib-venv` target remains an alias.
-Run `uv lock --project python` after intentionally editing Python dependencies.
-JavaScript dependencies install from `package-lock.json` using `npm ci`.
+The Python package lives in `python/`, with its own README, MIT license copy and
+uv lockfile; uv manages `python/.venv`. Run `uv lock --project python` after
+intentionally editing Python dependencies. JavaScript dependencies install from
+`package-lock.json` using `npm ci`.
 
 Examples
 =====
 
-Running `make` also runs build and starts a server on port 8000 which can be used to view the examples link below.
+`make run` starts Vite's dev server on port 8000, serving the examples below
+from source, and returns; `make tail` follows its log in `var/log/vite.log`,
+`make stop` stops it, and `make dev` is run and tail together.
 
 state
 =====

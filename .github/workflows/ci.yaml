@@ -19,10 +19,4 @@ jobs:
           enable-cache: true
       - run: npm ci
       - run: npx playwright install --with-deps
-      - run: uv sync --project python --extra dev --locked
-      - run: npm run build
-      - run: npm run test:unit
-      - run: npm run test:browser
-      - run: make test
-      - run: make mypy
-      - run: make lint
+      - run: make check

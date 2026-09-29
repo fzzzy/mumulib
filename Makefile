@@ -1,68 +1,98 @@
+.PHONY: check lint fix typecheck test py-test browser-test build dist python-sync \
+	run stop tail dev clean tags
+
+# The examples' dev server, and where its output goes
+PORT := 8000
+LOG := $(CURDIR)/var/log
+
+# Every tool through uv, from python/, so each reads python/pyproject.toml and
+# leaves its caches and .coverage there rather than at the root.
+UV := uv run --directory python --extra dev --locked
 
 
-.PHONY: all build serve clean test mypy lint dist python-sync mumulib-venv tags
+check: lint typecheck build test
 
 
-all: node_modules build serve
-	echo "Done"
+lint: python-sync
+	$(UV) ruff check
+	$(UV) ruff format --check
+
+fix: python-sync
+	$(UV) ruff check --fix
+	$(UV) ruff format
+
+typecheck: node_modules python-sync
+	npm run test:unit
+	$(UV) pyright
 
 
-build: mumulib-venv dist
+test: py-test browser-test
+
+py-test: python-sync
+	$(UV) pytest --cov=mumulib --cov-branch
+
+# Against Vite's dev server, instrumented; nyc then reports what src/ ran
+browser-test: node_modules
+	npm run test:browser
+	npm run coverage
 
 
-# Keep the old target as an alias for callers; uv owns python/.venv.
-mumulib-venv: python-sync
+build: python-sync dist
+
+dist: node_modules
+	npm run build
 
 python-sync:
 	uv sync --project python --extra dev --locked
-
 
 node_modules: package.json package-lock.json
 	npm ci
 	touch node_modules
 
 
-dist: node_modules
-	npm run build
+# The examples, served from source at http://127.0.0.1:$(PORT)/
+run: node_modules
+	@mkdir -p "$(LOG)"
+	@$(MAKE) --no-print-directory stop > /dev/null
+	@exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+		lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null && break; sleep 0.5; \
+	done; \
+	if lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null; then \
+		echo "Examples: http://127.0.0.1:$(PORT)/"; \
+		echo "Logs:     make tail"; \
+		echo "Stop:     make stop"; \
+	else \
+		echo "Vite did not start; see $(LOG)/vite.log" >&2; exit 1; \
+	fi
 
+# Whatever holds the port is the server, whatever started it
+stop:
+	@pids=$$(lsof -ti tcp:$(PORT) -sTCP:LISTEN); \
+	if [ -z "$$pids" ]; then echo "Not running."; exit 0; fi; \
+	kill $$pids; \
+	for i in 1 2 3 4 5 6 7 8 9 10; do \
+		lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null || { echo "Stopped."; exit 0; }; \
+		sleep 0.3; \
+	done; \
+	echo "Still holding port $(PORT) after SIGTERM; sending SIGKILL."; \
+	kill -9 $$(lsof -ti tcp:$(PORT) -sTCP:LISTEN) 2> /dev/null; \
+	sleep 0.5; \
+	if lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null; then \
+		echo "Port $(PORT) is still held." >&2; exit 1; \
+	fi; \
+	echo "Stopped."
 
-serve: node_modules
-	npx vite
+tail:
+	@tail -f "$(LOG)/vite.log"
+
+dev: run tail
 
 
 clean:
-	rm -rf node_modules && rm -rf mumulib-venv python/.venv && rm -rf dist && rm -rf python/mumulib/__pycache__
-
-
-test: mumulib-venv
-	@echo "Running tests with coverage..."
-	@cd python/mumulib && \
-		rm -f .coverage .coverage.* && \
-		uv run --project .. --extra dev --locked python consumers_test.py && \
-		mv .coverage .coverage.consumers && \
-		uv run --project .. --extra dev --locked python shaped_test.py && \
-		mv .coverage .coverage.shaped && \
-		uv run --project .. --extra dev --locked python mumutypes_test.py && \
-		mv .coverage .coverage.mumutypes && \
-		uv run --project .. --extra dev --locked python producers_test.py && \
-		mv .coverage .coverage.producers && \
-		uv run --project .. --extra dev --locked python server_test.py && \
-		mv .coverage .coverage.server && \
-		uv run --project .. --extra dev --locked coverage combine .coverage.* && \
-		echo "" && \
-		echo "=== Combined Coverage Report ===" && \
-		uv run --project .. --extra dev --locked coverage report -m
-
-
-mypy: mumulib-venv
-	cd python && uv run --extra dev --locked mypy
-
-
-lint: python-sync
-	@echo "Running flake8 linter..."
-	@cd python/mumulib && uv run --project .. --extra dev --locked flake8 . --exclude=mumulib-venv,__pycache__,.coverage*,*.pyc --max-line-length=120 --ignore=E402 --statistics
+	rm -rf node_modules python/.venv dist var .nyc_output coverage-frontend
+	find python -name __pycache__ -prune -exec rm -rf {} +
 
 
 tags: python-sync
-	uv run --project python --extra dev --locked python python/mumulib/tags.py
-
+	$(UV) python mumulib/tags.py
