@@ -1,15 +1,12 @@
-
-
-import { patslot } from 'mumulib';
+import { patslot } from 'mumulib'
 
 window.onload = async () => {
   // Returns an HTMLElement with the slots filled
-  let node = await patslot.clone_pat("person", {
-    name: "Jane Smith",
+  let node = await patslot.clone_pat('person', {
+    name: 'Jane Smith',
     age: 12,
-    color: "color: blue"
-  });
+    color: 'color: blue',
+  })
 
-  document.body.appendChild(node);
+  document.body.appendChild(node)
 }
-

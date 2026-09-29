@@ -1,27 +1,23 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dialog Example</title>
     <script type="module" src="./dialog_example.ts"></script>
-</head>
+  </head>
 
-<body>
-
-<dialog id="my_dialog">
-    <div style="padding: 2em; border: 1px solid black;">
+  <body>
+    <dialog id="my_dialog">
+      <div style="padding: 2em; border: 1px solid black">
         <form>
-            <input type="hidden" name="path" value="this.my_object" />
-            <input type="hidden" name="method" value="my_method" />
-            <input name="name" />
-            <input type="number" name="age" />
-            <button>Save</button>
+          <input type="hidden" name="path" value="this.my_object" />
+          <input type="hidden" name="method" value="my_method" />
+          <input name="name" />
+          <input type="number" name="age" />
+          <button>Save</button>
         </form>
-    </div>
-</dialog>
-
-</body>
-
+      </div>
+    </dialog>
+  </body>
 </html>

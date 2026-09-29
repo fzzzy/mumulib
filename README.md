@@ -44,17 +44,17 @@ state
 The state module provides simple state management with a toplevel javascript object and a function set_state which takes a new object and updates the state by merging all toplevel keys with the old state. The onstate function registers a callback which is called when the state has changed.
 
 ```typescript
-import { state } from "mumulib";
+import { state } from 'mumulib'
 
-state.onstate(new_state => {
-  const node = document.createElement("div");
-  node.textContent = "Got state " + JSON.stringify(new_state);
-  document.appendChild(node);
-});
+state.onstate((new_state) => {
+  const node = document.createElement('div')
+  node.textContent = 'Got state ' + JSON.stringify(new_state)
+  document.appendChild(node)
+})
 
-state.set_state({hello: "world"});
+state.set_state({ hello: 'world' })
 
-state.set_path("hello", "everybody");
+state.set_path('hello', 'everybody')
 ```
 
 [http://127.0.0.1:8000/examples/use_state/](http://127.0.0.1:8000/examples/use_state/)
@@ -70,13 +70,13 @@ state.set_path("hello", "everybody");
 ```
 
 ```typescript
-import { state } from "mumulib";
+import { state } from 'mumulib'
 
-state.onstate(new_state => {
-  const node = document.createElement("div");
-  node.textContent = "Got state " + JSON.stringify(new_state);
-  document.appendChild(node);
-});
+state.onstate((new_state) => {
+  const node = document.createElement('div')
+  node.textContent = 'Got state ' + JSON.stringify(new_state)
+  document.appendChild(node)
+})
 ```
 
 [http://127.0.0.1:8000/examples/use_state_input/](http://127.0.0.1:8000/examples/use_state_input/)
@@ -84,8 +84,8 @@ state.onstate(new_state => {
 There is a special toplevel state key "selected" which is the path to the currently selected state object. Inputs whose name start with "selected." will use the object at the path specified by the toplevel "selected" key as the root when traversing the path and setting the state.
 
 ```html
-<input type="radio" name="selected" value="person1">
-<input type="radio" name="selected" value="person2">
+<input type="radio" name="selected" value="person1" />
+<input type="radio" name="selected" value="person2" />
 
 <div>
   <input name="selected.name" placeholder="Name" />
@@ -95,13 +95,13 @@ There is a special toplevel state key "selected" which is the path to the curren
 ```
 
 ```typescript
-import { state } from "mumulib";
+import { state } from 'mumulib'
 
-state.onstate(async new_state => {
-  const node = document.createElement("div");
-  node.textContent = "Got state " + JSON.stringify(new_state);
-  document.body.appendChild(node);
-});
+state.onstate(async (new_state) => {
+  const node = document.createElement('div')
+  node.textContent = 'Got state ' + JSON.stringify(new_state)
+  document.body.appendChild(node)
+})
 ```
 
 [http://127.0.0.1:8000/examples/use_state_selected/](http://127.0.0.1:8000/examples/use_state_selected/)
@@ -126,28 +126,24 @@ Patterns and Slots provide a very simple html templating mechanism with template
 ```html
 <dl data-pat="person" data-attr="style=color">
   <dt>Name</dt>
-  <dd data-slot="name">
-    John Smith
-  </dd>
+  <dd data-slot="name">John Smith</dd>
   <dt>Age</dt>
-  <dd data-slot="age">
-    42
-  </dd>
+  <dd data-slot="age">42</dd>
 </dl>
 ```
 
 ```typescript
-import { patslot } from "mumulib";
+import { patslot } from 'mumulib'
 
 window.onload = async () => {
   // Returns an HTMLElement with the slots filled
-  let node = await patslot.clone_pat("person", {
-    name: "Jane Smith",
+  let node = await patslot.clone_pat('person', {
+    name: 'Jane Smith',
     age: 12,
-    color: "color: blue"
-  });
+    color: 'color: blue',
+  })
 
-  document.body.appendChild(node);
+  document.body.appendChild(node)
 }
 ```
 
@@ -155,17 +151,12 @@ window.onload = async () => {
 
 There is a convenience function fill_body you can use to fill the top level slots in your page. There is also the function fill_slots if you have an HTML element you wish to fill.
 
-
 ```html
 <dl data-attr="style=color">
   <dt>Name</dt>
-  <dd data-slot="name">
-    John Smith
-  </dd>
+  <dd data-slot="name">John Smith</dd>
   <dt>Age</dt>
-  <dd data-slot="age">
-    42
-  </dd>
+  <dd data-slot="age">42</dd>
 </dl>
 
 <div id="fill-element">
@@ -174,20 +165,19 @@ There is a convenience function fill_body you can use to fill the top level slot
 ```
 
 ```typescript
-import { patslot } from "mumulib";
+import { patslot } from 'mumulib'
 
 window.onload = async () => {
   await patslot.fill_body({
-    name: "Jane Smith",
+    name: 'Jane Smith',
     age: 12,
-    color: "color: blue"
-  });
+    color: 'color: blue',
+  })
   setTimeout(() => {
-    patslot.fill_slots(
-      document.getElementById("fill-element"),
-      { fill_me: "now been filled." }
-    );
-  });
+    patslot.fill_slots(document.getElementById('fill-element'), {
+      fill_me: 'now been filled.',
+    })
+  })
 }
 ```
 
@@ -197,76 +187,67 @@ You can use JavaScript generators to make rendering nested hierarchies easy.
 
 ```html
 <main>
-    <ol data-slot="towns">
-        <li data-pat="town">
-            <h1>Town:</h1>
-            <div data-slot="town_name"></div>
-            <h2>People:</h2>
-            <div data-slot="people">
-                <dl data-pat="person">
-                    <dt>Name</dt>
-                    <dd data-slot="name"></dd>
-                    <dt>Age</dt>
-                    <dd data-slot="age"></dd>
-                </dl>    
-            </div>
-        </li>
-    </ol>
+  <ol data-slot="towns">
+    <li data-pat="town">
+      <h1>Town:</h1>
+      <div data-slot="town_name"></div>
+      <h2>People:</h2>
+      <div data-slot="people">
+        <dl data-pat="person">
+          <dt>Name</dt>
+          <dd data-slot="name"></dd>
+          <dt>Age</dt>
+          <dd data-slot="age"></dd>
+        </dl>
+      </div>
+    </li>
+  </ol>
 </main>
 
-<footer data-slot="footer">
-
-</footer>
+<footer data-slot="footer"></footer>
 ```
 
 ```typescript
-
-
-import { patslot } from 'mumulib';
-
+import { patslot } from 'mumulib'
 
 const dataset = {
   towns: [
     {
-      name: "Los Angeles",
+      name: 'Los Angeles',
       people: [
-        {"name": "Joe Smith", age: 67},
-        {"name": "Example Person", age: 2}
-      ]
+        { name: 'Joe Smith', age: 67 },
+        { name: 'Example Person', age: 2 },
+      ],
     },
     {
-      name: "London",
+      name: 'London',
       people: [
-        {"name": "Jane Smith", age: 23},
-        {"name": "John Doe", age: 34}
-      ]
-    }
-  ]
-};
-
-
-function render_people(people) {
-  return people.map((person) => patslot.clone_pat("person", person));
+        { name: 'Jane Smith', age: 23 },
+        { name: 'John Doe', age: 34 },
+      ],
+    },
+  ],
 }
 
+function render_people(people) {
+  return people.map((person) => patslot.clone_pat('person', person))
+}
 
 function* render_towns(towns) {
   for (const town of towns) {
-    yield patslot.clone_pat("town", {
+    yield patslot.clone_pat('town', {
       town_name: town.name,
-      people: render_people(town.people)
-    });
+      people: render_people(town.people),
+    })
   }
 }
-
 
 window.onload = async () => {
   patslot.fill_body({
     towns: await render_towns(dataset.towns),
-    footer: "This is the footer."
-  });
+    footer: 'This is the footer.',
+  })
 }
-
 ```
 
 [http://127.0.0.1:8000/examples/use_patslot_nested/](http://127.0.0.1:8000/examples/use_patslot_nested/)
@@ -275,15 +256,15 @@ patslot api
 =====
 
 type SyncPattern = HTMLElement |
-    (HTMLElement | Generator&lt;Pattern&gt; | string)[] |
-    Generator&lt;Pattern&gt; |
-    string |
-    number;
+(HTMLElement | Generator&lt;Pattern&gt; | string)[] |
+Generator&lt;Pattern&gt; |
+string |
+number;
 type Pattern = Promise&lt;SyncPattern&gt; | SyncPattern;
 
 clone_pat(pattern_name: string, slot_values: { [key: string]: Pattern}) => HTMLElement: Clone a pattern in the current html page and fill any slots with the given values. Return the filled HTMLElement.
 
-fill_slots(element: HTMLElement, 
+fill_slots(element: HTMLElement,
 slot_name: string, slot_value: Pattern): Given an HTMLElement, fill any slots with the given values.
 
 append_to_slots(element: HTMLElement, slot_name: string, slot_value: Pattern): Given an HTMLElement, append the given values to the named slots.
@@ -299,38 +280,36 @@ If your dialog contains a &lt;form&gt; element, you can use a hidden input with 
 
 ```html
 <dialog id="my_dialog">
-    <form>
-        <input type="hidden" name="path" value="this.my_object" />
-        <input type="hidden" name="method" value="my_method" />
-        <input name="name" />
-        <input type="number" name="age" />
-        <button>Save</button>
-    </form>
+  <form>
+    <input type="hidden" name="path" value="this.my_object" />
+    <input type="hidden" name="method" value="my_method" />
+    <input name="name" />
+    <input type="number" name="age" />
+    <button>Save</button>
+  </form>
 </dialog>
 ```
 
 ```typescript
-
-import { state, dialog } from 'mumulib';
+import { state, dialog } from 'mumulib'
 
 class MyObject {
-    my_method(args) {
-        const node = document.createElement("div");
-        node.textContent = "my_method was called " + args.name + " " + args.age;
-        document.body.appendChild(node);
-    }
+  my_method(args) {
+    const node = document.createElement('div')
+    node.textContent = 'my_method was called ' + args.name + ' ' + args.age
+    document.body.appendChild(node)
+  }
 }
 
 state.onstate(async (new_state) => {
-    if (!new_state.my_object) {
-        state.set_state({my_object: new MyObject()});
-    } else {
-        dialog.do_dialog("my_dialog", "this.my_object", (el, _state) => {
-            return el;
-        })
-    }
-});
-
+  if (!new_state.my_object) {
+    state.set_state({ my_object: new MyObject() })
+  } else {
+    dialog.do_dialog('my_dialog', 'this.my_object', (el, _state) => {
+      return el
+    })
+  }
+})
 ```
 
 [http://127.0.0.1:8000/examples/use_dialog/](http://127.0.0.1:8000/examples/use_dialog/)

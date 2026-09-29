@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test'
 
 /**
  * Read environment variables from file.
@@ -85,4 +85,4 @@ export default defineConfig({
     timeout: 120_000,
     env: { PORT: process.env.PLAYWRIGHT_PORT || '8123', VITE_COVERAGE: 'true' },
   },
-});
+})

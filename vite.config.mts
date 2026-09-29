@@ -7,8 +7,10 @@ const entry = resolve(root, 'src/index.ts')
 
 // A DOM for Node, where the templating and dialog code have none of their own.
 // The browser build needs no such thing.
-const dominoEsm = "import domino from 'domino';\nif (typeof document === 'undefined') globalThis.document = domino.createWindow('').document;"
-const dominoCjs = "if (typeof document === 'undefined') globalThis.document = require('domino').createWindow('').document;"
+const dominoEsm =
+  "import domino from 'domino';\nif (typeof document === 'undefined') globalThis.document = domino.createWindow('').document;"
+const dominoCjs =
+  "if (typeof document === 'undefined') globalThis.document = require('domino').createWindow('').document;"
 
 // `vite` serves the examples from source, with `mumulib` resolving to src/.
 // `vite build` writes the browser bundle; `vite build --mode node` writes the
@@ -51,8 +53,17 @@ export default defineConfig(({ mode }) => ({
           rolldownOptions: {
             external: ['domino'],
             output: [
-              { format: 'es', entryFileNames: 'esm/index.mjs', banner: dominoEsm },
-              { format: 'cjs', entryFileNames: 'cjs/index.cjs', banner: dominoCjs, exports: 'named' },
+              {
+                format: 'es',
+                entryFileNames: 'esm/index.mjs',
+                banner: dominoEsm,
+              },
+              {
+                format: 'cjs',
+                entryFileNames: 'cjs/index.cjs',
+                banner: dominoCjs,
+                exports: 'named',
+              },
             ],
           },
         }

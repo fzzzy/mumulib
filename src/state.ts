@@ -16,228 +16,230 @@
  *
  * - state: State
  *   The current application state.
- * 
+ *
  * - debug(mode: boolean)
  *   Whether or not to log the current application state on changes.
- * 
+ *
  */
 
-import { set, get } from "object-path";
+import { set, get } from 'object-path'
 
-type State = { [key: string]: any } | any;
-type OnStateChange = (state: State) => Promise<void>;
+type State = { [key: string]: any } | any
+type OnStateChange = (state: State) => Promise<void>
 
-const initialValues: { [key: string]: string } = {};
-const obs: OnStateChange[] = [];
-let loaded = false;
-let state: State = {};
-let setting = 0;
-let dirty = false;
-let debug_mode: boolean = false;
-
+const initialValues: { [key: string]: string } = {}
+const obs: OnStateChange[] = []
+let loaded = false
+let state: State = {}
+let setting = 0
+let dirty = false
+let debug_mode: boolean = false
 
 function debug(mode: boolean) {
-  debug_mode = mode;
+  debug_mode = mode
 }
-
 
 async function onstate(onstatechange: OnStateChange) {
   if (loaded) {
-    await onstatechange(state);
+    await onstatechange(state)
   }
-  obs.push(onstatechange);
+  obs.push(onstatechange)
 }
 
-
-async function _set_state(root: any, path: string, nstate: State): Promise<void> {
-  let changed = false;
+async function _set_state(
+  root: any,
+  path: string,
+  nstate: State
+): Promise<void> {
+  let changed = false
   if (nstate === null) {
-    changed = true;
+    changed = true
   } else {
     if (!path) {
       for (const [k, v] of Object.entries(nstate)) {
         if (root[k] !== v) {
           if (v === undefined) {
-            delete root[k];
+            delete root[k]
           } else {
-            root[k] = v;
-            changed = true;
+            root[k] = v
+            changed = true
           }
         }
       }
     } else {
-      const old = get(root, path);
+      const old = get(root, path)
       if (old !== nstate) {
-        set(root, path, nstate);
-        changed = true;
+        set(root, path, nstate)
+        changed = true
       }
-    }  
+    }
   }
   if (!changed) {
-    return;
+    return
   }
-  setting++;
+  setting++
   if (setting === 1) {
-    update_dom_state(state);
+    update_dom_state(state)
     if (debug_mode) {
-      document.body.dataset.state = JSON.stringify(state);
-      console.log("onstatechange", state);
+      document.body.dataset.state = JSON.stringify(state)
+      console.log('onstatechange', state)
     }
     for (const onstatechange of obs) {
-      await onstatechange(state);
+      await onstatechange(state)
     }
   } else {
-    dirty = true;
+    dirty = true
   }
-  setting--;
+  setting--
   if (setting === 0 && dirty) {
-    dirty = false;
-    window.requestAnimationFrame(() => set_state(null));
+    dirty = false
+    window.requestAnimationFrame(() => set_state(null))
   }
 }
-
 
 async function set_state(nstate: State): Promise<void> {
-  await _set_state(state, "", nstate);
+  await _set_state(state, '', nstate)
 }
 
-
-async function _set_path(root: any, path: string, nstate: State): Promise<void> {
-  await _set_state(root, path, nstate);
+async function _set_path(
+  root: any,
+  path: string,
+  nstate: State
+): Promise<void> {
+  await _set_state(root, path, nstate)
 }
-
 
 async function set_path(path: string, nstate: State): Promise<void> {
-  await _set_path(state, path, nstate);
+  await _set_path(state, path, nstate)
 }
 
-
 document.addEventListener('DOMContentLoaded', async function () {
-  loaded = true;
-  await set_state(null);
-});
+  loaded = true
+  await set_state(null)
+})
 
-
-document.addEventListener('focus', function (e) {
-  if (
-    e.target &&
-    e.target instanceof HTMLInputElement
-  ) {
-    initialValues[e.target.name] = e.target.value;
-  }
-}, true);
-
+document.addEventListener(
+  'focus',
+  function (e) {
+    if (e.target && e.target instanceof HTMLInputElement) {
+      initialValues[e.target.name] = e.target.value
+    }
+  },
+  true
+)
 
 function possibly_changed(e: Event) {
-  let target;
+  let target
   if (e.target) {
     if (e.target instanceof HTMLInputElement) {
-      target = e.target as HTMLInputElement;  
+      target = e.target as HTMLInputElement
     } else if (e.target instanceof HTMLSelectElement) {
-      target = e.target as HTMLSelectElement;
+      target = e.target as HTMLSelectElement
     } else if (e.target instanceof HTMLTextAreaElement) {
-      target = e.target as HTMLTextAreaElement;
+      target = e.target as HTMLTextAreaElement
     }
     if (target && (!target.name || !target.value)) {
-      return;
+      return
     }
   }
   if (!target) {
-    return;
+    return
   }
-  let name = target.name;
-  let value = target.value;
-  if (name !== "selected" && initialValues[name] === value) {
-    return;
+  let name = target.name
+  let value = target.value
+  if (name !== 'selected' && initialValues[name] === value) {
+    return
   }
   //console.log('Input event fired:', e.target.name, e.target.value);
   if (name.substring(0, 5) === 'this.') {
-    set(state, name.substring(5), value);
-    console.log(`${name} = ${JSON.stringify(value)}`);
-    set_state(null);
+    set(state, name.substring(5), value)
+    console.log(`${name} = ${JSON.stringify(value)}`)
+    set_state(null)
   } else if (name.substring(0, 9) === 'selected.') {
     // should state['selected'] be prefixed with "this." for consistency
-    const selected = get(state, state['selected']);
-    console.log("selected", selected);
-    set(selected, name.substring(9), value);
+    const selected = get(state, state['selected'])
+    console.log('selected', selected)
+    set(selected, name.substring(9), value)
     if (debug_mode) {
-      console.log(`${name} = ${JSON.stringify(value)}`);
+      console.log(`${name} = ${JSON.stringify(value)}`)
     }
-    set_state(null);
-  } else if (name === "selected") {
-    set(state, "selected", value);
-    set_state(null);
+    set_state(null)
+  } else if (name === 'selected') {
+    set(state, 'selected', value)
+    set_state(null)
   }
 }
 
+document.addEventListener(
+  'focusout',
+  function (e: Event) {
+    //console.log('blur event fired:', e);
+    if (
+      e.target &&
+      (e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement)
+    ) {
+      possibly_changed(e)
+    }
+  },
+  true
+)
 
-document.addEventListener('focusout', function (e: Event) {
-  //console.log('blur event fired:', e);
-  if (
-    e.target &&
-    (e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement)
-  ) {
-    possibly_changed(e);
-  }
-}, true);
-
-
-document.addEventListener('change', function (e: Event) {
-  //console.log('blur event fired:', e);
-  if (
-    e.target &&
-    ((e.target instanceof HTMLInputElement &&
-    e.target.type === "radio") ||
-    e.target instanceof HTMLSelectElement)
-  ) {
-    possibly_changed(e);
-  }
-}, true);
-
+document.addEventListener(
+  'change',
+  function (e: Event) {
+    //console.log('blur event fired:', e);
+    if (
+      e.target &&
+      ((e.target instanceof HTMLInputElement && e.target.type === 'radio') ||
+        e.target instanceof HTMLSelectElement)
+    ) {
+      possibly_changed(e)
+    }
+  },
+  true
+)
 
 async function update_dom_state(state: State) {
-  const elements = document.querySelectorAll('input, select, textarea');
+  const elements = document.querySelectorAll('input, select, textarea')
   elements.forEach((element) => {
-    let el;
+    let el
     if (element instanceof HTMLInputElement) {
-      el = element as HTMLInputElement;
+      el = element as HTMLInputElement
     } else if (element instanceof HTMLSelectElement) {
-      el = element as HTMLSelectElement;
+      el = element as HTMLSelectElement
     } else if (element instanceof HTMLTextAreaElement) {
-      el = element as HTMLTextAreaElement;
+      el = element as HTMLTextAreaElement
     }
     if (!el) {
-      return;
+      return
     }
-    const name = el.name;
+    const name = el.name
     if (name.startsWith('this.')) {
-      const value = get(state, name.slice(5));
+      const value = get(state, name.slice(5))
       if (el.value !== value) {
-        el.value = value;
+        el.value = value
       }
     } else if (name.startsWith('selected.')) {
-      const selectedState = get(state, state["selected"]);
-      const value = get(selectedState, name.slice(9));
+      const selectedState = get(state, state['selected'])
+      const value = get(selectedState, name.slice(9))
       if (el.value !== value) {
-        el.value = value;
+        el.value = value
       }
-    } else if (name === "selected") {
-      const sel = state["selected"];
-      if (el instanceof HTMLInputElement && el.type === "radio") {
+    } else if (name === 'selected') {
+      const sel = state['selected']
+      if (el instanceof HTMLInputElement && el.type === 'radio') {
         if (el.value === sel) {
-          el.checked = true;
+          el.checked = true
         } else {
           el.checked = false
-        }  
+        }
       } else {
-        el.value = sel;
+        el.value = sel
       }
     }
-  });
+  })
 }
 
-
-export { onstate, set_state, set_path, state, debug };
-export type { State, OnStateChange };
-
+export { onstate, set_state, set_path, state, debug }
+export type { State, OnStateChange }

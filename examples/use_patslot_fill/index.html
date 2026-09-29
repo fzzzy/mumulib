@@ -1,28 +1,22 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pattern and Slot Fill Example</title>
     <script type="module" src="./fill_example.ts"></script>
-</head>
+  </head>
 
-<body>
+  <body>
     <dl data-attr="style=color">
-        <dt>Name</dt>
-        <dd data-slot="name">
-            John Smith
-        </dd>
-        <dt>Age</dt>
-        <dd data-slot="age">
-            42
-        </dd>
+      <dt>Name</dt>
+      <dd data-slot="name">John Smith</dd>
+      <dt>Age</dt>
+      <dd data-slot="age">42</dd>
     </dl>
 
     <div id="fill-element">
-        This element has <span data-slot="fill_me"> not been filled yet.</span>
+      This element has <span data-slot="fill_me"> not been filled yet.</span>
     </div>
-</body>
-
+  </body>
 </html>

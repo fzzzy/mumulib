@@ -1,0 +1,9 @@
+dist
+node_modules
+coverage-frontend
+playwright-report
+test-results
+.nyc_output
+var
+python
+package-lock.json
