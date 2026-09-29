@@ -169,3 +169,7 @@ node_modules
 /blob-report/
 /playwright/.cache/
 mumulib-venv
+
+# Browser coverage from the Playwright tests
+.nyc_output
+coverage-frontend

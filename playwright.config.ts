@@ -83,6 +83,6 @@ export default defineConfig({
     url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { PORT: process.env.PLAYWRIGHT_PORT || '8123' },
+    env: { PORT: process.env.PLAYWRIGHT_PORT || '8123', VITE_COVERAGE: 'true' },
   },
 });

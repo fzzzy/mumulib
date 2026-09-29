@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import istanbul from 'vite-plugin-istanbul'
 import { resolve } from 'node:path'
 
 const root = import.meta.dirname
@@ -13,6 +14,16 @@ const dominoCjs = "if (typeof document === 'undefined') globalThis.document = re
 // `vite build` writes the browser bundle; `vite build --mode node` writes the
 // two Node bundles. The paths are the ones package.json exports.
 export default defineConfig(({ mode }) => ({
+  plugins: [
+    // Counters in src/ for the Playwright tests to collect, when the dev
+    // server is started with VITE_COVERAGE=true -- as the tests start it.
+    // The fork is the one s2smde, ltui and agent_daedalus use.
+    istanbul({
+      include: 'src/**',
+      extension: ['.ts'],
+      requireEnv: true,
+    }),
+  ],
   resolve: {
     alias: { mumulib: entry },
   },

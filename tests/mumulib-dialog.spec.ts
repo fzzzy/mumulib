@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './coverage';
 
 test.describe('Mumulib Dialog Tests', () => {
   test.beforeEach(async ({ page }) => {

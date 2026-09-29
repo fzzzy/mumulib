@@ -31,7 +31,8 @@
     "build": "rm -rf dist && vite build && vite build --mode node && tsc && node scripts/esm-types.mjs",
     "test": "npm run build && playwright test",
     "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
-    "test:browser": "playwright test"
+    "test:browser": "rm -rf .nyc_output && playwright test",
+    "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --reporter=text --reporter=html --report-dir coverage-frontend"
   },
   "keywords": [
     "html templating",
@@ -48,9 +49,11 @@
     "@types/morphdom": "^2.3.0",
     "@types/node": "^26.4.1",
     "@types/object-path": "^0.11.4",
+    "nyc": "^18.0.0",
     "playwright": "^1.63.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "vite-plugin-istanbul": "file:../../srcfork/vite-plugin-istanbul"
   },
   "dependencies": {
     "domino": "^2.1.6",
