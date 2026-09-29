@@ -23,11 +23,11 @@ node_modules: package.json package-lock.json
 
 
 dist: node_modules
-	node esbuild.mjs
+	npm run build
 
 
-serve:
-	node esbuild.mjs --serve
+serve: node_modules
+	npx vite
 
 
 clean:

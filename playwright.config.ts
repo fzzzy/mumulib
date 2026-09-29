@@ -79,7 +79,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'node esbuild.mjs --serve',
+    command: 'npx vite',
     url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
