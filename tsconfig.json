@@ -9,7 +9,9 @@
     "skipLibCheck": true,
     "module": "NodeNext",
     "target": "ES2020",
-    "moduleResolution": "nodenext"
+    "moduleResolution": "nodenext",
+    "allowJs": true,
+    "checkJs": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

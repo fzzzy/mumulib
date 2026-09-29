@@ -34,7 +34,7 @@ export default tseslint.config(
   },
   {
     // Node-side files: the build and test tooling
-    files: ['*.mts', '*.ts', 'scripts/**', 'tests/**', '*.js'],
+    files: ['*.mts', '*.ts', 'scripts/**', 'tests/**', '*.js', 'src/vite/**'],
     languageOptions: {
       globals: {
         ...globals.node,

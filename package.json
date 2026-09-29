@@ -37,7 +37,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "vite",
-    "build": "rm -rf dist && vite build && vite build --mode node && vite build --mode plugin && tsc && node scripts/esm-types.mjs",
+    "build": "rm -rf dist && vite build && vite build --mode node && tsc && node scripts/esm-types.mjs",
     "test": "npm run build && playwright test",
     "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
     "test:browser": "rm -rf .nyc_output && playwright test",
@@ -85,7 +85,6 @@
   },
   "dependencies": {
     "domino": "^2.1.6",
-    "magic-string": "^1.4.2",
     "morphdom": "^2.7.8",
     "object-path": "^0.11.8"
   }

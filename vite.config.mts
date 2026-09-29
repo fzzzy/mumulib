@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import istanbul from 'vite-plugin-istanbul'
 import { resolve } from 'node:path'
-import { sfcPlugin } from './src/vite/sfc.mts'
+import { sfcPlugin } from './src/vite/sfc.mjs'
 
 const root = import.meta.dirname
 const entry = resolve(root, 'src/index.ts')
@@ -15,8 +15,8 @@ const dominoCjs =
 
 // `vite` serves the examples from source, with `mumulib` resolving to src/.
 // `vite build` writes the browser bundle; `vite build --mode node` the two
-// Node bundles; `vite build --mode plugin` the Vite plugin for .sfc.html.
-// The paths are the ones package.json exports.
+// Node bundles. The paths are the ones package.json exports; the .sfc.html
+// plugin is JavaScript already, and the build copies it as it is.
 export default defineConfig(({ mode }) => ({
   plugins: [
     // The examples' own components go through the plugin as it ships
@@ -52,52 +52,36 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build:
-    mode === 'plugin'
+    mode === 'node'
       ? {
           outDir: 'dist',
           emptyOutDir: false,
           sourcemap: true,
           minify: false,
           target: 'node20',
-          lib: {
-            entry: resolve(root, 'src/vite/sfc.mts'),
-            formats: ['es'],
-            fileName: () => 'vite/sfc.mjs',
-          },
+          lib: { entry, formats: ['es', 'cjs'] },
           rolldownOptions: {
-            external: ['vite', 'magic-string', /^node:/],
+            external: ['domino'],
+            output: [
+              {
+                format: 'es',
+                entryFileNames: 'esm/index.mjs',
+                banner: dominoEsm,
+              },
+              {
+                format: 'cjs',
+                entryFileNames: 'cjs/index.cjs',
+                banner: dominoCjs,
+                exports: 'named',
+              },
+            ],
           },
         }
-      : mode === 'node'
-        ? {
-            outDir: 'dist',
-            emptyOutDir: false,
-            sourcemap: true,
-            minify: false,
-            target: 'node20',
-            lib: { entry, formats: ['es', 'cjs'] },
-            rolldownOptions: {
-              external: ['domino'],
-              output: [
-                {
-                  format: 'es',
-                  entryFileNames: 'esm/index.mjs',
-                  banner: dominoEsm,
-                },
-                {
-                  format: 'cjs',
-                  entryFileNames: 'cjs/index.cjs',
-                  banner: dominoCjs,
-                  exports: 'named',
-                },
-              ],
-            },
-          }
-        : {
-            outDir: 'dist/browser/src',
-            emptyOutDir: false,
-            sourcemap: true,
-            target: 'es2020',
-            lib: { entry, formats: ['es'], fileName: () => 'index.mjs' },
-          },
+      : {
+          outDir: 'dist/browser/src',
+          emptyOutDir: false,
+          sourcemap: true,
+          target: 'es2020',
+          lib: { entry, formats: ['es'], fileName: () => 'index.mjs' },
+        },
 }))

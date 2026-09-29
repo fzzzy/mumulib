@@ -4,8 +4,10 @@
 import * as fs from 'node:fs/promises'
 
 // sfc-client.d.ts is a declaration already, which tsc checks but does not
-// copy into its output
+// copy into its output; and the .sfc.html plugin ships as it is
 await fs.copyFile('src/vite/sfc-client.d.ts', 'dist/types/vite/sfc-client.d.ts')
+await fs.mkdir('dist/vite', { recursive: true })
+await fs.copyFile('src/vite/sfc.mjs', 'dist/vite/sfc.mjs')
 
 await fs.rm('dist/esm/types', { recursive: true, force: true })
 await fs.cp('dist/types', 'dist/esm/types', { recursive: true })
