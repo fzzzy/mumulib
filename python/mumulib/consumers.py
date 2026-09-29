@@ -24,15 +24,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-
-from mumulib.mumutypes import SpecialResponse
-
-from types import MappingProxyType
-from typing import Any, Callable, Dict, List, Optional, Tuple
 import sys
+from types import MappingProxyType
+from typing import Any
 
+from mumulib.mumutypes import Consumer, Send, SpecialResponse, State
 
-_consumer_adapters: Dict[type, Callable] = {}
+_consumer_adapters: dict[type[Any], Consumer] = {}
 
 # Security constants
 MAX_LIST_INDEX = sys.maxsize // 2  # Reasonable upper bound for list indices
@@ -44,7 +42,8 @@ def sanitize_dict_key(key: str) -> str:
     """Sanitize a dictionary key for security.
 
     Args:
-        key (str): The dictionary key to sanitize (expected to be a string from URL path segments).
+        key (str): The dictionary key to sanitize (expected to be a string from
+            URL path segments).
 
     Returns:
         str: The sanitized key.
@@ -53,10 +52,13 @@ def sanitize_dict_key(key: str) -> str:
         ValueError: If the key is invalid or too long.
     """
     if len(key) > MAX_KEY_LENGTH:
-        raise ValueError(f"Dictionary key too long: {len(key)} characters exceeds limit of {MAX_KEY_LENGTH}")
+        raise ValueError(
+            f"Dictionary key too long: {len(key)} characters exceeds limit of "
+            f"{MAX_KEY_LENGTH}"
+        )
 
     # Remove any null bytes which could cause issues
-    if '\x00' in key:
+    if "\x00" in key:
         raise ValueError("Dictionary key contains null bytes")
 
     return key
@@ -80,23 +82,27 @@ def validate_list_index(index_str: str) -> int:
         raise ValueError(f"Invalid integer index: {index_str}")
 
     if index > MAX_LIST_INDEX or index < MIN_LIST_INDEX:
-        raise ValueError(f"Index {index} out of safe bounds [{MIN_LIST_INDEX}, {MAX_LIST_INDEX}]")
+        raise ValueError(
+            f"Index {index} out of safe bounds [{MIN_LIST_INDEX}, {MAX_LIST_INDEX}]"
+        )
 
     return index
 
 
-def add_consumer(adapter_for_type: type, conv: Callable) -> None:
+def add_consumer(adapter_for_type: type[Any], conv: Consumer) -> None:
     """Register a consumer function for a specific data type.
 
     Args:
         adapter_for_type (type): The type of data structure this consumer can handle.
-        conv (coroutine): An async function with signature (parent, segments, state, send)
-            that returns the resolved object or None.
+        conv (coroutine): An async function with signature
+            (parent, segments, state, send) that returns the resolved object or None.
     """
     _consumer_adapters[adapter_for_type] = conv
 
 
-async def consume(parent: Any, segments: List[str], state: Dict[str, Any], send: Callable) -> Optional[Any]:
+async def consume(
+    parent: object, segments: list[str], state: State, send: Send
+) -> Any | None:
     """Traverse a nested data structure by following a list of path segments.
 
     If no segments remain, returns the current parent. Otherwise, attempts to find
@@ -118,13 +124,14 @@ async def consume(parent: Any, segments: List[str], state: Dict[str, Any], send:
 
     parent_type = type(parent)
     if parent_type in _consumer_adapters:
-        return await _consumer_adapters[parent_type](
-            parent, segments, state, send)
+        return await _consumer_adapters[parent_type](parent, segments, state, send)
 
     return None
 
 
-async def consume_tuple(parent: Tuple, segments: List[str], state: Dict[str, Any], send: Callable) -> Optional[Any]:
+async def consume_tuple(
+    parent: tuple[Any, ...], segments: list[str], state: State, send: Send
+) -> Any | None:
     """Traverse a tuple using the first segment as an integer index.
 
     If the only segment is empty, returns the tuple itself. Otherwise, attempts
@@ -133,7 +140,8 @@ async def consume_tuple(parent: Tuple, segments: List[str], state: Dict[str, Any
 
     Args:
         parent (tuple): The current tuple.
-        segments (list[str]): Path segments, where segments[0] should be an integer index or empty.
+        segments (list[str]): Path segments, where segments[0] should be an
+            integer index or empty.
         state (dict): Request-specific state.
         send (coroutine): ASGI send function.
 
@@ -141,13 +149,15 @@ async def consume_tuple(parent: Tuple, segments: List[str], state: Dict[str, Any
         any or None: The resolved object or None if invalid.
     """
     if len(segments) == 1 and state["method"] != "GET":
-        return SpecialResponse({
-            'type': 'http.response.start',
-            'status': 405,
-            'headers': [
-                (b'content-type', b'text/plain')
-            ]
-        }, b'Method not allowed')
+        return SpecialResponse(
+            {
+                "type": "http.response.start",
+                "status": 405,
+                "headers": [(b"content-type", b"text/plain")],
+            },
+            b"Method not allowed",
+        )
+    child: Any
     try:
         if len(segments) == 1 and not len(segments[0]):
             child = parent
@@ -157,11 +167,16 @@ async def consume_tuple(parent: Tuple, segments: List[str], state: Dict[str, Any
     except (IndexError, ValueError):
         return None
     return await consume(child, segments[1:], state, send)
+
+
 add_consumer(tuple, consume_tuple)
 
 
-async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, Any], send: Callable) -> Any:
-    """Traverse a list using the first segment as an integer index or 'last' for appending.
+async def consume_list(
+    parent: list[Any], segments: list[str], state: State, send: Send
+) -> Any:
+    """Traverse a list using the first segment as an integer index, or 'last'
+    for appending.
     Supports GET, PUT, and DELETE methods:
       - GET: Return the requested element (if index is valid).
       - PUT: Replace an existing element at the given index, or append a new element
@@ -171,11 +186,13 @@ async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, 
 
     Args:
         parent (list): The current list.
-        segments (list[str]): Path segments, where segments[0] is an index or 'last', or empty for the list itself.
+        segments (list[str]): Path segments, where segments[0] is an index or
+            'last', or empty for the list itself.
         state (dict): Request-specific state, expected to have at least:
             - "method" (str): The HTTP method (e.g., GET, PUT, DELETE)
             - "parsed_body" (optional): The body to be used for PUT
-            - "url" (optional): The base URL of the request, for forming the Location header
+            - "url" (optional): The base URL of the request, for forming the
+              Location header
         send (coroutine): ASGI send function for sending responses if needed.
 
     Returns:
@@ -185,37 +202,48 @@ async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, 
         method = state.get("method", "GET").upper()
         index_str = segments[0]
 
-        if method == 'PUT':
-            if index_str == 'last':
+        if method == "PUT":
+            if index_str == "last":
                 # Append new element
                 parent.append(state.get("parsed_body", None))
-                location = f"{state.get("url", "")}/{len(parent) - 1}"
-                return SpecialResponse({
-                    'type': 'http.response.start',
-                    'status': 201,
-                    'headers': [
-                        (b'content-type', b'text/plain'),
-                        (b'location', location.encode('utf-8'))],
-                }, b'')
+                location = f"{state.get('url', '')}/{len(parent) - 1}"
+                return SpecialResponse(
+                    {
+                        "type": "http.response.start",
+                        "status": 201,
+                        "headers": [
+                            (b"content-type", b"text/plain"),
+                            (b"location", location.encode("utf-8")),
+                        ],
+                    },
+                    b"",
+                )
             else:
                 # Replace existing element
                 try:
                     segnum = validate_list_index(index_str)
                     if segnum >= len(parent) or segnum < 0:
-                        return SpecialResponse({
-                            'type': 'http.response.start',
-                            'status': 403,
-                            'headers': [(b'content-type', b'text/plain')],
-                        }, b'Not allowed to put to nonexistant list element.  Use last.')
+                        return SpecialResponse(
+                            {
+                                "type": "http.response.start",
+                                "status": 403,
+                                "headers": [(b"content-type", b"text/plain")],
+                            },
+                            b"Not allowed to put to nonexistant list element.  "
+                            b"Use last.",
+                        )
                     parent[segnum] = state.get("parsed_body", None)
-                    return SpecialResponse({
-                        'type': 'http.response.start',
-                        'status': 201,
-                        'headers': [(b'content-type', b'text/plain')],
-                    }, b'')
+                    return SpecialResponse(
+                        {
+                            "type": "http.response.start",
+                            "status": 201,
+                            "headers": [(b"content-type", b"text/plain")],
+                        },
+                        b"",
+                    )
                 except ValueError:
                     pass
-        elif method == 'DELETE':
+        elif method == "DELETE":
             # Delete an element
             try:
                 segnum = validate_list_index(index_str)
@@ -223,19 +251,24 @@ async def consume_list(parent: List[Any], segments: List[str], state: Dict[str, 
             except (ValueError, IndexError):
                 # If invalid index, just return OK anyway
                 pass
-            return SpecialResponse({
-                'type': 'http.response.start',
-                'status': 200,
-                'headers': [(b'content-type', b'text/plain')],
-            }, b'')
+            return SpecialResponse(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [(b"content-type", b"text/plain")],
+                },
+                b"",
+            )
     # If we get here, we either haven't done PUT/DELETE, or the path continues.
     return await consume_tuple(tuple(parent), segments, state, send)
+
+
 add_consumer(list, consume_list)
 
 
 async def _consume_immutabledict(
-    parent: MappingProxyType, segments: List[str], state: Dict[str, Any], send: Callable
-) -> Optional[Any]:
+    parent: MappingProxyType[str, Any], segments: list[str], state: State, send: Send
+) -> Any | None:
     """Traverse a dictionary by treating the first segment as a key.
 
     If the first segment is empty, returns the dictionary itself. Otherwise, returns
@@ -243,7 +276,8 @@ async def _consume_immutabledict(
 
     Args:
         parent (dict): The current dictionary.
-        segments (list[str]): Path segments, where segments[0] should be a dictionary key or empty.
+        segments (list[str]): Path segments, where segments[0] should be a
+            dictionary key or empty.
         state (dict): Request-specific state.
         send (coroutine): ASGI send function.
 
@@ -251,13 +285,15 @@ async def _consume_immutabledict(
         any or None: The resolved object or None if the key does not exist.
     """
     if len(segments) == 1 and state["method"] != "GET" and state["method"] != "POST":
-        return SpecialResponse({
-            'type': 'http.response.start',
-            'status': 405,
-            'headers': [
-                (b'content-type', b'text/plain')
-            ],
-        }, b'Method not allowed')
+        return SpecialResponse(
+            {
+                "type": "http.response.start",
+                "status": 405,
+                "headers": [(b"content-type", b"text/plain")],
+            },
+            b"Method not allowed",
+        )
+    child: Any
     try:
         if len(segments) == 1 and not len(segments[0]):
             if "index" in parent:
@@ -270,10 +306,14 @@ async def _consume_immutabledict(
     except (KeyError, ValueError):
         return None
     return await consume(child, segments[1:], state, send)
+
+
 add_consumer(MappingProxyType, _consume_immutabledict)
 
 
-async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[str, Any], send: Callable) -> Any:
+async def consume_dict(
+    parent: dict[str, Any], segments: list[str], state: State, send: Send
+) -> Any:
     """Traverse a dictionary by treating the first segment as a key.
     Supports GET, PUT, and DELETE methods:
     - GET: Return the requested value.
@@ -282,14 +322,16 @@ async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[
 
     Args:
         parent (dict): The current dictionary.
-        segments (list[str]): Path segments, where segments[0] is a dictionary key or empty for the dict itself.
+        segments (list[str]): Path segments, where segments[0] is a dictionary
+            key or empty for the dict itself.
         state (dict): Request-specific state, expected to have at least:
             - "method" (str): The HTTP method (e.g., GET, PUT, DELETE)
             - "parsed_body" (optional): The body to be used for PUT
         send (coroutine): ASGI send function.
 
     Returns:
-        any or None: The resolved object on GET or traversal, or None if the key does not exist.
+        any or None: The resolved object on GET or traversal, or None if the key
+            does not exist.
     """
     if len(segments) == 1:
         method = state.get("method", "GET").upper()
@@ -299,25 +341,32 @@ async def consume_dict(parent: Dict[str, Any], segments: List[str], state: Dict[
         except ValueError:
             return None
 
-        if method == 'PUT':
+        if method == "PUT":
             parent[key] = state.get("parsed_body", None)
-            return SpecialResponse({
-                'type': 'http.response.start',
-                'status': 201,
-                'headers': [(b'content-type', b'text/plain')],
-            }, b'')
+            return SpecialResponse(
+                {
+                    "type": "http.response.start",
+                    "status": 201,
+                    "headers": [(b"content-type", b"text/plain")],
+                },
+                b"",
+            )
 
-        elif method == 'DELETE':
-
+        elif method == "DELETE":
             if key in parent:
                 del parent[key]
 
-            return SpecialResponse({  # pragma: no cover
-                'type': 'http.response.start',
-                'status': 200,
-                'headers': [(b'content-type', b'text/plain')],
-            }, b'')
+            return SpecialResponse(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [(b"content-type", b"text/plain")],
+                },
+                b"",
+            )
 
     # If we get here, we either are doing a GET or traversing deeper.
     return await _consume_immutabledict(MappingProxyType(parent), segments, state, send)
+
+
 add_consumer(dict, consume_dict)

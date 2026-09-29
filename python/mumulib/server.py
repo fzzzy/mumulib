@@ -1,19 +1,29 @@
-
 import asyncio
 import json
 import traceback
-from typing import Any, Callable, Dict, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 from urllib import parse
 
 from mumulib.consumers import consume
-from mumulib.mumutypes import SpecialResponse
+from mumulib.mumutypes import (
+    ASGIApp,
+    Producer,
+    Receive,
+    Scope,
+    Send,
+    SpecialResponse,
+    State,
+)
 from mumulib.producers import produce
 
 # Default max request body size: 10MB
 DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
 
 
-async def send_error_response(send: Callable, status: int, error_type: str, message: str) -> None:
+async def send_error_response(
+    send: Send, status: int, error_type: str, message: str
+) -> None:
     """
     Send a consistent JSON error response.
 
@@ -23,20 +33,28 @@ async def send_error_response(send: Callable, status: int, error_type: str, mess
         error_type: Error type/title (e.g., "Bad Request", "Internal Server Error")
         message: Detailed error message
     """
-    await send({
-        'type': 'http.response.start',
-        'status': status,
-        'headers': [(b'content-type', b'application/json; charset=UTF-8')],
-    })
-    await send({
-        'type': 'http.response.body',
-        'body': json.dumps({"error": error_type, "message": message}).encode('utf-8'),
-        'more_body': False,
-    })
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": [(b"content-type", b"application/json; charset=UTF-8")],
+        }
+    )
+    await send(
+        {
+            "type": "http.response.body",
+            "body": json.dumps({"error": error_type, "message": message}).encode(
+                "utf-8"
+            ),
+            "more_body": False,
+        }
+    )
 
 
-async def parse_json(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -> Optional[Any]:
-    body = b''
+async def parse_json(
+    receive: Receive, max_size: int = DEFAULT_MAX_BODY_SIZE
+) -> Any | None:
+    body = b""
 
     # Receive request body chunks
     while True:
@@ -44,27 +62,32 @@ async def parse_json(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -
 
         # Check if we've reached the end of the body
         # ASGI servers should only send http.request during body reading
-        if message['type'] == 'http.request':  # pragma: no branch
+        if message["type"] == "http.request":  # pragma: no branch
             # Accumulate body chunks
-            body += message.get('body', b'')
+            body += message.get("body", b"")
 
             # Check if body size exceeds limit
             if len(body) > max_size:
-                raise ValueError(f"Request body too large: {len(body)} bytes exceeds limit of {max_size} bytes")
+                raise ValueError(
+                    f"Request body too large: {len(body)} bytes exceeds limit "
+                    f"of {max_size} bytes"
+                )
 
             # Check if this is the last body chunk
-            if not message.get('more_body', False):
+            if not message.get("more_body", False):
                 break
 
     # Process the full body
-    body_text = body.decode('utf-8')
+    body_text = body.decode("utf-8")
     if len(body_text):
         return json.loads(body_text)
     return None
 
 
-async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_SIZE) -> Dict[str, Any]:
-    body = b''
+async def parse_urlencoded(
+    receive: Receive, max_size: int = DEFAULT_MAX_BODY_SIZE
+) -> dict[str, Any]:
+    body = b""
 
     # Receive request body chunks
     while True:
@@ -72,19 +95,22 @@ async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_S
 
         # Check if we've reached the end of the body
         # ASGI servers should only send http.request during body reading
-        if message['type'] == 'http.request':  # pragma: no branch
+        if message["type"] == "http.request":  # pragma: no branch
             # Accumulate body chunks
-            body += message.get('body', b'')
+            body += message.get("body", b"")
 
             # Check if body size exceeds limit
             if len(body) > max_size:
-                raise ValueError(f"Request body too large: {len(body)} bytes exceeds limit of {max_size} bytes")
+                raise ValueError(
+                    f"Request body too large: {len(body)} bytes exceeds limit "
+                    f"of {max_size} bytes"
+                )
 
             # Check if this is the last body chunk
-            if not message.get('more_body', False):
+            if not message.get("more_body", False):
                 break
-    result: Dict[str, Any] = {}
-    for (k, v) in parse.parse_qsl(body.decode('utf-8')):
+    result: dict[str, Any] = {}
+    for k, v in parse.parse_qsl(body.decode("utf-8")):
         k = parse.unquote(k)
         v = parse.unquote(v)
         if k.endswith("]") and "[" in k:
@@ -96,40 +122,45 @@ async def parse_urlencoded(receive: Callable, max_size: int = DEFAULT_MAX_BODY_S
     return result
 
 
-async def parse_multipart(receive: Callable, boundary: bytes, max_size: int = DEFAULT_MAX_BODY_SIZE) -> Dict[str, Any]:
-    body = b''
+async def parse_multipart(
+    receive: Receive, boundary: bytes, max_size: int = DEFAULT_MAX_BODY_SIZE
+) -> dict[str, Any]:
+    body = b""
     # Receive request body chunks
     while True:
         message = await receive()
 
         # Check if we've reached the end of the body
         # ASGI servers should only send http.request during body reading
-        if message['type'] == 'http.request':  # pragma: no branch
+        if message["type"] == "http.request":  # pragma: no branch
             # Accumulate body chunks
-            body += message.get('body', b'')
+            body += message.get("body", b"")
 
             # Check if body size exceeds limit
             if len(body) > max_size:
-                raise ValueError(f"Request body too large: {len(body)} bytes exceeds limit of {max_size} bytes")
+                raise ValueError(
+                    f"Request body too large: {len(body)} bytes exceeds limit "
+                    f"of {max_size} bytes"
+                )
 
             # Check if this is the last body chunk
-            if not message.get('more_body', False):
+            if not message.get("more_body", False):
                 break
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     for part in body.split(boundary):
-        if not part or part.strip() == b'--':
+        if not part or part.strip() == b"--":
             continue
         headers_bytes, content = part.split(b"\r\n\r\n", 1)
         headers = headers_bytes.split(b"\r\n")
-        name: Optional[bytes] = None
+        name: bytes | None = None
         for header in headers:
             if header.startswith(b"Content-Disposition:"):
                 name = header.split(b";")[1].split(b"=")[1][1:-1]
         if name:
             # Strip trailing \r\n-- or \r\n from content
-            stripped_content = content.rstrip(b'-').rstrip(b'\r\n')
+            stripped_content = content.rstrip(b"-").rstrip(b"\r\n")
             for x in headers:
-                if b'Content-Type' in x:
+                if b"Content-Type" in x:
                     result[name.decode("utf-8")] = stripped_content
                     break
             else:
@@ -137,18 +168,18 @@ async def parse_multipart(receive: Callable, boundary: bytes, max_size: int = DE
     return result
 
 
-def consumers_app(root: Any) -> Callable:
-    async def app(scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
-        if scope['type'] == 'lifespan':
+def consumers_app(root: Any) -> ASGIApp:
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "lifespan":
             while True:
                 message = await receive()
-                if message['type'] == 'lifespan.startup':
-                    await send({'type': 'lifespan.startup.complete'})
-                if message['type'] == 'lifespan.shutdown':
-                    await send({'type': 'lifespan.shutdown.complete'})
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                if message["type"] == "lifespan.shutdown":
+                    await send({"type": "lifespan.shutdown.complete"})
                     return
 
-        assert scope['type'] == 'http'
+        assert scope["type"] == "http"
 
         state = scope["state"]
         state["url"] = scope["path"]
@@ -165,21 +196,20 @@ def consumers_app(root: Any) -> Callable:
             content_type = "text/html; charset=UTF-8"
 
         try:
-            for (key, value) in scope["headers"]:
+            for key, value in scope["headers"]:
                 if key.lower() == b"content-type":
                     lowervalue = value.lower().split(b";")[0]
-                    if lowervalue == b'application/json':
+                    if lowervalue == b"application/json":
                         state["parsed_body"] = await parse_json(receive)
                         state["accept"] = ["application/json", "*/*"]
                         content_type = "application/json; charset=UTF-8"
-                    elif lowervalue == b'application/x-www-form-urlencoded':
+                    elif lowervalue == b"application/x-www-form-urlencoded":
                         state["parsed_body"] = await parse_urlencoded(receive)
-                    elif lowervalue == b'multipart/form-data':
-                        boundary = b'--' + value[len(lowervalue) + 11:]
-                        state["parsed_body"] = await parse_multipart(
-                            receive, boundary)
+                    elif lowervalue == b"multipart/form-data":
+                        boundary = b"--" + value[len(lowervalue) + 11 :]
+                        state["parsed_body"] = await parse_multipart(receive, boundary)
                     else:
-                        print("Unknown content type: %s" % value)
+                        print(f"Unknown content type: {value}")
         except ValueError as exc:
             # Handle request body size limit errors
             await send_error_response(send, 413, "Payload Too Large", str(exc))
@@ -193,7 +223,9 @@ def consumers_app(root: Any) -> Callable:
             await send_error_response(send, 500, "Internal Server Error", str(exc))
             return
         if result is None:
-            await send_error_response(send, 404, "Not Found", f"Resource not found: {scope['path']}")
+            await send_error_response(
+                send, 404, "Not Found", f"Resource not found: {scope['path']}"
+            )
             return
 
         if isinstance(result, SpecialResponse):
@@ -206,35 +238,53 @@ def consumers_app(root: Any) -> Callable:
                     if first_chunk:
                         if isinstance(chunk, SpecialResponse):
                             await send(chunk.asgi_send_dict)
-                            await send({
-                                'type': 'http.response.body',
-                                'body': str(chunk.leaf_object).encode('utf8'),
-                                'more_body': True,
-                            })
+                            await send(
+                                {
+                                    "type": "http.response.body",
+                                    "body": str(chunk.leaf_object).encode("utf8"),
+                                    "more_body": True,
+                                }
+                            )
                             if chunk.writer is not None:
                                 await chunk.writer(send, receive)
                         else:
-                            await send({
-                                'type': 'http.response.start',
-                                'status': 200,
-                                'headers': [(b'content-type', content_type.encode('utf8'))],
-                            })
+                            await send(
+                                {
+                                    "type": "http.response.start",
+                                    "status": 200,
+                                    "headers": [
+                                        (b"content-type", content_type.encode("utf8"))
+                                    ],
+                                }
+                            )
                             # Handle both str and bytes chunks
-                            chunk_bytes = chunk if isinstance(chunk, bytes) else str(chunk).encode('utf8')
-                            await send({
-                                'type': 'http.response.body',
-                                'body': chunk_bytes,
-                                'more_body': True,
-                            })
+                            chunk_bytes = (
+                                chunk
+                                if isinstance(chunk, bytes)
+                                else str(chunk).encode("utf8")
+                            )
+                            await send(
+                                {
+                                    "type": "http.response.body",
+                                    "body": chunk_bytes,
+                                    "more_body": True,
+                                }
+                            )
                         first_chunk = False
                     else:
                         # Handle both str and bytes chunks
-                        chunk_bytes = chunk if isinstance(chunk, bytes) else str(chunk).encode('utf8')
-                        await send({
-                            'type': 'http.response.body',
-                            'body': chunk_bytes,
-                            'more_body': True,
-                        })
+                        chunk_bytes = (
+                            chunk
+                            if isinstance(chunk, bytes)
+                            else str(chunk).encode("utf8")
+                        )
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": chunk_bytes,
+                                "more_body": True,
+                            }
+                        )
                 result = "\n"
             except SpecialResponse as special:
                 if first_chunk:
@@ -244,66 +294,81 @@ def consumers_app(root: Any) -> Callable:
             except Exception as exc:
                 traceback.print_exc()
                 if first_chunk:
-                    await send({
-                        'type': 'http.response.start',
-                        'status': 500,
-                        'headers': [(b'content-type', b'application/json; charset=UTF-8')],
-                    })
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": 500,
+                            "headers": [
+                                (b"content-type", b"application/json; charset=UTF-8")
+                            ],
+                        }
+                    )
                     first_chunk = False
-                result = json.dumps({"error": "Internal Server Error", "message": str(exc)})
+                result = json.dumps(
+                    {"error": "Internal Server Error", "message": str(exc)}
+                )
 
         # Ensure result is bytes
         if isinstance(result, str):
-            result_bytes = result.encode('utf8')
+            result_bytes = result.encode("utf8")
         elif isinstance(result, bytes):
             result_bytes = result
         else:
-            result_bytes = str(result).encode('utf8')
+            result_bytes = str(result).encode("utf8")
 
-        await send({
-            'type': 'http.response.body',
-            'body': result_bytes,
-            'more_body': False,
-        })
+        await send(
+            {
+                "type": "http.response.body",
+                "body": result_bytes,
+                "more_body": False,
+            }
+        )
 
     return app
 
 
-def EventSource(output_queue):
-    async def handle_eventsource(_, state):
-        async def writer(send, receive):
+def EventSource(output_queue: asyncio.Queue[Any]) -> Producer:
+    async def handle_eventsource(
+        _: object, state: State
+    ) -> AsyncIterator[SpecialResponse]:
+        async def writer(send: Send, receive: Receive) -> None:
             while True:
-                # Create tasks for the ASGI receive and the queue.
-                task_receive = asyncio.create_task(receive())
+                # Create tasks for the ASGI receive and the queue. ASGI only
+                # promises an awaitable, so ensure_future rather than
+                # create_task, which wants a coroutine.
+                task_receive = asyncio.ensure_future(receive())
                 task_queue = asyncio.create_task(output_queue.get())
 
                 try:
-                    done, pending = await asyncio.wait(
-                        {task_receive, task_queue},
-                        return_when=asyncio.FIRST_COMPLETED
+                    done, _ = await asyncio.wait(
+                        {task_receive, task_queue}, return_when=asyncio.FIRST_COMPLETED
                     )
                 except asyncio.CancelledError:
                     break
                 if task_queue in done:
                     result = done.pop().result()
-                    await send({
-                        'type': 'http.response.body',
-                        'body': f"data: {result}\n\n".encode('utf8'),
-                        'more_body': True,
-                    })
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": f"data: {result}\n\n".encode(),
+                            "more_body": True,
+                        }
+                    )
                 else:
                     task_queue.cancel()
                     break
 
         yield SpecialResponse(
             {
-                'type': 'http.response.start',
-                'status': 200,
-                'headers': [
-                    (b'content-type', b'text/event-stream; charset=UTF-8'),
-                    (b'cache-control', b'no-cache'),],
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"content-type", b"text/event-stream; charset=UTF-8"),
+                    (b"cache-control", b"no-cache"),
+                ],
             },
             b"event: ping\ndata: {}\n\n",
-            writer
+            writer,
         )
+
     return handle_eventsource

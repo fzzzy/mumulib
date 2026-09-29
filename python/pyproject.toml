@@ -24,10 +24,12 @@ license = {file = "LICENSE"}
 
 [project.optional-dependencies]
 dev = [
-    "coverage>=7.6.9",
-    "flake8>=7.3.0",
-    "mypy>=1.0.0",
-    "types-aiofiles>=25.1.0",
+    "ruff>=0.16.5",
+    "pyright>=1.1.411",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    # lxml ships no type information; without these, pyright strict cannot
+    # see lxml.etree at all (reportMissingTypeStubs in tags.py).
     "lxml-stubs>=0.5.1",
 ]
 
@@ -35,8 +37,37 @@ dev = [
 Homepage = "https://github.com/fzzzy/mumulib"
 Issues = "https://github.com/fzzzy/mumulib/issues"
 
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-files = ["mumulib"]
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = []
+
+# The package is strict. Each *_test.py lowers itself to standard with a
+# "# pyright: standard" comment on its first line: the tests are unannotated
+# unittest code, but standard mode still catches wrong calls into the package.
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+include = ["mumulib"]
+
+[tool.pytest.ini_options]
+testpaths = ["mumulib"]
+python_files = ["*_test.py"]
+
+[tool.coverage.run]
+branch = true
+source = ["mumulib"]
+omit = ["*_test.py"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 1
+# Measured on the package alone, tests omitted: 99.8%. The two partial
+# branches left are defensive ones in tags.parse_template that lxml's
+# iterparse never takes.
+fail_under = 99.8

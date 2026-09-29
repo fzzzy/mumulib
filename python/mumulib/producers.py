@@ -24,84 +24,101 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-from io import TextIOWrapper, BufferedReader
-import aiofiles
 import json
 import mimetypes
+from collections.abc import AsyncGenerator
+from io import BufferedReader, TextIOWrapper
 from types import FunctionType, MappingProxyType
-from typing import Any, AsyncGenerator, Callable, Dict, Optional
+from typing import Any, cast
+
+import aiofiles
 
 from mumulib import mumutypes
+from mumulib.mumutypes import Chunk, Producer, State
 
 
-def custom_serializer(obj: Any) -> Optional[Dict[str, Any]]:
+def custom_serializer(obj: object) -> dict[str, Any] | None:
     if isinstance(obj, MappingProxyType):
-        return dict(obj)
+        # isinstance cannot recover the proxy's type parameters.
+        return dict(cast(MappingProxyType[str, Any], obj))
     return None
 
 
-_producer_adapters: Dict[str, Dict[type, Callable]] = {}
+_producer_adapters: dict[str, dict[type[Any], Producer]] = {}
 
 
-def add_producer(adapter_for_type: type, conv: Callable, mime_type: str = '*/*') -> None:
+def add_producer(
+    adapter_for_type: type[Any], conv: Producer, mime_type: str = "*/*"
+) -> None:
     if mime_type not in _producer_adapters:
         _producer_adapters[mime_type] = {}
     _producer_adapters[mime_type][adapter_for_type] = conv
 
 
-async def produce(thing: Any, state: Dict[str, Any]) -> AsyncGenerator[str, None]:
+async def produce(thing: object, state: State) -> AsyncGenerator[Chunk]:
     thing_type = type(thing)
-    for content_type in state['accept']:
+    for content_type in state["accept"]:
         adapter = _producer_adapters.get(content_type, {}).get(thing_type)
         if adapter:
             async for chunk in adapter(thing, state):
                 yield chunk
             return
-    if thing_type is FunctionType:
+    if isinstance(thing, FunctionType):
         async for chunk in thing(thing, state):
             yield chunk
         return
     yield str(thing)
 
 
-async def produce_file(thing: TextIOWrapper, state: Dict[str, Any]) -> AsyncGenerator[mumutypes.SpecialResponse, None]:
+async def produce_file(
+    thing: TextIOWrapper | BufferedReader, state: State
+) -> AsyncGenerator[mumutypes.SpecialResponse]:
     filename = str(thing.name)
     content_type = mimetypes.guess_type(filename)
 
     content: str | bytes
     if content_type[0] == "font/ttf":
-        async with aiofiles.open(filename, 'rb') as newthing:
+        async with aiofiles.open(filename, "rb") as newthing:
             content = await newthing.read()
-        charset = b''
+        charset = b""
     else:
-        async with aiofiles.open(filename, 'r') as newthing:
+        async with aiofiles.open(filename) as newthing:
             content = await newthing.read()
-        charset = b'; charset=UTF-8'
-    yield mumutypes.SpecialResponse({
-        'type': 'http.response.start',
-        'status': 200,
-        'headers': [(b'content-type', (content_type[0] or 'application/octet-stream').encode("utf8") + charset)],
-    }, content)
+        charset = b"; charset=UTF-8"
+    yield mumutypes.SpecialResponse(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                (
+                    b"content-type",
+                    (content_type[0] or "application/octet-stream").encode("utf8")
+                    + charset,
+                )
+            ],
+        },
+        content,
+    )
+
+
 add_producer(TextIOWrapper, produce_file)
 add_producer(BufferedReader, produce_file)
 
 
-async def produce_json(thing: Any, state: Dict[str, Any]) -> AsyncGenerator[str, None]:
+async def produce_json(thing: Any, state: State) -> AsyncGenerator[str]:
     yield json.dumps(thing, default=custom_serializer)
 
 
-async def produce_bytes(thing: bytes, state: Dict[str, Any]) -> AsyncGenerator[bytes, None]:
+async def produce_bytes(thing: bytes, state: State) -> AsyncGenerator[bytes]:
     """Producer for bytes that yields them directly as binary data"""
     yield thing
 
 
-JSON_TYPES = [
-    dict, list, tuple, str, int, float,
-    bool, MappingProxyType, type(None)]
+JSON_TYPES = [dict, list, tuple, str, int, float, bool, MappingProxyType, type(None)]
 
 
 for typ in JSON_TYPES:
-    add_producer(typ, produce_json, 'application/json')
+    add_producer(typ, produce_json, "application/json")
 
 # Add bytes producer for binary data (using */* to match all content types)
 add_producer(bytes, produce_bytes)

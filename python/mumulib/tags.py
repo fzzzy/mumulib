@@ -1,205 +1,170 @@
-from typing import Any, AsyncIterator, IO
-
-from mumulib import producers
+from collections.abc import AsyncIterator
+from typing import IO, TYPE_CHECKING, Any, cast
 
 from lxml import etree
 
+from mumulib import producers
+from mumulib.mumutypes import State
 
 # From MDN reference
 VOID_ELEMENTS: list[str] = [
-    'area',
-    'base',
-    'br',
-    'col',
-    'embed',
-    'hr',
-    'img',
-    'input',
-    'link',
-    'meta',
-    'source',
-    'track',
-    'wbr'
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "source",
+    "track",
+    "wbr",
 ]
 
 
 VOID_ELEMENTS_SET: set[str] = set(VOID_ELEMENTS)
 
 
-MAIN_ROOT: list[str] = [
-    'html'
-]
+MAIN_ROOT: list[str] = ["html"]
 
 
-DOCUMENT_METADATA: list[str] = [
-    'base',
-    'head',
-    'link',
-    'meta',
-    'style',
-    'title'
-]
+DOCUMENT_METADATA: list[str] = ["base", "head", "link", "meta", "style", "title"]
 
 
-SECTIONING_ROOT: list[str] = [
-    'body'
-]
+SECTIONING_ROOT: list[str] = ["body"]
 
 
 CONTENT_SECTIONING: list[str] = [
-    'address',
-    'article',
-    'aside',
-    'footer',
-    'header',
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'h5',
-    'h6',
-    'hgroup',
-    'main',
-    'nav',
-    'section',
-    'search'
+    "address",
+    "article",
+    "aside",
+    "footer",
+    "header",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hgroup",
+    "main",
+    "nav",
+    "section",
+    "search",
 ]
 
 
 TEXT_CONTENT: list[str] = [
-    'blockquote',
-    'dd',
-    'div',
-    'dl',
-    'dt',
-    'figcaption',
-    'figure',
-    'hr',
-    'li',
-    'menu',
-    'ol',
-    'p',
-    'pre',
-    'ul'
+    "blockquote",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "figcaption",
+    "figure",
+    "hr",
+    "li",
+    "menu",
+    "ol",
+    "p",
+    "pre",
+    "ul",
 ]
 
 
 INLINE_TEXT_SEMANTICS: list[str] = [
-    'a',
-    'abbr',
-    'b',
-    'bdi',
-    'bdo',
-    'br',
-    'cite',
-    'code',
-    'data',
-    'dfn',
-    'em',
-    'i',
-    'kbd',
-    'mark',
-    'q',
-    'rp',
-    'rt',
-    'ruby',
-    's',
-    'samp',
-    'small',
-    'span',
-    'strong',
-    'sub',
-    'sup',
-    'time',
-    'u',
-    'var',
-    'wbr'
+    "a",
+    "abbr",
+    "b",
+    "bdi",
+    "bdo",
+    "br",
+    "cite",
+    "code",
+    "data",
+    "dfn",
+    "em",
+    "i",
+    "kbd",
+    "mark",
+    "q",
+    "rp",
+    "rt",
+    "ruby",
+    "s",
+    "samp",
+    "small",
+    "span",
+    "strong",
+    "sub",
+    "sup",
+    "time",
+    "u",
+    "var",
+    "wbr",
 ]
 
 
-IMAGE_AND_MULTIMEDIA: list[str] = [
-    'area',
-    'audio',
-    'img',
-    'map',
-    'track',
-    'video'
-]
+IMAGE_AND_MULTIMEDIA: list[str] = ["area", "audio", "img", "map", "track", "video"]
 
 
 EMBEDDED_CONTENT: list[str] = [
-    'embed',
-    'fencedframe',
-    'iframe',
-    'object',
-    'picture',
-    'source'
+    "embed",
+    "fencedframe",
+    "iframe",
+    "object",
+    "picture",
+    "source",
 ]
 
 
-SVG_AND_MATHML: list[str] = [
-    'svg',
-    'math'
-]
+SVG_AND_MATHML: list[str] = ["svg", "math"]
 
 
-SCRIPTING: list[str] = [
-    'canvas',
-    'noscript',
-    'script'
-]
+SCRIPTING: list[str] = ["canvas", "noscript", "script"]
 
 
-DEMARCATING_EDITS: list[str] = [
-    'del',
-    'ins'
-]
+DEMARCATING_EDITS: list[str] = ["del", "ins"]
 
 
 TABLE_CONTENT: list[str] = [
-    'caption',
-    'col',
-    'colgroup',
-    'table',
-    'tbody',
-    'td',
-    'tfoot',
-    'th',
-    'thead',
-    'tr',
+    "caption",
+    "col",
+    "colgroup",
+    "table",
+    "tbody",
+    "td",
+    "tfoot",
+    "th",
+    "thead",
+    "tr",
 ]
 
 
 FORMS: list[str] = [
-    'button',
-    'datalist',
-    'fieldset',
-    'form',
-    'input',
-    'label',
-    'legend',
-    'meter',
-    'optgroup',
-    'option',
-    'output',
-    'progress',
-    'select',
-    'textarea'
+    "button",
+    "datalist",
+    "fieldset",
+    "form",
+    "input",
+    "label",
+    "legend",
+    "meter",
+    "optgroup",
+    "option",
+    "output",
+    "progress",
+    "select",
+    "textarea",
 ]
 
 
-INTERACTIVE_ELEMENTS: list[str] = [
-    'details',
-    'dialog',
-    'menu',
-    'summary'
-]
+INTERACTIVE_ELEMENTS: list[str] = ["details", "dialog", "menu", "summary"]
 
 
-WEB_COMPONENTS: list[str] = [
-    'slot',
-    'template'
-]
+WEB_COMPONENTS: list[str] = ["slot", "template"]
 
 
 ALL_ELEMENTS: list[str] = MAIN_ROOT + DOCUMENT_METADATA
@@ -217,14 +182,14 @@ ALL_ELEMENTS.extend(DEMARCATING_EDITS + TABLE_CONTENT)
 ALL_ELEMENTS.extend(FORMS + INTERACTIVE_ELEMENTS + WEB_COMPONENTS)
 
 
-def reindent_tree(node: 'Stan', indent: int) -> None:
+def reindent_tree(node: "Stan", indent: int) -> None:
     node.indent = indent
     for child in node.children:
         if isinstance(child, Stan):
             reindent_tree(child, indent + 1)
 
 
-class Stan(object):
+class Stan:
     def __init__(self, tagname: str, indent: int, *args: Any, **kwargs: Any) -> None:
         self.clone: bool = False
         self.tagname: str = tagname
@@ -232,40 +197,38 @@ class Stan(object):
         self.attributes: dict[str, Any] = dict(kwargs)
         self.children: list[Any] = list(args)
 
-    def __call__(self, **kwargs: Any) -> 'Stan':
+    def __call__(self, **kwargs: Any) -> "Stan":
         if self.clone:
             self = self.copy()
-        if 'indent' in kwargs:
-            self.indent = kwargs.pop('indent')
+        if "indent" in kwargs:
+            self.indent = kwargs.pop("indent")
         self.attributes = self.attributes | kwargs
         return self
 
-    def __getitem__(self, item: Any) -> 'Stan':
+    def __getitem__(self, item: Any) -> "Stan":
         if self.clone:
             self = self.copy()
         if isinstance(item, list):
-            for child in item:
+            items = cast(list[Any], item)
+            for child in items:
                 if isinstance(child, Stan):
                     child.indent = self.indent + 1
-            self.children.extend(item)
+            self.children.extend(items)
         else:
             if isinstance(item, Stan):
                 item.indent = self.indent + 1
             self.children.append(item)
         return self
 
-    def copy(self) -> 'Stan':
-        children = [
-            getattr(child, 'copy', lambda: child)()
-            for child in self.children]
+    def copy(self) -> "Stan":
+        children = [getattr(child, "copy", lambda: child)() for child in self.children]
         attributes = {
-            k: getattr(v, 'copy', lambda: v)()
-            for k, v in self.attributes.items()}
-        result = Stan(
-            self.tagname, 0, *children, **attributes)
+            k: getattr(v, "copy", lambda: v)() for k, v in self.attributes.items()
+        }
+        result = Stan(self.tagname, 0, *children, **attributes)
         return result
 
-    def clone_pat(self, patname: str, **slots: Any) -> 'Stan | None':
+    def clone_pat(self, patname: str, **slots: Any) -> "Stan | None":
         if self.attributes.get("data-pat") == patname:
             copy = self.copy()
             reindent_tree(copy, 0)
@@ -296,8 +259,7 @@ class Stan(object):
             attrslots = child.attributes.get("data-attr")
             if attrslots:
                 attrslots = attrslots.split(",")
-                attrslots = [
-                    (k, v) for k, v in (x.split("=") for x in attrslots)]
+                attrslots = [(k, v) for k, v in (x.split("=") for x in attrslots)]
                 for attrname, attrslotname in attrslots:
                     if attrslotname == slotname:
                         child.attributes[attrname] = value
@@ -312,7 +274,7 @@ class Stan(object):
                 self.children[i] = node
             elif isinstance(value, list):
                 child.children = []
-                for node in value:
+                for node in cast(list[Any], value):
                     if isinstance(node, Stan):
                         newnode = node.copy()
                         reindent_tree(newnode, self.indent + 1)
@@ -329,8 +291,7 @@ class Stan(object):
             attrslots = child.attributes.get("data-attr")
             if attrslots:
                 attrslots = attrslots.split(",")
-                attrslots = [
-                    (k, v) for k, v in (x.split("=") for x in attrslots)]
+                attrslots = [(k, v) for k, v in (x.split("=") for x in attrslots)]
                 for attrname, attrslotname in attrslots:
                     if attrslotname == slotname:
                         child.attributes[attrname] = value
@@ -341,7 +302,7 @@ class Stan(object):
                 node = value.copy()
                 child.children.append(node)
             elif isinstance(value, list):
-                for node in value:
+                for node in cast(list[Any], value):
                     if isinstance(node, Stan):
                         child.children.append(node.copy())
                     else:
@@ -368,12 +329,18 @@ class Stan(object):
         return result
 
 
-class TagGroup(object):
+class TagGroup:
     def __init__(self, *tags: str) -> None:
         for tag in tags:
             newtag = Stan(tag, 0)
             newtag.clone = True
             setattr(self, tag, newtag)
+
+    if TYPE_CHECKING:
+        # The tags are set with setattr, so declare them for type checkers:
+        # tags.all.div is a Stan. Not defined at runtime, so a misspelt tag
+        # still raises AttributeError.
+        def __getattr__(self, name: str) -> Stan: ...
 
 
 main_root = TagGroup(*MAIN_ROOT)
@@ -396,7 +363,8 @@ all = TagGroup(*ALL_ELEMENTS)
 
 def parse_template(source: IO[bytes]) -> Stan | None:
     context = etree.iterparse(
-        source, events=("start", "end"), html=True, encoding="UTF-8")
+        source, events=("start", "end"), html=True, encoding="UTF-8"
+    )
 
     root: Stan | None = None
     current: Stan | None = None
@@ -433,16 +401,16 @@ def parse_template(source: IO[bytes]) -> Stan | None:
     return root
 
 
-class Template(object):
+class Template:
     def __init__(self, filename: str) -> None:
         self.filename: str = filename
         self.loaded: bool = False
         self.template: Stan | None = None
         self.root: Stan | None = None
 
-    def load(self) -> 'Template':
+    def load(self) -> "Template":
         self.loaded = True
-        self.template = parse_template(open(self.filename, 'rb'))
+        self.template = parse_template(open(self.filename, "rb"))
         if self.template:
             self.root = self.template.copy()
         return self
@@ -460,8 +428,7 @@ class Template(object):
             if result:
                 attrslots = result.attributes.get("data-attr", "")
                 attrslots = attrslots.split(",")
-                attrslots = [
-                    (k, v) for k, v in (x.split("=") for x in attrslots if x)]
+                attrslots = [(k, v) for k, v in (x.split("=") for x in attrslots if x)]
                 for k, v in slots.items():
                     if result.attributes.get("data-slot") == k:
                         if isinstance(v, Stan):
@@ -506,16 +473,21 @@ def append_slots(node: Stan, slotname: str, value: Any) -> None:
     return node.append_slots(slotname, value)
 
 
-async def produce_html(thing: Stan, state: Any) -> AsyncIterator[str]:
+async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
     indent = "    " * thing.indent
     yield f"{indent}<{thing.tagname}"
     if thing.attributes:
         for k, v in thing.attributes.items():
-            attrpartchunks = []
+            attrpartchunks: list[str] = []
             async for chunk in producers.produce(v, state):
+                # An attribute is text: bytes or a SpecialResponse here is a
+                # mistake to report, not something to write out as its repr.
+                if not isinstance(chunk, str):
+                    raise TypeError(
+                        f"attribute {k!r} produced {type(chunk).__name__}, not str"
+                    )
                 attrpartchunks.append(chunk)
-            attrpartval = "".join(
-                attrpartchunks).replace('"', '&quot;')
+            attrpartval = "".join(attrpartchunks).replace('"', "&quot;")
             attrpart = f' {k}="{attrpartval}"'
             yield attrpart
     if thing.tagname in VOID_ELEMENTS_SET:

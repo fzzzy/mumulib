@@ -24,13 +24,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-
 import traceback
-from typing import Any, Callable
-
+from collections.abc import Callable
+from typing import Any, cast
 
 CONTAINER_TYPES: list[type] = [dict, list, tuple]
 SCALAR_TYPES: list[type] = [int, float, str, bool]
+
+
+def _type_of(obj: object) -> type[Any]:
+    # type() of an Any-typed value is type[Unknown] to pyright; going through
+    # object gives type[object], which is honest and assignable to type[Any].
+    return type(obj)
 
 
 class ShapeMismatch(Exception):
@@ -71,15 +76,14 @@ def is_shaped(thing: Any, shape: Any) -> bool:
 
 
 def _is_shaped_exc(thing: Any, shape: Any) -> None:
-    if type(shape) in CONTAINER_TYPES:
-        shape_type = type(shape)
-
+    shape_type = _type_of(shape)
+    if shape_type in CONTAINER_TYPES:
         if shape_type is dict:
             for name in shape:
                 if name not in thing:
                     raise KeyMismatch(
-                        "key %r (for shape %s) was not in dict (%s)" % (
-                            name, shape, thing))
+                        f"key {name!r} (for shape {shape}) was not in dict ({thing})"
+                    )
                 subitem = thing[name]
                 subtype = shape[name]
                 _is_shaped_exc(subitem, subtype)
@@ -87,28 +91,25 @@ def _is_shaped_exc(thing: Any, shape: Any) -> None:
             subtype = shape[0]
             for subitem in thing:
                 _is_shaped_exc(subitem, subtype)
-        elif shape_type is tuple:
+        else:  # tuple, the last of CONTAINER_TYPES
             if len(thing) != len(shape):
                 raise SizeMismatch(
-                    "wrong number of items in %s (for shape %s); "
-                    "expected %s items" % (
-                        thing, shape, len(shape)))
+                    f"wrong number of items in {thing} (for shape {shape}); "
+                    f"expected {len(shape)} items"
+                )
 
             subitem_iter = iter(thing)
             for subtype in shape:
                 subitem = next(subitem_iter)
                 _is_shaped_exc(subitem, subtype)
-            return
-        return  # pragma: no cover
+        return
     elif shape in SCALAR_TYPES:
         if type(thing) is not shape:
-            raise TypeMismatch(
-                "wrong type for shape %s: %s" % (
-                    shape, thing))
+            raise TypeMismatch(f"wrong type for shape {shape}: {thing}")
         return
     raise TypeMismatch(  # TODO
-        "wrong type for shape %s: %s" % (
-            shape, thing))
+        f"wrong type for shape {shape}: {thing}"
+    )
 
 
 class MalformedShape(Exception):
@@ -123,7 +124,9 @@ class HeterogenousList(MalformedShape):
     pass
 
 
-def make_shape(what: Any) -> dict[str, Any] | list[Any] | tuple[Any, ...] | type | Callable[[Any], None]:
+def make_shape(
+    what: Any,
+) -> dict[str, Any] | list[Any] | tuple[Any, ...] | type | Callable[[Any], None]:
     """Infer a shape definition from the given object.
 
     This function inspects `what` and constructs a shape that represents
@@ -142,27 +145,26 @@ def make_shape(what: Any) -> dict[str, Any] | list[Any] | tuple[Any, ...] | type
     """
     if what == anything:
         return anything
-    what_type = type(what)
+    what_type = _type_of(what)
     if what_type is dict:
-        shape = {}
+        shape: dict[Any, Any] = {}
         for key, value in what.items():
             shape[key] = make_shape(value)
         return shape
     elif what_type is list:
         if not len(what):
             raise AmbiguousShape(
-                "Shape of item with list of zero elements "
-                "cannot be determined")
-        subtype = type(what[0])
+                "Shape of item with list of zero elements cannot be determined"
+            )
+        subtype = _type_of(what[0])
         for subitem in what[1:]:
-            if type(subitem) is not subtype:
-                raise HeterogenousList(
-                    "List items must be of homogenous type.")
+            if _type_of(subitem) is not subtype:
+                raise HeterogenousList("List items must be of homogenous type.")
         return [make_shape(what[0])]
     elif what_type is tuple:
         return tuple(map(make_shape, what))
     else:
-        return type(what)
+        return what_type
 
 
 def anything(item: Any) -> None:
@@ -177,8 +179,10 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
 
     seg = segs[0]
 
-    # Navigate based on shape type
+    # Navigate based on shape type. isinstance() cannot recover the type
+    # parameters of an Any-typed container, so each branch casts to Any items.
     if isinstance(shape, dict):
+        shape = cast(dict[Any, Any], shape)
         # If seg matches a key in shape, use that subtype
         # If not, but str is a key in shape, treat it as a fallback wildcard
         if seg in shape:
@@ -186,18 +190,23 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
         elif str in shape:
             subshape = shape[str]
         else:
-            raise KeyMismatch(f"Segment '{seg}' not found in shape and no fallback available.")
+            raise KeyMismatch(
+                f"Segment '{seg}' not found in shape and no fallback available."
+            )
 
         # Navigate data as a dict
         if isinstance(data, dict):
-            subdata = data.get(seg, '')
+            subdata = cast(dict[Any, Any], data).get(seg, "")
         else:
             # The shape expects a dict-like structure, but data is not a dict
-            raise ShapeMismatch(f"Expected dict-like data at segment '{seg}', got {type(data)}")
+            raise ShapeMismatch(
+                f"Expected dict-like data at segment '{seg}', got {type(data)}"
+            )
 
         _would_retain_shape_exc(subshape, subdata, segs[1:], leaf)
 
     elif isinstance(shape, list):
+        shape = cast(list[Any], shape)
         # Expect a single-element shape list
         if len(shape) != 1:
             raise MalformedShape("List shape must have exactly one element.")
@@ -210,6 +219,7 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
             raise ShapeMismatch(f"Segment '{seg}' is not a valid list index.")
 
         if isinstance(data, list):
+            data = cast(list[Any], data)
             if len(data) > index:
                 subdata = data[index]
             else:
@@ -220,6 +230,7 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
         _would_retain_shape_exc(subshape, subdata, segs[1:], leaf)
 
     elif isinstance(shape, tuple):
+        shape = cast(tuple[Any, ...], shape)
         # seg should be an index
         try:
             index = int(seg)
@@ -227,6 +238,7 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
             raise ShapeMismatch(f"Segment '{seg}' is not a valid tuple index.")
 
         if isinstance(data, tuple):
+            data = cast(tuple[Any, ...], data)
             if len(data) > index and index >= 0:
                 subdata = data[index]
             else:
@@ -241,10 +253,14 @@ def _would_retain_shape_exc(shape: Any, data: Any, segs: list[str], leaf: Any) -
     else:
         # If we reached a scalar or exact-match shape but still have segments,
         # it means the data is deeper than the shape. This should fail.
-        raise ShapeMismatch(f"Extra segments {segs} not supported by shape {shape}")  # TODO
+        raise ShapeMismatch(
+            f"Extra segments {segs} not supported by shape {shape}"
+        )  # TODO
 
 
-def would_retain_shape(shape: Any, data: Any, segs: list[str], leaf: Any, debug: bool = False) -> bool:
+def would_retain_shape(
+    shape: Any, data: Any, segs: list[str], leaf: Any, debug: bool = False
+) -> bool:
     """
     Check if inserting `leaf` at the path described by `segs` in `data` would still
     produce a structure matching `shape`.
@@ -268,6 +284,6 @@ def would_retain_shape(shape: Any, data: Any, segs: list[str], leaf: Any, debug:
         _would_retain_shape_exc(shape, data, segs, leaf)
     except Exception:
         if debug:
-            traceback.print_exc()  # pragma: no cover
+            traceback.print_exc()
         return False
     return True

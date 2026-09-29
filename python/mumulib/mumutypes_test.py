@@ -1,19 +1,14 @@
+# pyright: standard
+import unittest
 
-import coverage  # pragma: no cover
-
-cov = coverage.Coverage(branch=True)  # pragma: no cover
-cov.start()  # pragma: no cover
-
-import unittest  # pragma: no cover
-
-from mumulib.mumutypes import (  # pragma: no cover
-    SpecialResponse,
-    HTTPResponse,
+from mumulib.mumutypes import (
     BadRequestResponse,
-    NotFoundResponse,
-    MethodNotAllowedResponse,
     CreatedResponse,
-    SeeOtherResponse
+    HTTPResponse,
+    MethodNotAllowedResponse,
+    NotFoundResponse,
+    SeeOtherResponse,
+    SpecialResponse,
 )
 
 
@@ -22,8 +17,8 @@ class TestSpecialResponse(unittest.TestCase):
 
     def test_init_without_writer(self):
         """Test SpecialResponse initialization without writer"""
-        asgi_dict = {'type': 'http.response.start', 'status': 200}
-        leaf = 'test body'
+        asgi_dict = {"type": "http.response.start", "status": 200}
+        leaf = "test body"
 
         response = SpecialResponse(asgi_dict, leaf)
 
@@ -33,11 +28,11 @@ class TestSpecialResponse(unittest.TestCase):
 
     def test_init_with_writer(self):
         """Test SpecialResponse initialization with writer"""
-        asgi_dict = {'type': 'http.response.start', 'status': 200}
-        leaf = 'test body'
+        asgi_dict = {"type": "http.response.start", "status": 200}
+        leaf = "test body"
 
-        def writer(x):
-            return x
+        async def writer(send, receive):
+            pass
 
         response = SpecialResponse(asgi_dict, leaf, writer)
 
@@ -47,7 +42,7 @@ class TestSpecialResponse(unittest.TestCase):
 
     def test_is_exception(self):
         """Test that SpecialResponse is an Exception"""
-        response = SpecialResponse({}, 'body')
+        response = SpecialResponse({}, "body")
         self.assertIsInstance(response, Exception)
 
 
@@ -56,18 +51,20 @@ class TestHTTPResponse(unittest.TestCase):
 
     def test_init(self):
         """Test HTTPResponse initialization"""
-        response = HTTPResponse(200, 'OK')
+        response = HTTPResponse(200, "OK")
 
-        self.assertEqual(response.asgi_send_dict['type'], 'http.response.start')
-        self.assertEqual(response.asgi_send_dict['status'], 200)
-        self.assertEqual(response.asgi_send_dict['headers'], [(b'content-type', b'text/plain')])
-        self.assertEqual(response.leaf_object, 'OK')
+        self.assertEqual(response.asgi_send_dict["type"], "http.response.start")
+        self.assertEqual(response.asgi_send_dict["status"], 200)
+        self.assertEqual(
+            response.asgi_send_dict["headers"], [(b"content-type", b"text/plain")]
+        )
+        self.assertEqual(response.leaf_object, "OK")
 
     def test_custom_status_code(self):
         """Test HTTPResponse with custom status code"""
         response = HTTPResponse(418, "I'm a teapot")
 
-        self.assertEqual(response.asgi_send_dict['status'], 418)
+        self.assertEqual(response.asgi_send_dict["status"], 418)
         self.assertEqual(response.leaf_object, "I'm a teapot")
 
 
@@ -78,8 +75,8 @@ class TestBadRequestResponse(unittest.TestCase):
         """Test BadRequestResponse initialization"""
         response = BadRequestResponse()
 
-        self.assertEqual(response.asgi_send_dict['status'], 400)
-        self.assertEqual(response.leaf_object, 'Bad Request')
+        self.assertEqual(response.asgi_send_dict["status"], 400)
+        self.assertEqual(response.leaf_object, "Bad Request")
 
     def test_inherits_from_http_response(self):
         """Test that BadRequestResponse inherits from HTTPResponse"""
@@ -94,8 +91,8 @@ class TestNotFoundResponse(unittest.TestCase):
         """Test NotFoundResponse initialization"""
         response = NotFoundResponse()
 
-        self.assertEqual(response.asgi_send_dict['status'], 404)
-        self.assertEqual(response.leaf_object, 'Not Found')
+        self.assertEqual(response.asgi_send_dict["status"], 404)
+        self.assertEqual(response.leaf_object, "Not Found")
 
     def test_inherits_from_http_response(self):
         """Test that NotFoundResponse inherits from HTTPResponse"""
@@ -110,8 +107,8 @@ class TestMethodNotAllowedResponse(unittest.TestCase):
         """Test MethodNotAllowedResponse initialization"""
         response = MethodNotAllowedResponse()
 
-        self.assertEqual(response.asgi_send_dict['status'], 405)
-        self.assertEqual(response.leaf_object, 'Method Not Allowed')
+        self.assertEqual(response.asgi_send_dict["status"], 405)
+        self.assertEqual(response.leaf_object, "Method Not Allowed")
 
     def test_inherits_from_http_response(self):
         """Test that MethodNotAllowedResponse inherits from HTTPResponse"""
@@ -126,8 +123,8 @@ class TestCreatedResponse(unittest.TestCase):
         """Test CreatedResponse initialization"""
         response = CreatedResponse()
 
-        self.assertEqual(response.asgi_send_dict['status'], 201)
-        self.assertEqual(response.leaf_object, 'Created')
+        self.assertEqual(response.asgi_send_dict["status"], 201)
+        self.assertEqual(response.leaf_object, "Created")
 
     def test_inherits_from_http_response(self):
         """Test that CreatedResponse inherits from HTTPResponse"""
@@ -140,39 +137,30 @@ class TestSeeOtherResponse(unittest.TestCase):
 
     def test_init(self):
         """Test SeeOtherResponse initialization"""
-        redirect_url = 'https://example.com/redirect'
+        redirect_url = "https://example.com/redirect"
         response = SeeOtherResponse(redirect_url)
 
-        self.assertEqual(response.asgi_send_dict['type'], 'http.response.start')
-        self.assertEqual(response.asgi_send_dict['status'], 303)
-        self.assertEqual(response.leaf_object, '')
+        self.assertEqual(response.asgi_send_dict["type"], "http.response.start")
+        self.assertEqual(response.asgi_send_dict["status"], 303)
+        self.assertEqual(response.leaf_object, "")
 
         # Check headers
-        headers = response.asgi_send_dict['headers']
+        headers = response.asgi_send_dict["headers"]
         self.assertEqual(len(headers), 2)
-        self.assertEqual(headers[0], (b'content-type', b'application/json'))
-        self.assertEqual(headers[1], (b'location', redirect_url.encode('utf8')))
+        self.assertEqual(headers[0], (b"content-type", b"application/json"))
+        self.assertEqual(headers[1], (b"location", redirect_url.encode("utf8")))
 
     def test_inherits_from_special_response(self):
         """Test that SeeOtherResponse inherits from SpecialResponse"""
-        response = SeeOtherResponse('https://example.com')
+        response = SeeOtherResponse("https://example.com")
         self.assertIsInstance(response, SpecialResponse)
 
     def test_unicode_redirect_url(self):
         """Test SeeOtherResponse with unicode characters in URL"""
-        redirect_url = 'https://example.com/путь'
+        redirect_url = "https://example.com/путь"
         response = SeeOtherResponse(redirect_url)
 
         # Verify URL is properly encoded
-        headers = response.asgi_send_dict['headers']
-        self.assertEqual(headers[1][0], b'location')
-        self.assertEqual(headers[1][1], redirect_url.encode('utf8'))
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main(exit=False)  # pragma: no cover
-    cov.stop()  # pragma: no cover
-    cov.save()  # pragma: no cover
-
-    # Print coverage report to the terminal
-    cov.report(show_missing=True)  # pragma: no cover
+        headers = response.asgi_send_dict["headers"]
+        self.assertEqual(headers[1][0], b"location")
+        self.assertEqual(headers[1][1], redirect_url.encode("utf8"))
