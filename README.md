@@ -150,7 +150,7 @@ window.onload = async () => {
 
 [http://127.0.0.1:8000/examples/use_patslot/](http://127.0.0.1:8000/examples/use_patslot/)
 
-There is a convenience function fill_body you can use to fill the top level slots in your page. There is also the function fill_slots if you have an HTML element you wish to fill.
+There is a convenience function fill_body you can use to fill the top level slots in your page. If you have an HTML element you wish to fill, fill does the same for its slots, and fill_slots fills one slot by name.
 
 ```html
 <dl data-attr="style=color">
@@ -267,8 +267,10 @@ type Pattern = Promise&lt;SyncPattern&gt; | SyncPattern;
 
 clone_pat(pattern_name: string, slot_values: { [key: string]: Pattern}) => HTMLElement: Clone a pattern in the current html page and fill any slots with the given values. Return the filled HTMLElement.
 
+fill(element: HTMLElement, slot_values: { [key: string]: Pattern }): Given an HTMLElement, fill its slots with the given slot_values, as fill_body does for the page.
+
 fill_slots(element: HTMLElement,
-slot_name: string, slot_value: Pattern): Given an HTMLElement, fill any slots with the given values.
+slot_name: string, slot_value: Pattern): Given an HTMLElement, fill the slots with the given name with the given value.
 
 append_to_slots(element: HTMLElement, slot_name: string, slot_value: Pattern): Given an HTMLElement, append the given values to the named slots.
 

@@ -61,6 +61,14 @@ test.describe('Mumulib PatSlot Tests', () => {
     )
 
     expect(fillContent).toBe('now been filled.')
+
+    // fill: several slots of one element, by name
+    await expect(page.locator('#fill-many [data-slot="first"]')).toHaveText(
+      'one'
+    )
+    await expect(page.locator('#fill-many [data-slot="second"]')).toHaveText(
+      'two'
+    )
   })
 
   test('should handle pattern slot templates', async ({ page }) => {

@@ -6,6 +6,10 @@ window.onload = async () => {
     age: 12,
     color: 'color: blue',
   })
+  await patslot.fill(document.getElementById('fill-many') as HTMLElement, {
+    first: 'one',
+    second: 'two',
+  })
   setTimeout(() => {
     patslot.fill_slots(
       document.getElementById('fill-element') as HTMLElement,

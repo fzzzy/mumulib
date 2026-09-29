@@ -87,9 +87,6 @@ async function fill_body(slots: { [key: string]: Pattern }) {
   morphdom(document.body, clone)
 }
 
-// Not exported: whether it should be, as the slots-by-name counterpart of
-// fill_body, is still open.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fill(node: HTMLElement, slots: { [key: string]: Pattern }) {
   for (const [slotname, pat2] of Object.entries(slots)) {
     await fill_slots(node, slotname, pat2)
@@ -247,5 +244,5 @@ async function clone_pat(
   return await template.clone_pat(patname, slots)
 }
 
-export { clone_pat, fill_slots, fill_body, append_to_slots, Template }
+export { clone_pat, fill, fill_slots, fill_body, append_to_slots, Template }
 export type { Pattern }
