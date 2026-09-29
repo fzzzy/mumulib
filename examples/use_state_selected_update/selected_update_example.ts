@@ -3,7 +3,7 @@ import { state } from 'mumulib'
 let counter = 0
 
 function update() {
-  let selected = state.state[state.state['selected']]
+  const selected = state.state[state.state['selected']]
   selected['number'] = counter
   state.set_state(null)
   counter++

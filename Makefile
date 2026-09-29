@@ -13,11 +13,13 @@ UV := uv run --directory python --extra dev --locked
 check: lint typecheck build test
 
 
-lint: python-sync
+lint: node_modules python-sync
+	npm run lint
 	$(UV) ruff check
 	$(UV) ruff format --check
 
-fix: python-sync
+fix: node_modules python-sync
+	npm run format
 	$(UV) ruff check --fix
 	$(UV) ruff format
 

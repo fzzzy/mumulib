@@ -20,7 +20,8 @@ and CommonJS bundles, and the type declarations, built with Vite.
 Checking
 =====
 
-`make check` runs everything CI runs: ruff and pyright (strict) over the Python,
+`make check` runs everything CI runs: ESLint and prettier over the TypeScript, ruff
+and pyright (strict) over the Python,
 `tsc` over the TypeScript, the build, the Python tests with branch coverage (the
 floor is in `python/pyproject.toml`), and the Playwright tests in Chromium and
 WebKit against the examples, with the coverage of `src/` they reach. `make fix`
@@ -174,10 +175,12 @@ window.onload = async () => {
     color: 'color: blue',
   })
   setTimeout(() => {
-    patslot.fill_slots(document.getElementById('fill-element'), {
-      fill_me: 'now been filled.',
-    })
-  })
+    patslot.fill_slots(
+      document.getElementById('fill-element') as HTMLElement,
+      'fill_me',
+      'now been filled.'
+    )
+  }, 500)
 }
 ```
 

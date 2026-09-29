@@ -37,6 +37,14 @@ type SyncPattern =
 
 type Pattern = Promise<SyncPattern> | SyncPattern
 
+function isAsyncIterable(value: unknown): value is AsyncIterable<Pattern> {
+  return (
+    typeof (value as { [Symbol.asyncIterator]?: unknown })?.[
+      Symbol.asyncIterator
+    ] === 'function'
+  )
+}
+
 class Template {
   url: string
 
@@ -79,6 +87,9 @@ async function fill_body(slots: { [key: string]: Pattern }) {
   morphdom(document.body, clone)
 }
 
+// Not exported: whether it should be, as the slots-by-name counterpart of
+// fill_body, is still open.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fill(node: HTMLElement, slots: { [key: string]: Pattern }) {
   for (const [slotname, pat2] of Object.entries(slots)) {
     await fill_slots(node, slotname, pat2)
@@ -112,7 +123,7 @@ async function _fill_or_append_slots(
   } else {
     slots = descendantSlots
   }
-  let calculated_slot: (Element | string)[] = []
+  const calculated_slot: (Element | string)[] = []
   if (pat instanceof Promise) {
     pat = await pat
   }
@@ -143,7 +154,7 @@ async function _fill_or_append_slots(
           }
         }
       } else {
-        if (typeof (pat as any)[Symbol.asyncIterator] === 'function') {
+        if (isAsyncIterable(pat)) {
           for await (const p of pat) {
             if (p instanceof Element) {
               calculated_slot.push(p)
@@ -202,7 +213,7 @@ async function _fill_or_append_slots(
         (typeof pat === 'object' && 'next' in pat && 'throw' in pat)
       ) {
         let patstr = ''
-        if (typeof (pat as any)[Symbol.asyncIterator] === 'function') {
+        if (isAsyncIterable(pat)) {
           for await (const p of pat) {
             if (p instanceof Element) {
               throw new Error("Can't set attr to Element")

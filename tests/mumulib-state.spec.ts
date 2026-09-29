@@ -124,11 +124,6 @@ test.describe('Mumulib State Tests', () => {
     await page.fill('input[name="selected.age"]', '23')
     await page.mouse.click(50, 50)
 
-    const divContents = await page.$$eval(
-      'div[class="output"]',
-      (divs: HTMLDivElement[]) => divs.map((div) => div.textContent)
-    )
-
     const expectedStates = [
       'Got state {"person1":{},"person2":{}}',
       'Got state {"person1":{},"person2":{}}',

@@ -32,7 +32,9 @@
     "test": "npm run build && playwright test",
     "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
     "test:browser": "rm -rf .nyc_output && playwright test",
-    "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --reporter=text --reporter=html --report-dir coverage-frontend"
+    "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --reporter=text --reporter=html --report-dir coverage-frontend",
+    "lint": "eslint . && prettier --check .",
+    "format": "eslint . --fix && prettier --write ."
   },
   "keywords": [
     "html templating",

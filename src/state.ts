@@ -24,13 +24,16 @@
 
 import { set, get } from 'object-path'
 
+// The caller's own data, whatever its shape: the published type says so, and
+// narrowing it here would break code that reads its state as it likes.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type State = { [key: string]: any } | any
 type OnStateChange = (state: State) => Promise<void>
 
 const initialValues: { [key: string]: string } = {}
 const obs: OnStateChange[] = []
 let loaded = false
-let state: State = {}
+const state: State = {}
 let setting = 0
 let dirty = false
 let debug_mode: boolean = false
@@ -47,7 +50,7 @@ async function onstate(onstatechange: OnStateChange) {
 }
 
 async function _set_state(
-  root: any,
+  root: State,
   path: string,
   nstate: State
 ): Promise<void> {
@@ -102,7 +105,7 @@ async function set_state(nstate: State): Promise<void> {
 }
 
 async function _set_path(
-  root: any,
+  root: State,
   path: string,
   nstate: State
 ): Promise<void> {
@@ -145,8 +148,8 @@ function possibly_changed(e: Event) {
   if (!target) {
     return
   }
-  let name = target.name
-  let value = target.value
+  const name = target.name
+  const value = target.value
   if (name !== 'selected' && initialValues[name] === value) {
     return
   }
