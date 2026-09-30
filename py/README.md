@@ -18,6 +18,8 @@ working; anything else in a module is its own.
   the guards `GetOnly`, to publish an object read-only, and `RefuseIndex`, to
   publish it with no index.
 - `mumulib.producers`: `produce`, and `add_producer` to render a new type.
+- `mumulib.resource`: `Resource`, a class to subclass for an object with
+  children of its own and handlers for each method.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
   `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
 - `mumulib.tags`: `Stan`, `Template`, `parse_template`, the slot functions,
@@ -67,6 +69,38 @@ string as HTML, text and JSON, and it is wrapped in `GetOnly`, read-only (see
 Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
 stylesheet, text and image from a directory, and `functions.py`
 (`SERVER=functions`) a function that answers `GET` and `POST`.
+
+## Resources
+
+A subclass of `mumulib.resource.Resource` names its children as attributes,
+`child_<name>`, and answers a request that ends at it with `render(state)`,
+which calls `handle_<METHOD>(state)`:
+
+```python
+class Profile(Resource):
+    template = "<h1>Ada</h1>"
+    child_name = "Ada"
+
+
+class Site(Resource):
+    child_index = "<h1>Home</h1>"
+    child_profile = Profile()
+
+
+app = consumers_app(Site())  # /, /profile.html, /profile/name.txt
+```
+
+`handle_GET` renders `template`; every other method is 405, with `Allow`
+naming `GET` and whatever the subclass handles. What a handler returns is
+produced as though it had been published there, of the URL's type: `state`
+says which, in `"content_type"` and `"extension"`. A resource is not a
+container -- it is named as a file, `/profile.html` or `/profile.json` -- and
+its children can be anything publishable. Each subclass is registered as it
+is defined, by `__init_subclass__`.
+
+A resource's handlers answer when the walk ends at it through another
+resource, or at the root; a plain dict answers `PUT` and `DELETE` for its own
+entries itself, replacing or removing the resource.
 
 ## Files and directories
 

@@ -47,6 +47,7 @@ PUBLIC = {
         "AmbiguousShape",
         "HeterogenousList",
     },
+    "resource": {"Resource"},
     "tags": {
         "Stan",
         "Template",
