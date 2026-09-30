@@ -10,6 +10,9 @@ LOG := $(CURDIR)/var/log
 # than hello
 SERVER ?= hello
 SERVER_PORT ?= 8001
+# Reloading as the code changes; and on stop, waiting at most two seconds
+# for open connections to close -- an event stream never closes by itself
+UVICORN_FLAGS := --reload --timeout-graceful-shutdown 2
 
 # The TypeScript library is in ts/ and the Python one in py/. Every Python tool
 # runs through uv from py/, so each reads py/pyproject.toml and leaves its
@@ -77,7 +80,7 @@ run: node_modules python-sync server-exists
 	@$(MAKE) --no-print-directory stop > /dev/null
 	@cd ts && exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
 	@PYTHONUNBUFFERED=1 exec $(UV) uvicorn examples.$(SERVER):app \
-		--host 127.0.0.1 --port $(SERVER_PORT) --reload \
+		--host 127.0.0.1 --port $(SERVER_PORT) $(UVICORN_FLAGS) \
 		> "$(LOG)/server.log" 2>&1 < /dev/null &
 	@$(call wait_for_port,$(PORT),vite)
 	@$(call wait_for_port,$(SERVER_PORT),server)
@@ -113,21 +116,27 @@ endef
 port_holders = lsof -nP -iTCP:$(1) -sTCP:LISTEN,CLOSED -Fpn \
 	| awk '/^p/ { pid = substr($$0, 2) } /^n/ && !/->/ { print pid }' | sort -u
 
+# Succeeds if any of the processes $(1) is still running -- in a subshell,
+# so its exit is its own. kill -0 with them all fails as soon as one has
+# gone, which would say too early that all have.
+any_alive = ( for pid in $(1); do kill -0 $$pid 2> /dev/null && exit 0; done; exit 1 )
+
 # SIGTERM to every process holding $(1) -- uvicorn's reloader and its worker
-# both do -- then, if the port is still held after five seconds, SIGKILL,
-# saying so. Fails if even that leaves it held.
+# both do -- then waits for those processes to be gone, not only the port: a
+# server waiting on open connections has closed its listening socket and is
+# still running. If any is left after five seconds, SIGKILL, saying so.
 define stop_port
 pids=$$($(call port_holders,$(1))); \
 if [ -z "$$pids" ]; then echo "$(2) was not running (port $(1))."; exit 0; fi; \
 kill $$pids 2> /dev/null; \
 for i in $$(seq 50); do \
-	[ -z "$$($(call port_holders,$(1)))" ] && { echo "$(2) stopped (port $(1))."; exit 0; }; \
+	$(call any_alive,$$pids) || { echo "$(2) stopped (port $(1))."; exit 0; }; \
 	sleep 0.1; \
 done; \
-echo "$(2) still held port $(1) five seconds after SIGTERM; sending SIGKILL." >&2; \
-kill -9 $$($(call port_holders,$(1))) 2> /dev/null; \
+echo "$(2) was still running five seconds after SIGTERM; sending SIGKILL." >&2; \
+kill -9 $$pids 2> /dev/null; \
 sleep 0.5; \
-if [ -n "$$($(call port_holders,$(1)))" ]; then \
+if $(call any_alive,$$pids) || [ -n "$$($(call port_holders,$(1)))" ]; then \
 	echo "Port $(1) is still held." >&2; exit 1; \
 fi; \
 echo "$(2) stopped (port $(1))."
@@ -136,7 +145,8 @@ endef
 
 # A Python example, in the foreground, reloading as its code changes
 server: python-sync server-exists
-	$(UV) uvicorn examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) --reload
+	$(UV) uvicorn examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) \
+		$(UVICORN_FLAGS)
 
 server-exists:
 	@test -f py/examples/$(SERVER).py || { \
