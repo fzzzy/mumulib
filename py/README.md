@@ -51,7 +51,8 @@ extension alone decides what comes back.
 - A string is its own content as any type, and a number its digits; `True`
   and `False` are JSON alone. What has no producer for the URL's type is 404,
   never its `str()`; and in JSON, a value with no JSON form is an error, not a
-  quiet `null`. (`None` is not found at all: a consumer's `None` means that.)
+  quiet `null`. A `None` is `null` in a JSON document, but is not found as a
+  URL's own answer: a consumer's `None` means not found.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
   multipart), never what the response is; no response varies by request
   headers.

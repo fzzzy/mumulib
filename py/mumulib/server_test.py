@@ -1801,6 +1801,12 @@ class TestTextAndListings(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(asyncio.run(get(root, path))[0], 404)
 
+    def test_none_is_null_in_json_and_not_found_as_an_answer(self):
+        root = {"data": {"a": None, "items": [1, None, 3]}}
+        _, _, body = asyncio.run(get(root, "/data.json"))
+        self.assertEqual(json.loads(body), {"a": None, "items": [1, None, 3]})
+        self.assertEqual(asyncio.run(get(root, "/data/a.json"))[0], 404)
+
     def test_what_has_no_producer_is_not_found(self):
         class Thing:
             def __str__(self):

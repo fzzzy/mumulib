@@ -37,8 +37,9 @@ Python package). Breaking changes come first under each release.
 - **Nothing is served as its `str()`.** What has no producer for the URL's
   type is 404; it had been served as its Python repr -- a dict's
   `{'a': 1}` as HTML, an object's `<Thing at 0x…>`. Strings and numbers have
-  producers of their own, as text of any type; `True`, `False` and `None` are
-  JSON alone.
+  producers of their own, as text of any type; `True` and `False` are JSON
+  alone, and `None` is `null` in a JSON document but not found as a URL's own
+  answer.
 - **In JSON, a value with no JSON form is an error,** a 500 naming its type,
   where it had quietly been `null`.
 - **A function in the tree is called as `f(state)`,** not `f(f, state)`:
