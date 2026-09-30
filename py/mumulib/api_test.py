@@ -30,7 +30,7 @@ PUBLIC = {
         "CONTENT_TYPES",
         "content_type_for",
     },
-    "server": {"consumers_app", "EventSource"},
+    "server": {"consumers_app", "EventSource", "get_only"},
     "consumers": {"consume", "add_consumer"},
     "producers": {"produce", "add_producer"},
     "shaped": {

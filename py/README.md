@@ -11,8 +11,9 @@ and `tags`. Runtime dependencies are aiofiles and lxml.
 Each module's `__all__` is its public API, and what mumulib promises to keep
 working; anything else in a module is its own.
 
-- `mumulib.server`: `consumers_app(root)`, to publish an object, and
-  `EventSource(queue)`, to stream events from it.
+- `mumulib.server`: `consumers_app(root)`, to publish an object,
+  `get_only(app)`, to publish it read-only, and `EventSource(queue)`, to
+  stream events from it.
 - `mumulib.consumers`: `consume`, and `add_consumer` to walk into a new type.
 - `mumulib.producers`: `produce`, and `add_producer` to render a new type.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
@@ -48,9 +49,29 @@ extension alone decides what comes back.
 `make server` at the repository root runs one (`SERVER=<name>`, default
 `hello`) on port 8001. The smallest, `hello.py`, publishes
 `{"index": "Hello, world!"}`: `/`, `/index.txt` and `/index.json` are the one
-string as HTML, text and JSON. A published dict can be changed through its
-URLs -- `PUT` writes an entry, `DELETE` removes one -- so `hello.py` wraps its
-app in a guard that answers anything but `GET` with 405.
+string as HTML, text and JSON, and it is read-only behind `get_only` (see
+Guards).
+
+## Guards
+
+`consumers_app` publishes an object for reading and writing alike, on purpose:
+`PUT` writes an entry of a dict or a list (to a list's `last`, it appends),
+and `DELETE` removes one. What can be changed is the object's to decide, and
+mumulib does not guess. To publish one to be read and nothing else, guard it:
+
+```python
+from mumulib.server import consumers_app, get_only
+
+app = get_only(consumers_app(root))
+```
+
+`get_only` answers anything but `GET` with 405 Method Not Allowed and
+`Allow: GET`, before the request reaches the object.
+
+To guard part of an object instead, publish that part as something that
+cannot be changed: a tuple refuses `PUT` and `DELETE` with 405, and so does a
+`types.MappingProxyType`, the read-only view of a dict. (`POST` to a
+`MappingProxyType`'s entry still reads it.)
 
 ## Development
 

@@ -57,9 +57,12 @@ Python package). Breaking changes come first under each release.
   dependency.
 - **`mumulib/sfc-client`**: the declaration of what importing a `.sfc.html`
   gives, referenced as `vite/client` is.
+- **`server.get_only(app)`**: a guard that answers anything but `GET` with 405
+  Method Not Allowed. `consumers_app` publishes for reading and writing alike,
+  on purpose; this is how to publish read-only.
 - **Python examples**, in `py/examples`, run with `make server`
   (`SERVER=<name>`); the first, `hello.py`, publishes one string, read-only
-  behind a guard that answers anything but `GET` with 405.
+  behind `get_only`.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when

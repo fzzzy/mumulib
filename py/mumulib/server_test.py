@@ -7,6 +7,7 @@ from mumulib.mumutypes import SpecialResponse
 from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
     consumers_app,
+    get_only,
     parse_json,
     parse_multipart,
     parse_urlencoded,
@@ -1652,3 +1653,66 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(headers[b"x-kept"], b"1")
         # Bytes go out as they are, not as the text of their repr
         self.assertTrue(body.startswith(b"\x00\x01binary"))
+
+
+class TestGetOnly(unittest.TestCase):
+    """get_only lets GET through to the app, and nothing else."""
+
+    def request(self, method, root=None):
+        root = {"index": "kept"} if root is None else root
+        app = get_only(consumers_app(root))
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return {"type": "http.request", "body": b'"changed"', "more_body": False}
+
+        scope = {
+            "type": "http",
+            "method": method,
+            "path": "/index.json",
+            "headers": [(b"content-type", b"application/json")],
+            "state": {},
+        }
+
+        async def go():
+            await app(scope, receive, send)
+
+        asyncio.run(go())
+        body = b"".join(m.get("body", b"") for m in sent[1:])
+        return sent[0]["status"], dict(sent[0]["headers"]), body
+
+    def test_get_reaches_the_app(self):
+        status, _, body = self.request("GET")
+        self.assertEqual((status, json.loads(body)), (200, "kept"))
+
+    def test_anything_else_is_refused_and_changes_nothing(self):
+        root = {"index": "kept"}
+        for method in ("PUT", "DELETE", "POST", "PATCH", "HEAD"):
+            with self.subTest(method=method):
+                status, headers, body = self.request(method, root)
+                self.assertEqual((status, body), (405, b"Only GET\n"))
+                self.assertEqual(headers[b"allow"], b"GET")
+        self.assertEqual(root, {"index": "kept"})
+
+    def test_lifespan_still_reaches_the_app(self):
+        app = get_only(consumers_app({}))
+        sent = []
+        messages = iter([{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}])
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return next(messages)
+
+        async def go():
+            await app({"type": "lifespan", "state": {}}, receive, send)
+
+        asyncio.run(go())
+        self.assertEqual(
+            [m["type"] for m in sent],
+            ["lifespan.startup.complete", "lifespan.shutdown.complete"],
+        )

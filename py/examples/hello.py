@@ -11,33 +11,10 @@ as:
     /index.json   "Hello, world!"     application/json
 
 A published dict can be changed through its URLs -- PUT writes an entry and
-DELETE removes one -- so this one is behind a guard that lets only GET in.
+DELETE removes one -- so this one is behind mumulib's get_only, which lets
+only GET in.
 """
 
-from mumulib.mumutypes import ASGIApp, Receive, Scope, Send
-from mumulib.server import consumers_app
-
-
-def get_only(app: ASGIApp) -> ASGIApp:
-    """`app`, answering anything but GET with 405 Method Not Allowed."""
-
-    async def guarded(scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http" and scope["method"] != "GET":
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": 405,
-                    "headers": [
-                        (b"allow", b"GET"),
-                        (b"content-type", b"text/plain; charset=UTF-8"),
-                    ],
-                }
-            )
-            await send({"type": "http.response.body", "body": b"Only GET\n"})
-            return
-        await app(scope, receive, send)
-
-    return guarded
-
+from mumulib.server import consumers_app, get_only
 
 app = get_only(consumers_app({"index": "Hello, world!"}))

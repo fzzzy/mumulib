@@ -18,11 +18,12 @@ from mumulib.mumutypes import (
 )
 from mumulib.producers import produce
 
-# The public API: Publishing an object, and streaming events from it. The body
-# parsers and path helpers are the app's own.
+# The public API: Publishing an object, guarding it, and streaming events from
+# it. The body parsers and path helpers are the app's own.
 __all__ = [
     "consumers_app",
     "EventSource",
+    "get_only",
 ]
 
 # Default max request body size: 10MB
@@ -370,6 +371,35 @@ def consumers_app(root: Any) -> ASGIApp:
         )
 
     return app
+
+
+def get_only(app: ASGIApp) -> ASGIApp:
+    """`app`, answering anything but GET with 405 Method Not Allowed.
+
+    consumers_app publishes an object for reading and writing alike: PUT
+    writes an entry of a dict or a list, DELETE removes one. That is on
+    purpose -- the object decides what it is -- and get_only is how to publish
+    one to be read and nothing else, whatever it holds. The request never
+    reaches `app`, and the 405 says Allow: GET. Lifespan passes through.
+    """
+
+    async def guarded(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["method"] != "GET":
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 405,
+                    "headers": [
+                        (b"allow", b"GET"),
+                        (b"content-type", b"text/plain; charset=UTF-8"),
+                    ],
+                }
+            )
+            await send({"type": "http.response.body", "body": b"Only GET\n"})
+            return
+        await app(scope, receive, send)
+
+    return guarded
 
 
 def EventSource(output_queue: asyncio.Queue[Any]) -> Producer:
