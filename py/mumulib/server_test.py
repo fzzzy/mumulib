@@ -1774,3 +1774,101 @@ class TestFunctionsInTheTree(unittest.TestCase):
         self.assertEqual(asyncio.run(get(root, "/f.txt", "DELETE"))[0], 200)
         self.assertEqual(root, {})
         self.assertEqual(self.calls, [])
+
+
+class TestTextAndListings(unittest.TestCase):
+    """Text is its own content; a container's slash lists what is in it."""
+
+    def test_strings_and_numbers_are_text_as_any_type(self):
+        root = {"motto": "mumu", "count": 3, "ratio": 0.5}
+        for path, expected in [
+            ("/motto.txt", b"mumu"),
+            ("/motto.html", b"mumu"),
+            ("/count.txt", b"3"),
+            ("/ratio.html", b"0.5"),
+            ("/count.json", b"3"),
+        ]:
+            with self.subTest(path=path):
+                status, _, body = asyncio.run(get(root, path))
+                self.assertEqual((status, body.strip()), (200, expected))
+
+    def test_true_and_false_are_json_alone(self):
+        # (None is not found at all: a consumer's None is "not found")
+        root = {"on": True, "off": False}
+        self.assertEqual(asyncio.run(get(root, "/on.json"))[2].strip(), b"true")
+        self.assertEqual(asyncio.run(get(root, "/off.json"))[2].strip(), b"false")
+        for path in ("/on.txt", "/off.html"):
+            with self.subTest(path=path):
+                self.assertEqual(asyncio.run(get(root, path))[0], 404)
+
+    def test_what_has_no_producer_is_not_found(self):
+        class Thing:
+            def __str__(self):
+                return "a repr that must not be served"
+
+        status, _, body = asyncio.run(get({"thing": Thing()}, "/thing.txt"))
+        self.assertEqual(status, 404)
+        self.assertNotIn(b"repr", body)
+
+    def test_json_of_what_has_no_json_form_is_an_error(self):
+        class Thing:
+            pass
+
+        status, _, body = asyncio.run(get({"data": {"thing": Thing()}}, "/data.json"))
+        self.assertEqual(status, 500)
+        self.assertIn(b"Thing has no JSON form", body)
+
+    def test_a_containers_slash_lists_what_could_be_fetched(self):
+        import tempfile
+
+        with (
+            tempfile.NamedTemporaryFile(suffix=".css") as css,
+            tempfile.NamedTemporaryFile(suffix="") as bare,
+        ):
+            with open(css.name) as sheet, open(bare.name) as plain:
+                root = {
+                    "notes": {
+                        "motto": "mumu",
+                        "count": 3,
+                        "a b&c": "escaped",
+                        "sub": {"x": 1},
+                        "items": ["one"],
+                        "sheet": sheet,
+                        "plain": plain,
+                        "on": True,
+                        "nothing": None,
+                        "method": "abc".upper,
+                        "a/b": "no URL can name it",
+                    }
+                }
+                status, headers, body = asyncio.run(get(root, "/notes/"))
+                self.assertEqual(status, 200)
+                self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+                self.assertEqual(
+                    body.decode().strip(),
+                    "<ul>\n"
+                    '  <li><a href="/notes/motto.html">motto</a></li>\n'
+                    '  <li><a href="/notes/count.html">count</a></li>\n'
+                    '  <li><a href="/notes/a%20b%26c.html">a b&amp;c</a></li>\n'
+                    '  <li><a href="/notes/sub/">sub</a></li>\n'
+                    '  <li><a href="/notes/items/">items</a></li>\n'
+                    '  <li><a href="/notes/sheet.css">sheet</a></li>\n'
+                    '  <li><a href="/notes/plain.html">plain</a></li>\n'
+                    "</ul>",
+                )
+                for url in ("/notes/motto.html", "/notes/sub/", "/notes/items/"):
+                    with self.subTest(url=url):
+                        self.assertEqual(asyncio.run(get(root, url))[0], 200)
+
+    def test_a_list_lists_its_indexes(self):
+        _, _, body = asyncio.run(get({"items": ["a", "b"]}, "/items/"))
+        self.assertIn(b'<a href="/items/0.html">0</a>', body)
+        self.assertIn(b'<a href="/items/1.html">1</a>', body)
+
+    def test_the_root_and_a_guarded_dict_list_too(self):
+        _, _, body = asyncio.run(get({"a": "x"}, "/"))
+        self.assertIn(b'<a href="/a.html">a</a>', body)
+        from mumulib.consumers import GetOnly
+
+        _, _, body = asyncio.run(get({"g": GetOnly({"a": "x"})}, "/g/"))
+        self.assertIn(b'<a href="/g/a.html">a</a>', body)

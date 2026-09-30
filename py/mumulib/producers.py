@@ -27,7 +27,7 @@ THE SOFTWARE.
 import html
 import inspect
 import json
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterable
 from io import BufferedReader, TextIOWrapper
 from pathlib import Path, PurePath
 from types import (
@@ -54,11 +54,12 @@ __all__ = [
 ]
 
 
-def custom_serializer(obj: object) -> dict[str, Any] | None:
+def custom_serializer(obj: object) -> dict[str, Any]:
     if isinstance(obj, MappingProxyType):
         # isinstance cannot recover the proxy's type parameters.
         return dict(cast(MappingProxyType[str, Any], obj))
-    return None
+    # Anything else with no JSON of its own is an error, not a quiet null
+    raise TypeError(f"a {type(obj).__name__} has no JSON form")
 
 
 _producer_adapters: dict[str, dict[type[Any], Producer]] = {}
@@ -84,6 +85,21 @@ async def produce(thing: object, state: State) -> AsyncGenerator[Chunk]:
         async for chunk in _produce_call(thing, state):
             yield chunk
         return
+    # Nothing to say what it is as this type: not found, rather than its repr
+    raise mumutypes.NotFoundResponse()
+
+
+def can_produce(thing: object, content_type: str) -> bool:
+    """Whether produce has something to make of thing as content_type."""
+    for kind in (content_type, "*/*"):
+        adapter = _producer_adapters.get(kind, {}).get(type(thing))
+        if adapter is not None:
+            return adapter is not _produce_not_found
+    return isinstance(thing, FunctionType)
+
+
+async def produce_text(thing: object, state: State) -> AsyncGenerator[str]:
+    """A string, as it is, or a number's digits: its own content, any type."""
     yield str(thing)
 
 
@@ -160,7 +176,7 @@ add_producer(TextIOWrapper, produce_file)
 add_producer(BufferedReader, produce_file)
 
 
-def _directory_url(url: str) -> str:
+def container_url(url: str) -> str:
     """The URL of the directory a request named, ending in a slash.
 
     /static/ and /static.json both name static, whose entries are
@@ -190,19 +206,26 @@ def _listing(directory: Path) -> list[tuple[str, bool]]:
     return entries
 
 
+def listing_html(entries: Iterable[tuple[str, str]]) -> str:
+    """A container's listing: a list of links, each named for its entry."""
+    items = "".join(
+        f'  <li><a href="{html.escape(url)}">{html.escape(name)}</a></li>\n'
+        for name, url in entries
+    )
+    return f"<ul>\n{items}</ul>"
+
+
 async def produce_path_html(thing: Path, state: State) -> AsyncGenerator[Chunk]:
     """A file, or a directory as a list of links to what is in it."""
     if not thing.is_dir():
         async for chunk in produce_path(thing, state):
             yield chunk
         return
-    base = _directory_url(state.get("url", "/"))
-    items = "".join(
-        f'  <li><a href="{html.escape(base + quote(name) + ("/" if is_dir else ""))}">'
-        f"{html.escape(name)}</a></li>\n"
+    base = container_url(state.get("url", "/"))
+    yield listing_html(
+        (name, base + quote(name) + ("/" if is_dir else ""))
         for name, is_dir in _listing(thing)
     )
-    yield f"<ul>\n{items}</ul>"
 
 
 async def produce_path_json(thing: Path, state: State) -> AsyncGenerator[Chunk]:
@@ -212,7 +235,7 @@ async def produce_path_json(thing: Path, state: State) -> AsyncGenerator[Chunk]:
         async for chunk in produce_path(thing, state):
             yield chunk
         return
-    base = _directory_url(state.get("url", "/"))
+    base = container_url(state.get("url", "/"))
     yield json.dumps(
         {
             name: base + quote(name) + (".json" if is_dir else "")
@@ -246,6 +269,11 @@ for typ in JSON_TYPES:
 
 # Add bytes producer for binary data (using */* to match all content types)
 add_producer(bytes, produce_bytes)
+
+# Text is its own content, whatever the URL's type; a number's is its digits.
+# True, False and None have no text but Python's, so they are JSON alone.
+for _text_type in (str, int, float):
+    add_producer(_text_type, produce_text)
 
 # A method -- bound, built in, or a wrapper like "abc".__str__ -- is not a
 # function to call for a request, and its repr is no answer: not found

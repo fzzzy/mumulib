@@ -29,16 +29,16 @@ class TestCustomSerializer(unittest.TestCase):
         self.assertEqual(result, original)
         self.assertIsInstance(result, dict)
 
-    def test_non_mapping_proxy_type(self):
-        """Test serialization of non-MappingProxyType returns None"""
-        result = custom_serializer("string")
-        self.assertIsNone(result)
+    def test_anything_else_is_an_error_not_a_quiet_null(self):
+        """What has no JSON form is refused, naming what it is"""
 
-        result = custom_serializer(123)
-        self.assertIsNone(result)
+        class Thing:
+            pass
 
-        result = custom_serializer([1, 2, 3])
-        self.assertIsNone(result)
+        for thing in (Thing(), object(), {1, 2}):
+            with self.subTest(thing=type(thing).__name__):
+                with self.assertRaisesRegex(TypeError, type(thing).__name__):
+                    custom_serializer(thing)
 
 
 class TestAddProducer(unittest.TestCase):
@@ -148,7 +148,7 @@ class TestProduceWithAdapters(unittest.TestCase):
         asyncio.run(self.async_test_adapter_mechanism())
 
     async def async_test_adapter_fallback(self):
-        """Test fallback when no adapter matches"""
+        """With no producer for it, a thing is not found"""
 
         # Create a custom type without registering a producer
         class UnregisteredType:
@@ -158,13 +158,10 @@ class TestProduceWithAdapters(unittest.TestCase):
         obj = UnregisteredType()
         state = {"accept": ["text/custom", "application/xml"]}
 
-        # Call produce - should fall back to str()
-        chunks = []
-        async for chunk in produce(obj, state):
-            chunks.append(chunk)
-
-        # Verify fallback to str() was used
-        self.assertEqual(chunks, ["unregistered-string"])
+        # Nothing to make of it: not found, and never its str()
+        with self.assertRaises(mumutypes.NotFoundResponse):
+            async for _ in produce(obj, state):
+                pass
 
     def test_adapter_fallback(self):
         """Wrapper to run async test"""

@@ -25,10 +25,12 @@ THE SOFTWARE.
 """
 
 import sys
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterable
+from io import BufferedReader, TextIOWrapper
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 from mumulib.mumutypes import (
     Chunk,
@@ -38,7 +40,13 @@ from mumulib.mumutypes import (
     SpecialResponse,
     State,
 )
-from mumulib.producers import add_producer, produce
+from mumulib.producers import (
+    add_producer,
+    can_produce,
+    container_url,
+    listing_html,
+    produce,
+)
 
 # The public API: Walking into an object, teaching it a new type of object to
 # walk into, and guarding one: read-only, or with no index. The built-in
@@ -574,3 +582,48 @@ add_consumer(
     container=lambda r: is_container(r.wrapped),
 )
 add_producer(RefuseIndex, _produce_refuse_index)
+
+
+def _entry_url(base: str, name: str, value: Any) -> str | None:
+    """Where a container's entry is, for its listing -- or None, if nowhere.
+
+    A container is at its slash. A file keeps its own extension, as the type
+    to serve it as; anything else is linked as HTML. What would not be found
+    is not listed.
+    """
+    if not name or "/" in name or name == "index":
+        return None
+    if is_container(value):
+        return f"{base}{quote(name)}/"
+    if not can_produce(value, "text/html"):
+        return None
+    filename = getattr(value, "name", None)
+    if isinstance(value, (TextIOWrapper, BufferedReader, Path)) and isinstance(
+        filename, str
+    ):
+        suffix = Path(filename).suffix
+        if suffix:
+            return f"{base}{quote(name)}{suffix}"
+    return f"{base}{quote(name)}.html"
+
+
+async def _produce_container_html(thing: Any, state: State) -> AsyncIterator[Chunk]:
+    """A container at its slash, with no "index" entry: a list of links to
+    what is in it, as a directory's is."""
+    entries = cast(
+        Iterable[tuple[Any, Any]],
+        thing.items()
+        if isinstance(thing, (dict, MappingProxyType))
+        else enumerate(thing),
+    )
+    base = container_url(state.get("url", "/"))
+    links: list[tuple[str, str]] = []
+    for key, value in entries:
+        url = _entry_url(base, str(key), value)
+        if url is not None:
+            links.append((str(key), url))
+    yield listing_html(links)
+
+
+for _container_type in (dict, MappingProxyType, list, tuple):
+    add_producer(_container_type, _produce_container_html, "text/html")

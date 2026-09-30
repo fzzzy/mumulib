@@ -40,12 +40,18 @@ extension alone decides what comes back.
   its slash, `/todos/`, as HTML, which is for people in browsers, and its
   name, `/todos.json`, as anything else, as a leaf's is. `/todos.html` is
   404, and so is `index.<ext>` spelled out, anywhere.
-- The slash is the container's `"index"` entry if it has one, and else the
-  container itself; its name is always the container itself, as data. `PUT`
+- The slash is the container's `"index"` entry if it has one, and else a
+  `<ul>` of links to what is in it, as a directory's is: a container by its
+  slash, a file by its own extension, anything else as `.html`, and only what
+  could be fetched. Its name is always the container itself, as data. `PUT`
   and `DELETE` on the slash write and remove the `"index"` entry, and on the
   name replace and remove the container.
 - The root is the one exception: it has no name in a parent, so `/` is its
   only URL, and it cannot be replaced whole. Its data is its entries'.
+- A string is its own content as any type, and a number its digits; `True`
+  and `False` are JSON alone. What has no producer for the URL's type is 404,
+  never its `str()`; and in JSON, a value with no JSON form is an error, not a
+  quiet `null`. (`None` is not found at all: a consumer's `None` means that.)
 - The request's `Content-Type` says how its body is parsed (JSON, form or
   multipart), never what the response is; no response varies by request
   headers.

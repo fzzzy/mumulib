@@ -34,6 +34,13 @@ Python package). Breaking changes come first under each release.
   the element lists and the other helpers are the modules' own.
 - **`tags.all` is now `tags.every`:** `tags.every.div` and so on. Under
   `import *`, `all` shadowed the builtin; there is no alias.
+- **Nothing is served as its `str()`.** What has no producer for the URL's
+  type is 404; it had been served as its Python repr -- a dict's
+  `{'a': 1}` as HTML, an object's `<Thing at 0x…>`. Strings and numbers have
+  producers of their own, as text of any type; `True`, `False` and `None` are
+  JSON alone.
+- **In JSON, a value with no JSON form is an error,** a 500 naming its type,
+  where it had quietly been `null`.
 - **A function in the tree is called as `f(state)`,** not `f(f, state)`:
   the function itself was the first argument, which only `EventSource`'s
   closure could have used, and it needs nothing but its queue.
@@ -72,6 +79,10 @@ Python package). Breaking changes come first under each release.
   extension part of the name. `..`, hidden names and symlinks that lead
   outside are not found, and a directory is read-only. A `Path` to a file is
   served as one, as file objects are.
+- **Container listings**: a dict's, list's or tuple's slash, with no
+  `"index"` entry, is a `<ul>` of links to its entries, as a directory's is --
+  a container by its slash, a file by its own extension, anything else as
+  `.html`, and only what could be fetched.
 - **Directory listings**: a directory's slash, if it has no `index.html` of
   its own, is a `<ul>` of links named for its files, and its name as JSON is
   `{name: URL}`. Only what could be fetched is listed.
