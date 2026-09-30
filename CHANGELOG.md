@@ -1,0 +1,68 @@
+# Changelog
+
+mumulib ships as one version on npm (the TypeScript library) and PyPI (the
+Python package). Breaking changes come first under each release.
+
+## 2.0.0 — unreleased
+
+### Breaking
+
+- **Python server: a URL's extension is its type, and nothing else.**
+  `consumers_app` serves every response with the type its URL names:
+  `.json`, `.html`, `.txt`, `.sse` (server-sent events), or any extension
+  Python's `mimetypes` knows. The request's own `Content-Type` still decides how
+  its body is parsed, but it no longer changes what comes back, so no response
+  depends on request headers and none needs `Vary`.
+  - The extension names a representation, not a key: `/todos.json` and
+    `/todos.html` are both `root["todos"]`. Keys no longer carry extensions.
+  - A URL without an extension is 404, and so is an extension with no type. The
+    site root `/` is `/index.html`.
+  - A last segment named `index` is the container itself (or its `"index"`
+    entry, if it has one), as a trailing slash was: `/todos/index.json` is the
+    todos. A trailing slash alone is now 404.
+  - A producer that starts the response itself, such as a file or an
+    `EventSource`, gets the URL's type in place of its own.
+- **Python types are inline.** The `.pyi` stub files are gone; the package is
+  annotated throughout, passes pyright in strict mode, and ships `py.typed`.
+- **`tags.produce_html` refuses an attribute that is not text.** An attribute
+  whose value produces bytes or a `SpecialResponse` raises `TypeError` naming
+  the attribute.
+- **The npm package no longer includes the built examples.** `dist/` holds the
+  library bundles and their types; the examples are served from source by
+  `make run`.
+
+### Added
+
+- **`mumulib/vite-plugin-sfc`**: a Vite plugin for single-file components as
+  HTML. A `.sfc.html` holds a `<template>` and a TypeScript `<script>`, and
+  importing it gives the custom element class. Components' scripts have source
+  maps to their own lines, and coverage tools count them. Vite is an optional
+  peer dependency.
+- **`mumulib-sfc-check`** (and `checkSfc` from `mumulib/sfc-check`): type
+  checking for `.sfc.html` scripts with the project's tsconfig, each error at
+  its line and column in the component. TypeScript is an optional peer
+  dependency.
+- **`mumulib/sfc-client`**: the declaration of what importing a `.sfc.html`
+  gives, referenced as `vite/client` is.
+- **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
+  `fill_body` does for the page. It existed but was never exported.
+- **Python server hardening**: request bodies are limited in size (413 when
+  over), dictionary keys and list indexes from URLs are validated, and errors
+  come back as JSON.
+
+### Fixed
+
+- The Python server sent a producer's binary response as the text of its
+  Python repr (`b'...'`) instead of the bytes.
+- Multipart form bodies are decoded correctly.
+- The README's `fill_slots` example passed a dict where the function takes one
+  slot name and value.
+
+### Development
+
+- Built and served with Vite 8 instead of a hand-written esbuild script; the
+  library bundles and their declarations are unchanged.
+- TypeScript 6; ESLint and prettier; ruff, pyright (strict) and pytest for the
+  Python.
+- `make check` runs everything CI runs, including browser coverage from the
+  Playwright tests; `make run`, `stop`, `tail` and `dev` serve the examples.
