@@ -3,9 +3,10 @@ import asyncio
 import json
 import unittest
 from types import MappingProxyType
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from mumulib.consumers import (
+    MAX_LIST_INDEX,
     GetOnly,
     RefuseIndex,
     add_consumer,
@@ -210,7 +211,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response["status"], 404)
         response = await request(ASGI_APP, "PUT", "/list/-1.json", "notappended")
-        self.assertEqual(response["status"], 403)
+        self.assertEqual(response["status"], 404)
 
         # Test GET /list/asdf fails
         response = await request(ASGI_APP, "GET", "/list/asdf.json", None)
@@ -262,6 +263,26 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 201)
         response = await request(app, "GET", "/todos.json", None)
         self.assertEqual(response["body"], ["a", "again", "c", "d"])
+
+    async def test_an_element_has_one_url(self):
+        data = ["a", "b"]
+        app = consumers_app({"todos": data, "fixed": ("a", "b")})
+        # Only /todos/1.json is the second element; nothing else names it
+        for index in ["-1", "01", "+1", " 1", "1_0", "\u0661", "1.0"]:
+            for collection in ("todos", "fixed"):
+                with self.subTest(index=index, collection=collection):
+                    path = f"/{collection}/{quote(index)}.json"
+                    response = await request(app, "GET", path, None)
+                    self.assertEqual(response["status"], 404)
+            for method in ("PUT", "DELETE"):
+                with self.subTest(index=index, method=method):
+                    path = f"/todos/{quote(index)}.json"
+                    response = await request(app, method, path, "x")
+                    self.assertEqual(response["status"], 404)
+        self.assertEqual(data, ["a", "b"])
+        # Nor anything past the bound
+        path = f"/todos/{MAX_LIST_INDEX + 1}.json"
+        self.assertEqual((await request(app, "GET", path, None))["status"], 404)
 
     async def test_nested_list(self):
         response = await request(ASGI_APP, "GET", "/nested_list/0/0.json", None)

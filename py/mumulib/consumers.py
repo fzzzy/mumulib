@@ -62,7 +62,6 @@ _consumer_adapters: dict[type[Any], Consumer] = {}
 
 # Security constants
 MAX_LIST_INDEX = sys.maxsize // 2  # Reasonable upper bound for list indices
-MIN_LIST_INDEX = -(sys.maxsize // 2)  # Reasonable lower bound for list indices
 MAX_KEY_LENGTH = 1000  # Maximum length for dictionary keys to prevent DoS
 
 
@@ -95,6 +94,11 @@ def sanitize_dict_key(key: str) -> str:
 def validate_list_index(index_str: str) -> int:
     """Validate and convert a string to a safe list index.
 
+    Each element has one URL, so an index has one spelling: 0, or ASCII
+    digits with no leading zero. -1, 01, +1, " 1", 1_0 and other digits
+    than ASCII's are all what int() takes for some element, and none of
+    them is an index here.
+
     Args:
         index_str (str): The string representation of an index.
 
@@ -104,15 +108,13 @@ def validate_list_index(index_str: str) -> int:
     Raises:
         ValueError: If the index is invalid or out of safe bounds.
     """
-    try:
-        index = int(index_str)
-    except ValueError:
+    canonical = index_str.isascii() and index_str.isdigit()
+    if not canonical or (index_str.startswith("0") and index_str != "0"):
         raise ValueError(f"Invalid integer index: {index_str}")
+    index = int(index_str)
 
-    if index > MAX_LIST_INDEX or index < MIN_LIST_INDEX:
-        raise ValueError(
-            f"Index {index} out of safe bounds [{MIN_LIST_INDEX}, {MAX_LIST_INDEX}]"
-        )
+    if index > MAX_LIST_INDEX:
+        raise ValueError(f"Index {index} out of safe bounds [0, {MAX_LIST_INDEX}]")
 
     return index
 
@@ -275,10 +277,7 @@ async def consume_list(
                 segnum = validate_list_index(index_str)
             except ValueError:
                 return None
-            # As before, a PUT names an element from the front; a DELETE may
-            # count from the back too
-            lowest = -len(parent) if method == "DELETE" else 0
-            if not lowest <= segnum < len(parent):
+            if segnum >= len(parent):
                 if method == "DELETE":
                     return None
                 return answer(

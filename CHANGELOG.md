@@ -45,6 +45,10 @@ Python package). Breaking changes come first under each release.
   same element it was, where it used to be the next one along. The deleted
   element's URL is not found, and `null` in the list's JSON, until a `PUT`
   there brings it back.
+- **A list's or tuple's element has one URL.** Its index is `0` or ASCII
+  digits with no leading zero; a negative index, `01`, `+1`, `1_0` and the
+  rest of what `int()` accepts are not found, where `/todos/-1.json` had been
+  the last element.
 - **Writes answer with what they did.** A `PUT` that creates an entry is
   201 Created, as it was; one that replaces an entry is 204 No Content, where
   it was 201. A `DELETE` is 204, where it was 200, and a `DELETE` of an entry

@@ -48,6 +48,9 @@ extension alone decides what comes back.
   could be fetched. Its name is always the container itself, as data. `PUT`
   and `DELETE` on the slash write and remove the `"index"` entry, and on the
   name replace and remove the container.
+- A list's or tuple's element has one URL: its index is `0`, or ASCII digits
+  with no leading zero. `-1`, `01` and `+1` are not found, though Python's
+  `int()` would take them for some element.
 - The root is the one exception: it has no name in a parent, so `/` is its
   only URL, and it cannot be replaced whole. Its data is its entries'.
 - A string is its own content as any type, and a number its digits; `True`
@@ -64,9 +67,9 @@ extension alone decides what comes back.
 `py/examples` holds servers built on mumulib, each a module with an ASGI `app`;
 `make server` at the repository root runs one (`SERVER=<name>`, default
 `hello`) on port 8001. The smallest, `hello.py`, publishes
-`{"index": "Hello, world!"}`: `/`, `/index.txt` and `/index.json` are the one
-string as HTML, text and JSON, and it is wrapped in `GetOnly`, read-only (see
-Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
+`{"index": "Hello, world!"}`: `/` is the string as HTML, and the only URL
+there is, since the root has no name of its own. It is wrapped in `GetOnly`,
+read-only (see Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
 stylesheet, text and image from a directory, and `functions.py`
 (`SERVER=functions`) a function that answers `GET` and `POST`.
 
