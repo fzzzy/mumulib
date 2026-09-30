@@ -33,9 +33,11 @@ extension alone decides what comes back.
   text, `.sse` server-sent events, and any other extension is the type
   `mimetypes` gives it.
 - A URL without an extension is 404, and so is one whose extension has no
-  type. `/` is `/index.html`.
-- `index` names the container: `/todos/index.json` is the todos, or their
-  `"index"` entry if they have one.
+  type -- except one ending in a slash, which is its index as HTML: `/` is
+  `/index.html`, and `/todos/` is `/todos/index.html`.
+- `index`, last in a path, is the container's `"index"` entry if it has one,
+  and else the container itself: `/todos/index.json` is the todos. `PUT` and
+  `DELETE` there act on the `"index"` entry.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
   multipart), never what the response is; no response varies by request
   headers.

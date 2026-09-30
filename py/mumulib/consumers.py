@@ -141,14 +141,14 @@ async def consume_tuple(
 ) -> Any | None:
     """Traverse a tuple using the first segment as an integer index.
 
-    If the only segment is empty, returns the tuple itself. Otherwise, attempts
+    If the only segment is index, returns the tuple itself. Otherwise, attempts
     to interpret the segment as an integer and return the corresponding element.
     Returns None if the index is invalid.
 
     Args:
         parent (tuple): The current tuple.
         segments (list[str]): Path segments, where segments[0] should be an
-            integer index or empty.
+            integer index, or index for the tuple itself.
         state (dict): Request-specific state.
         send (coroutine): ASGI send function.
 
@@ -166,7 +166,8 @@ async def consume_tuple(
         )
     child: Any
     try:
-        if len(segments) == 1 and not len(segments[0]):
+        # index, last in the path, is the collection itself
+        if len(segments) == 1 and segments[0] == "index":
             child = parent
         else:
             index = validate_list_index(segments[0])
@@ -194,7 +195,7 @@ async def consume_list(
     Args:
         parent (list): The current list.
         segments (list[str]): Path segments, where segments[0] is an index or
-            'last', or empty for the list itself.
+            'last', or index for the list itself.
         state (dict): Request-specific state, expected to have at least:
             - "method" (str): The HTTP method (e.g., GET, PUT, DELETE)
             - "parsed_body" (optional): The body to be used for PUT
@@ -213,7 +214,12 @@ async def consume_list(
             if index_str == "last":
                 # Append new element
                 parent.append(state.get("parsed_body", None))
-                location = f"{state.get('url', '')}/{len(parent) - 1}"
+                # The new element's own URL: /todos/last.json appends, and
+                # the element is /todos/3.json
+                base = state.get("url", "").rpartition("/")[0]
+                extension = state.get("extension")
+                suffix = f".{extension}" if extension else ""
+                location = f"{base}/{len(parent) - 1}{suffix}"
                 return SpecialResponse(
                     {
                         "type": "http.response.start",
@@ -278,13 +284,14 @@ async def _consume_immutabledict(
 ) -> Any | None:
     """Traverse a dictionary by treating the first segment as a key.
 
-    If the first segment is empty, returns the dictionary itself. Otherwise, returns
+    If the only segment is index, returns the "index" entry or else the
+    dictionary itself. Otherwise, returns
     the value corresponding to the key. If the key does not exist, returns None.
 
     Args:
         parent (dict): The current dictionary.
         segments (list[str]): Path segments, where segments[0] should be a
-            dictionary key or empty.
+            dictionary key, or index for its "index" entry or itself.
         state (dict): Request-specific state.
         send (coroutine): ASGI send function.
 
@@ -302,11 +309,10 @@ async def _consume_immutabledict(
         )
     child: Any
     try:
-        if len(segments) == 1 and not len(segments[0]):
-            if "index" in parent:
-                child = parent["index"]
-            else:
-                child = parent
+        # index, last in the path, is the dict's "index" entry if it has
+        # one, and else the dict itself; anywhere else it is a key like any
+        if len(segments) == 1 and segments[0] == "index" and "index" not in parent:
+            child = parent
         else:
             key = sanitize_dict_key(segments[0])
             child = parent[key]
@@ -330,7 +336,7 @@ async def consume_dict(
     Args:
         parent (dict): The current dictionary.
         segments (list[str]): Path segments, where segments[0] is a dictionary
-            key or empty for the dict itself.
+            key, or index.
         state (dict): Request-specific state, expected to have at least:
             - "method" (str): The HTTP method (e.g., GET, PUT, DELETE)
             - "parsed_body" (optional): The body to be used for PUT

@@ -180,18 +180,18 @@ def split_path(path: str) -> tuple[list[str], str] | None:
     """The segments to traverse, and the extension that names the type.
 
     The extension comes off the last segment: /todos.json and /todos.html are
-    both root["todos"]. A last segment named index is the container itself, or
-    its "index" entry if it has one -- /todos/index.json is the todos -- as a
-    trailing slash used to be. A path without an extension is None, except
-    the site root, which is /index.html.
+    both root["todos"]. A path ending in a slash is its index, as HTML: / is
+    /index.html, and /todos/ is /todos/index.html. What index names is the
+    consumers' to say -- the container's "index" entry, or the container. Any
+    other path without an extension is None.
     """
-    if path == "/":
-        path = "/index.html"
+    if path.endswith("/"):
+        path += "index.html"
     segments = path.split("/")[1:]
     key, dot, extension = segments[-1].rpartition(".")
     if not dot or not key or not extension:
         return None
-    return [*segments[:-1], "" if key == "index" else key], extension
+    return [*segments[:-1], key], extension
 
 
 def with_content_type(message: dict[str, Any], content_type: str) -> dict[str, Any]:

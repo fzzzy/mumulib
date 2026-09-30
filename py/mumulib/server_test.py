@@ -1571,6 +1571,51 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
         self.assertEqual(body.strip(), b"<p>home</p>")
 
+    def test_a_trailing_slash_is_the_index_as_html(self):
+        root = {"todos": {"index": "<ul></ul>", "a": 1}}
+        status, headers, body = asyncio.run(get(root, "/todos/"))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+        self.assertEqual(body.strip(), b"<ul></ul>")
+
+    def test_put_to_index_writes_the_index_entry(self):
+        root = {"index": "old"}
+
+        async def put():
+            sent = []
+
+            async def send(message):
+                sent.append(message)
+
+            async def receive():
+                return {"type": "http.request", "body": b'"new"', "more_body": False}
+
+            scope = {
+                "type": "http",
+                "method": "PUT",
+                "path": "/index.json",
+                "headers": [(b"content-type", b"application/json")],
+                "state": {},
+            }
+            await consumers_app(root)(scope, receive, send)
+            return sent[0]["status"]
+
+        self.assertEqual(asyncio.run(put()), 201)
+        # What was put is what comes back, and nothing else was written
+        self.assertEqual(root, {"index": "new"})
+        _, _, body = asyncio.run(get(root, "/index.json"))
+        self.assertEqual(json.loads(body), "new")
+
+    def test_index_is_only_special_last(self):
+        # In the middle of a path it is a key like any other
+        root = {"index": {"b": "under index"}, "b": "at the root"}
+        _, _, body = asyncio.run(get(root, "/index/b.json"))
+        self.assertEqual(json.loads(body), "under index")
+
+    def test_the_empty_key_means_nothing(self):
+        status, _, _ = asyncio.run(get({"a": 1}, "//a.json"))
+        self.assertEqual(status, 404)
+
     def test_index_names_the_container(self):
         root = {"todos": {"a": 1}}
         status, _, body = asyncio.run(get(root, "/todos/index.json"))

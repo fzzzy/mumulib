@@ -217,6 +217,8 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Test PUT /list/last
         response = await request(ASGI_APP, "PUT", "/list/last.json", "appended")
         self.assertEqual(response["status"], 201)
+        # The new element's own URL, extension and all
+        self.assertEqual(response["headers"]["location"], "/list/4.json")
 
         # Verify GET /list after PUT /list/last
         response = await request(ASGI_APP, "GET", "/list.json", None)

@@ -15,11 +15,15 @@ Python package). Breaking changes come first under each release.
   depends on request headers and none needs `Vary`.
   - The extension names a representation, not a key: `/todos.json` and
     `/todos.html` are both `root["todos"]`. Keys no longer carry extensions.
-  - A URL without an extension is 404, and so is an extension with no type. The
-    site root `/` is `/index.html`.
-  - A last segment named `index` is the container itself (or its `"index"`
-    entry, if it has one), as a trailing slash was: `/todos/index.json` is the
-    todos. A trailing slash alone is now 404.
+  - A URL without an extension is 404, and so is an extension with no type,
+    except that a URL ending in a slash is its index as HTML: `/` is
+    `/index.html`, and `/todos/` is `/todos/index.html`.
+  - `index` is the one name for a container's own URL, where the empty key
+    used to be. As the last segment it reads the container's `"index"` entry
+    if there is one, and else the container itself: `/todos/index.json` is
+    the todos. `PUT` and `DELETE` there act on the `"index"` entry, so what is
+    put is what is read back; they used to write a `""` key nothing could
+    read. Anywhere else in a path, `index` is a key like any other.
   - A producer that starts the response itself, such as a file or an
     `EventSource`, gets the URL's type in place of its own.
 - **Each Python module declares its public API in `__all__`,** and only
@@ -72,6 +76,8 @@ Python package). Breaking changes come first under each release.
   the packed package and uses it from Node, by `require` and by `import`.
 - The Python server sent a producer's binary response as the text of its
   Python repr (`b'...'`) instead of the bytes.
+- `PUT` to a list's `last` answers with the new element's own URL in
+  `Location` -- `/todos/3.json` -- instead of `/todos/last.json/3`.
 - Files of every type are served as their exact bytes. The file producer read
   all but `.ttf` fonts as text, so an image or any other binary file failed to
   decode, and text was re-encoded; nothing is decoded now. A file's type is
