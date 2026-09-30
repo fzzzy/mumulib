@@ -70,8 +70,11 @@ extension alone decides what comes back.
 `{"index": "Hello, world!"}`: `/` is the string as HTML, and the only URL
 there is, since the root has no name of its own. It is wrapped in `GetOnly`,
 read-only (see Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
-stylesheet, text and image from a directory, and `functions.py`
-(`SERVER=functions`) a function that answers `GET` and `POST`.
+stylesheet, text and image from a directory, `functions.py`
+(`SERVER=functions`) a function that answers `GET` and `POST`, and
+`resources.py` (`SERVER=resources`) a to-do list of resources: a list that
+takes `POST`, and items in it that answer their own `PUT` and cannot be
+deleted.
 
 ## Resources
 

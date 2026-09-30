@@ -121,7 +121,7 @@ Python package). Breaking changes come first under each release.
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in
   `GetOnly`; `functions.py` a function answering `GET` and `POST`, in a
-  `MappingProxyType`.
+  `MappingProxyType`; and `resources.py` a to-do list of `Resource`s.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when
