@@ -142,6 +142,25 @@ def add_consumer(
     _containers[adapter_for_type] = container
 
 
+def answer(
+    status: int, headers: list[tuple[bytes, bytes]] | None = None, body: bytes = b""
+) -> SpecialResponse:
+    """A response with no representation of its own: a write's outcome."""
+    return SpecialResponse(
+        {"type": "http.response.start", "status": status, "headers": headers or []},
+        body,
+    )
+
+
+def refuse(allow: str) -> SpecialResponse:
+    """405, naming the methods that are allowed here."""
+    return answer(
+        405,
+        [(b"content-type", b"text/plain"), (b"allow", allow.encode())],
+        b"Method not allowed",
+    )
+
+
 async def consume(
     parent: object, segments: list[str], state: State, send: Send
 ) -> Any | None:
@@ -191,14 +210,7 @@ async def consume_tuple(
         any or None: The resolved object or None if invalid.
     """
     if len(segments) == 1 and state["method"] != "GET":
-        return SpecialResponse(
-            {
-                "type": "http.response.start",
-                "status": 405,
-                "headers": [(b"content-type", b"text/plain")],
-            },
-            b"Method not allowed",
-        )
+        return refuse("GET")
     child: Any
     try:
         # index, last in the path, is the collection itself
@@ -222,10 +234,11 @@ async def consume_list(
     for appending.
     Supports GET, PUT, and DELETE methods:
       - GET: Return the requested element (if index is valid).
-      - PUT: Replace an existing element at the given index, or append a new element
-        if 'last' is used, returning a 201 Created response. If the index doesn't exist
-        and isn't 'last', return 403.
-      - DELETE: Remove the element at the given index if it exists, returning 200 OK.
+      - PUT: Replace an existing element at the given index, 204 No Content, or
+        append a new element if 'last' is used, 201 Created with its URL in
+        Location. If the index doesn't exist and isn't 'last', return 403.
+      - DELETE: Remove the element at the given index, 204 No Content, or 404
+        if there is none.
 
     Args:
         parent (list): The current list.
@@ -245,68 +258,37 @@ async def consume_list(
         method = state.get("method", "GET").upper()
         index_str = segments[0]
 
-        if method == "PUT":
-            if index_str == "last":
-                # Append new element
-                parent.append(state.get("parsed_body", None))
-                # The new element's own URL: /todos/last.json appends, and
-                # the element is /todos/3.json
-                base = state.get("url", "").rpartition("/")[0]
-                extension = state.get("extension")
-                suffix = f".{extension}" if extension else ""
-                location = f"{base}/{len(parent) - 1}{suffix}"
-                return SpecialResponse(
-                    {
-                        "type": "http.response.start",
-                        "status": 201,
-                        "headers": [
-                            (b"content-type", b"text/plain"),
-                            (b"location", location.encode("utf-8")),
-                        ],
-                    },
-                    b"",
-                )
-            else:
-                # Replace existing element
-                try:
-                    segnum = validate_list_index(index_str)
-                    if segnum >= len(parent) or segnum < 0:
-                        return SpecialResponse(
-                            {
-                                "type": "http.response.start",
-                                "status": 403,
-                                "headers": [(b"content-type", b"text/plain")],
-                            },
-                            b"Not allowed to put to nonexistant list element.  "
-                            b"Use last.",
-                        )
-                    parent[segnum] = state.get("parsed_body", None)
-                    return SpecialResponse(
-                        {
-                            "type": "http.response.start",
-                            "status": 201,
-                            "headers": [(b"content-type", b"text/plain")],
-                        },
-                        b"",
-                    )
-                except ValueError:
-                    pass
-        elif method == "DELETE":
-            # Delete an element
+        if method == "PUT" and index_str == "last":
+            # Append new element
+            parent.append(state.get("parsed_body", None))
+            # The new element's own URL: /todos/last.json appends, and
+            # the element is /todos/3.json
+            base = state.get("url", "").rpartition("/")[0]
+            extension = state.get("extension")
+            suffix = f".{extension}" if extension else ""
+            location = f"{base}/{len(parent) - 1}{suffix}"
+            return answer(201, [(b"location", location.encode("utf-8"))])
+        if method in ("PUT", "DELETE"):
             try:
                 segnum = validate_list_index(index_str)
+            except ValueError:
+                return None
+            # As before, a PUT names an element from the front; a DELETE may
+            # count from the back too
+            lowest = -len(parent) if method == "DELETE" else 0
+            if not lowest <= segnum < len(parent):
+                if method == "DELETE":
+                    return None
+                return answer(
+                    403,
+                    [(b"content-type", b"text/plain")],
+                    b"Not allowed to put to nonexistant list element.  Use last.",
+                )
+            if method == "PUT":
+                parent[segnum] = state.get("parsed_body", None)
+            else:
                 del parent[segnum]
-            except (ValueError, IndexError):
-                # If invalid index, just return OK anyway
-                pass
-            return SpecialResponse(
-                {
-                    "type": "http.response.start",
-                    "status": 200,
-                    "headers": [(b"content-type", b"text/plain")],
-                },
-                b"",
-            )
+            return answer(204)
     # If we get here, we either haven't done PUT/DELETE, or the path continues.
     return await consume_tuple(tuple(parent), segments, state, send)
 
@@ -334,14 +316,7 @@ async def _consume_immutabledict(
         any or None: The resolved object or None if the key does not exist.
     """
     if len(segments) == 1 and state["method"] != "GET" and state["method"] != "POST":
-        return SpecialResponse(
-            {
-                "type": "http.response.start",
-                "status": 405,
-                "headers": [(b"content-type", b"text/plain")],
-            },
-            b"Method not allowed",
-        )
+        return refuse("GET, POST")
     child: Any
     try:
         # index, last in the path, is the dict's "index" entry if it has
@@ -365,8 +340,9 @@ async def consume_dict(
     """Traverse a dictionary by treating the first segment as a key.
     Supports GET, PUT, and DELETE methods:
     - GET: Return the requested value.
-    - PUT: Insert or update the value at the given key, returning 201 Created.
-    - DELETE: Remove the key if it exists, returning 200 OK.
+    - PUT: Insert the value at the given key, 201 Created, or replace the
+      one there, 204 No Content.
+    - DELETE: Remove the key, 204 No Content, or 404 if it is not there.
 
     Args:
         parent (dict): The current dictionary.
@@ -390,28 +366,15 @@ async def consume_dict(
             return None
 
         if method == "PUT":
+            created = key not in parent
             parent[key] = state.get("parsed_body", None)
-            return SpecialResponse(
-                {
-                    "type": "http.response.start",
-                    "status": 201,
-                    "headers": [(b"content-type", b"text/plain")],
-                },
-                b"",
-            )
+            return answer(201 if created else 204)
 
         elif method == "DELETE":
-            if key in parent:
-                del parent[key]
-
-            return SpecialResponse(
-                {
-                    "type": "http.response.start",
-                    "status": 200,
-                    "headers": [(b"content-type", b"text/plain")],
-                },
-                b"",
-            )
+            if key not in parent:
+                return None
+            del parent[key]
+            return answer(204)
 
     # If we get here, we either are doing a GET or traversing deeper.
     return await _consume_immutabledict(MappingProxyType(parent), segments, state, send)

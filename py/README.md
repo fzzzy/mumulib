@@ -151,7 +151,9 @@ function to call for a request, and is not found.
 
 `consumers_app` publishes an object for reading and writing alike, on purpose:
 `PUT` writes an entry of a dict or a list (to a list's `last`, it appends),
-and `DELETE` removes one. What can be changed is the object's to decide, and
+and `DELETE` removes one. A `PUT` that creates is 201 Created, one that
+replaces and a `DELETE` are 204 No Content, and a `DELETE` of nothing is 404.
+What can be changed is the object's to decide, and
 mumulib does not guess. To publish an object to be read and nothing else,
 wrap it in `GetOnly`:
 

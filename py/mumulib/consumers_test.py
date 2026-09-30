@@ -122,9 +122,13 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], "world")
 
-        # Test PUT /hello
+        # PUT /hello replaces it; a new key is created
         response = await request(ASGI_APP, "PUT", "/hello.json", "newworld")
+        self.assertEqual(response["status"], 204)
+        response = await request(ASGI_APP, "PUT", "/fresh.json", "new")
         self.assertEqual(response["status"], 201)
+        response = await request(ASGI_APP, "DELETE", "/fresh.json", None)
+        self.assertEqual(response["status"], 204)
 
         # Verify GET /hello after PUT
         response = await request(ASGI_APP, "GET", "/hello.json", None)
@@ -133,11 +137,11 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
         # Test DELETE /hello
         response = await request(ASGI_APP, "DELETE", "/hello.json", None)
-        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["status"], 204)
 
-        # DELETE of a key that is not there is still OK
+        # DELETE of a key that is not there is not found
         response = await request(ASGI_APP, "DELETE", "/hello.json", None)
-        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["status"], 404)
 
         # After DELETE /hello, it is gone from the root and nothing else is
         self.assertNotIn("hello", ROOT)
@@ -167,6 +171,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Test PUT and DELETE on /tuple/2
         response = await request(ASGI_APP, "PUT", "/tuple/2.json", "change")
         self.assertEqual(response["status"], 405)
+        self.assertEqual(response["headers"]["allow"], "GET")
 
         response = await request(ASGI_APP, "DELETE", "/tuple/2.json", None)
         self.assertEqual(response["status"], 405)
@@ -186,7 +191,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
         # Test PUT /list/1
         response = await request(ASGI_APP, "PUT", "/list/1.json", "modified")
-        self.assertEqual(response["status"], 201)
+        self.assertEqual(response["status"], 204)
 
         # Verify GET /list after PUT /list/1
         response = await request(ASGI_APP, "GET", "/list.json", None)
@@ -199,11 +204,13 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response["status"], 403)
 
-        # Test PUT /list/asdf fails
+        # Test PUT /list/asdf fails, and so does one from the back
         response = await request(
             ASGI_APP, "PUT", "/list/asdf.json", json.dumps("notappended")
         )
-        self.assertEqual(response["status"], 405)
+        self.assertEqual(response["status"], 404)
+        response = await request(ASGI_APP, "PUT", "/list/-1.json", "notappended")
+        self.assertEqual(response["status"], 403)
 
         # Test GET /list/asdf fails
         response = await request(ASGI_APP, "GET", "/list/asdf.json", None)
@@ -224,20 +231,18 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
         # Test DELETE /list/1
         response = await request(ASGI_APP, "DELETE", "/list/1.json", None)
-        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["status"], 204)
 
         # Verify GET /list after DELETE /list/1
         response = await request(ASGI_APP, "GET", "/list.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], ["this", "a", "list", "appended"])
 
-        # Test DELETE /list/555
+        # Test DELETE /list/555 and /list/asdf: nothing there to delete
         response = await request(ASGI_APP, "DELETE", "/list/555.json", None)
-        self.assertEqual(response["status"], 200)
-
-        # Test DELETE /list/asdf
+        self.assertEqual(response["status"], 404)
         response = await request(ASGI_APP, "DELETE", "/list/asdf.json", None)
-        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["status"], 404)
 
     async def test_nested_list(self):
         response = await request(ASGI_APP, "GET", "/nested_list/0/0.json", None)
@@ -265,6 +270,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
         response = await request(ASGI_APP, "DELETE", "/immutable/cannot.json", None)
         self.assertEqual(response["status"], 405)
+        self.assertEqual(response["headers"]["allow"], "GET, POST")
 
         # Verify GET /immutable after PUT and DELETE
         response = await request(ASGI_APP, "GET", "/immutable.json", None)
@@ -425,7 +431,7 @@ class TestGetOnly(unittest.TestCase):
         guarded = GetOnly({"name": "mumulib"})
         root = {"about": guarded}
         status, _, _ = call(root, "PUT", "/about.json", "replaced")
-        self.assertEqual(status, 201)
+        self.assertEqual(status, 204)
         self.assertEqual(root, {"about": "replaced"})
         self.assertEqual(guarded.wrapped, {"name": "mumulib"})
 
@@ -628,10 +634,10 @@ class TestRefuseIndexWrites(unittest.TestCase):
         self.unchanged()
 
     def test_leaves_are_still_written(self):
-        self.assertEqual(call(self.root, "PUT", "/todos/0.json", "b")[0], 201)
-        self.assertEqual(call(self.root, "PUT", "/leaf.json", "w")[0], 201)
+        self.assertEqual(call(self.root, "PUT", "/todos/0.json", "b")[0], 204)
+        self.assertEqual(call(self.root, "PUT", "/leaf.json", "w")[0], 204)
         self.assertEqual(call(self.root, "PUT", "/new.json", "fresh")[0], 201)
-        self.assertEqual(call(self.root, "DELETE", "/sub/x.json")[0], 200)
+        self.assertEqual(call(self.root, "DELETE", "/sub/x.json")[0], 204)
         self.assertEqual(
             self.data,
             {"todos": ["b"], "sub": {}, "leaf": "w", "new": "fresh"},

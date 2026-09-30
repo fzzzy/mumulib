@@ -1634,7 +1634,7 @@ class TestUrlNamesTheType(unittest.TestCase):
             await consumers_app(root)(scope, receive, send)
             return sent[0]["status"]
 
-        self.assertEqual(asyncio.run(put()), 201)
+        self.assertEqual(asyncio.run(put()), 204)
         # What was put is what comes back, and nothing else was written
         self.assertEqual(root, {"index": "new"})
         _, _, body = asyncio.run(get(root, "/"))
@@ -1672,9 +1672,9 @@ class TestUrlNamesTheType(unittest.TestCase):
             await consumers_app(root)(scope, receive, send)
             return sent[0]["status"]
 
-        self.assertEqual(asyncio.run(put()), 201)
+        self.assertEqual(asyncio.run(put()), 204)
         self.assertEqual(root, {"todos": ["new"]})
-        self.assertEqual(asyncio.run(get(root, "/todos.json", "DELETE"))[0], 200)
+        self.assertEqual(asyncio.run(get(root, "/todos.json", "DELETE"))[0], 204)
         self.assertEqual(root, {})
 
     def test_other_extensions_take_their_type_from_mimetypes(self):
@@ -1771,7 +1771,7 @@ class TestFunctionsInTheTree(unittest.TestCase):
 
     def test_its_parent_answers_put_and_delete_for_it(self):
         root = {"f": self.f}
-        self.assertEqual(asyncio.run(get(root, "/f.txt", "DELETE"))[0], 200)
+        self.assertEqual(asyncio.run(get(root, "/f.txt", "DELETE"))[0], 204)
         self.assertEqual(root, {})
         self.assertEqual(self.calls, [])
 

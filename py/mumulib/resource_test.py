@@ -123,7 +123,7 @@ class TestMethods(unittest.TestCase):
         self.assertIsInstance(root.child_profile, Profile)
         # A dict answers for its own entries, and replaces this one
         root = {"profile": Profile()}
-        self.assertEqual(call(root, "PUT", "/profile.json", "replaced")[0], 201)
+        self.assertEqual(call(root, "PUT", "/profile.json", "replaced")[0], 204)
         self.assertEqual(root, {"profile": "replaced"})
 
 
