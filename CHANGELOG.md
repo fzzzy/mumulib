@@ -55,11 +55,19 @@ Python package). Breaking changes come first under each release.
   that is not there, or of a list index that is not a number, is 404, where it
   was 200. A `PUT` to a list index that is not a number is 404, not 405. A
   405 from a tuple or a `MappingProxyType` names what it allows in `Allow`.
+- **`EventSource` sends every event to every client.** It had one queue that
+  its clients took turns reading from, so each event reached only one of
+  them; and under a real server a stream ended after its first ping, since
+  it took the request's own empty body for the client leaving. Now
+  `EventSource()` is published itself, `put(item)` sends to every stream open
+  then, and each stream has its own buffer, closed if its client falls
+  `max_backlog` items behind. A stream ends when its client goes, with one
+  `receive` for the whole stream, where each event left another waiting. It
+  is found at `.sse` and nothing else.
 - **In JSON, a value with no JSON form is an error,** a 500 naming its type,
   where it had quietly been `null`.
 - **A function in the tree is called as `f(state)`,** not `f(f, state)`:
-  the function itself was the first argument, which only `EventSource`'s
-  closure could have used, and it needs nothing but its queue.
+  the function itself was the first argument, which nothing used.
 - **Python types are inline.** The `.pyi` stub files are gone; the package is
   annotated throughout, passes pyright in strict mode, and ships `py.typed`.
 - **`tags.produce_html` refuses an attribute that is not text.** An attribute

@@ -12,7 +12,7 @@ Each module's `__all__` is its public API, and what mumulib promises to keep
 working; anything else in a module is its own.
 
 - `mumulib.server`: `consumers_app(root)`, to publish an object, and
-  `EventSource(queue)`, to stream events from it.
+  `EventSource()`, server-sent events to every client listening.
 - `mumulib.consumers`: `consume`, `add_consumer` to walk into a new type --
   `container=True`, or a function of the thing, if it is a container -- and
   the guards `GetOnly`, to publish an object read-only, and `RefuseIndex`, to
@@ -158,6 +158,45 @@ publish it in a `MappingProxyType`, which refuses both.
 
 A method -- bound, built in, or a wrapper such as `"abc".__str__` -- is not a
 function to call for a request, and is not found.
+
+## Events
+
+An `EventSource` published at a `.sse` URL is a stream of server-sent
+events, and `put(item)` sends an item to every stream open at that moment:
+
+```python
+from mumulib.server import EventSource, consumers_app
+
+events = EventSource()
+app = consumers_app({"events": events})
+
+events.put("hello")  # to every browser at /events.sse right now
+```
+
+Each stream has a buffer of its own, from when its client connects until it
+goes, so a client hears what is put after it connects and nothing from
+before. A client that falls `max_backlog` items behind (1000 unless given)
+is closed rather than buffered for without end; a browser's `EventSource`
+reconnects by itself. `listeners` is how many streams are open. Its only URL
+is `.sse`: `/events.json` is not found. `put` is called from the event
+loop's thread.
+
+For events meant for one user, give them an `EventSource` of their own at a
+URL no one else can guess, and tell only them where it is:
+
+```python
+import secrets
+
+streams: dict[str, EventSource] = {}
+app = consumers_app({"events": streams})
+
+key = secrets.token_urlsafe()
+streams[key] = EventSource()  # /events/<key>.sse is theirs alone
+```
+
+An event stream never ends by itself, and uvicorn waits for open
+connections before it exits: run it with `--timeout-graceful-shutdown`, as
+`make run` does, or a stop waits until every browser has gone.
 
 ## Guards
 

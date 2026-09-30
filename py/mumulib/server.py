@@ -1,7 +1,7 @@
 import asyncio
 import json
 import traceback
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from typing import Any
 from urllib import parse
 
@@ -15,7 +15,7 @@ from mumulib.mumutypes import (
     State,
     content_type_for,
 )
-from mumulib.producers import produce
+from mumulib.producers import add_producer, produce
 
 # The public API: Publishing an object, and streaming events from it. The body
 # parsers and path helpers are the app's own.
@@ -389,51 +389,107 @@ def consumers_app(root: Any) -> ASGIApp:
     return app
 
 
-def EventSource(
-    output_queue: asyncio.Queue[Any],
-) -> Callable[[State], AsyncIterator[SpecialResponse]]:
-    """A function to publish: its URL streams output_queue as server-sent
-    events, one for each item put on it, until the client goes."""
+# Stands in a stream's buffer for "this stream is over": put by EventSource
+# when its client has fallen too far behind to catch up
+_CLOSE = object()
 
-    async def handle_eventsource(state: State) -> AsyncIterator[SpecialResponse]:
-        async def writer(send: Send, receive: Receive) -> None:
+
+class EventSource:
+    """Server-sent events, to every client listening: publish it at a .sse
+    URL, and each item put on it goes to each stream open at that moment.
+
+    Each stream has its own buffer, made when its client connects and dropped
+    when it goes, so a client hears what is put after it connects and nothing
+    from before. One that falls max_backlog items behind -- stalled, or gone
+    without saying so -- is closed rather than buffered for without end; an
+    EventSource client reconnects by itself.
+
+    For events meant for one user, publish an EventSource of their own at a
+    URL no one else can guess: {"events": {secrets.token_urlsafe(): ...}}.
+
+    put is called from the event loop's thread, as asyncio's queues are.
+    """
+
+    def __init__(self, max_backlog: int = 1000) -> None:
+        self.max_backlog = max_backlog
+        self._streams: set[asyncio.Queue[Any]] = set()
+
+    @property
+    def listeners(self) -> int:
+        """How many streams are open now."""
+        return len(self._streams)
+
+    def put(self, item: Any) -> None:
+        """Send item to every stream open now."""
+        for stream in list(self._streams):
+            try:
+                stream.put_nowait(item)
+            except asyncio.QueueFull:
+                # Too far behind to catch up: what it has not sent is dropped,
+                # and it is told to close
+                self._streams.discard(stream)
+                while not stream.empty():
+                    stream.get_nowait()
+                stream.put_nowait(_CLOSE)
+
+    async def stream(self, send: Send, receive: Receive) -> None:
+        """One client's stream: its buffer, sent until it goes."""
+        buffer: asyncio.Queue[Any] = asyncio.Queue(maxsize=self.max_backlog)
+        self._streams.add(buffer)
+        # One receive for the whole stream, waiting for the client to go.
+        # ASGI only promises an awaitable, so ensure_future.
+        gone = asyncio.ensure_future(_disconnected(receive))
+        item: asyncio.Future[Any] | None = None
+        try:
             while True:
-                # Create tasks for the ASGI receive and the queue. ASGI only
-                # promises an awaitable, so ensure_future rather than
-                # create_task, which wants a coroutine.
-                task_receive = asyncio.ensure_future(receive())
-                task_queue = asyncio.create_task(output_queue.get())
+                item = asyncio.ensure_future(buffer.get())
+                done, _ = await asyncio.wait(
+                    {item, gone}, return_when=asyncio.FIRST_COMPLETED
+                )
+                if gone in done:
+                    return
+                event = item.result()
+                if event is _CLOSE:
+                    return
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": f"data: {event}\n\n".encode(),
+                        "more_body": True,
+                    }
+                )
+        finally:
+            # Gone, closed, or cancelled -- the server shutting down -- and
+            # nothing of this stream's is left waiting
+            self._streams.discard(buffer)
+            gone.cancel()
+            if item is not None:
+                item.cancel()
 
-                try:
-                    done, _ = await asyncio.wait(
-                        {task_receive, task_queue}, return_when=asyncio.FIRST_COMPLETED
-                    )
-                except asyncio.CancelledError:
-                    break
-                if task_queue in done:
-                    result = done.pop().result()
-                    await send(
-                        {
-                            "type": "http.response.body",
-                            "body": f"data: {result}\n\n".encode(),
-                            "more_body": True,
-                        }
-                    )
-                else:
-                    task_queue.cancel()
-                    break
 
-        yield SpecialResponse(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [
-                    (b"content-type", b"text/event-stream; charset=UTF-8"),
-                    (b"cache-control", b"no-cache"),
-                ],
-            },
-            b"event: ping\ndata: {}\n\n",
-            writer,
-        )
+async def _disconnected(receive: Receive) -> None:
+    """Returns when the client has gone: what it sends until then, if
+    anything, is not for an event stream."""
+    while (await receive())["type"] != "http.disconnect":
+        pass
 
-    return handle_eventsource
+
+async def _produce_eventsource(
+    thing: EventSource, state: State
+) -> AsyncIterator[SpecialResponse]:
+    yield SpecialResponse(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                (b"content-type", b"text/event-stream; charset=UTF-8"),
+                (b"cache-control", b"no-cache"),
+            ],
+        },
+        b"event: ping\ndata: {}\n\n",
+        thing.stream,
+    )
+
+
+# An event stream is one representation: at .sse, and not found as any other
+add_producer(EventSource, _produce_eventsource, "text/event-stream")
