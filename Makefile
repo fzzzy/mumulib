@@ -1,12 +1,13 @@
 .PHONY: check lint fix typecheck test py-test browser-test node-test build dist \
 	python-sync \
-	node_modules run stop tail dev server clean tags
+	node_modules run stop tail dev server server-exists clean tags
 
 # The examples' dev server, and where its output goes
 PORT := 8000
 LOG := $(CURDIR)/var/log
 
-# make server runs one of py/examples: SERVER=<name> for another than hello
+# make run and make server run one of py/examples: SERVER=<name> for another
+# than hello
 SERVER ?= hello
 SERVER_PORT ?= 8001
 
@@ -66,52 +67,82 @@ ts/node_modules: ts/package.json ts/package-lock.json
 	touch ts/node_modules
 
 
-# The examples, served from source at http://127.0.0.1:$(PORT)/
-run: node_modules
+# The examples in the background: the TypeScript ones from Vite at
+# http://127.0.0.1:$(PORT)/, and a Python one (SERVER=<name>) from uvicorn at
+# http://127.0.0.1:$(SERVER_PORT)/, each reloading as its code changes and
+# logging to var/log. A service is whatever holds its port: run frees both
+# ports first, stop signals whatever holds them, and neither needs a pidfile.
+run: node_modules python-sync server-exists
 	@mkdir -p "$(LOG)"
 	@$(MAKE) --no-print-directory stop > /dev/null
 	@cd ts && exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
-	@for i in 1 2 3 4 5 6 7 8 9 10; do \
-		lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null && break; sleep 0.5; \
-	done; \
-	if lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null; then \
-		echo "Examples: http://127.0.0.1:$(PORT)/"; \
-		echo "Logs:     make tail"; \
-		echo "Stop:     make stop"; \
-	else \
-		echo "Vite did not start; see $(LOG)/vite.log" >&2; exit 1; \
-	fi
+	@PYTHONUNBUFFERED=1 exec $(UV) uvicorn examples.$(SERVER):app \
+		--host 127.0.0.1 --port $(SERVER_PORT) --reload \
+		> "$(LOG)/server.log" 2>&1 < /dev/null &
+	@$(call wait_for_port,$(PORT),vite)
+	@$(call wait_for_port,$(SERVER_PORT),server)
+	@echo "Examples: http://127.0.0.1:$(PORT)/"
+	@echo "Python:   http://127.0.0.1:$(SERVER_PORT)/  (examples/$(SERVER).py)"
+	@echo "Logs:     make tail"
+	@echo "Stop:     make stop"
 
-# Whatever holds the port is the server, whatever started it
 stop:
-	@pids=$$(lsof -ti tcp:$(PORT) -sTCP:LISTEN); \
-	if [ -z "$$pids" ]; then echo "Not running."; exit 0; fi; \
-	kill $$pids; \
-	for i in 1 2 3 4 5 6 7 8 9 10; do \
-		lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null || { echo "Stopped."; exit 0; }; \
-		sleep 0.3; \
-	done; \
-	echo "Still holding port $(PORT) after SIGTERM; sending SIGKILL."; \
-	kill -9 $$(lsof -ti tcp:$(PORT) -sTCP:LISTEN) 2> /dev/null; \
-	sleep 0.5; \
-	if lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null; then \
-		echo "Port $(PORT) is still held." >&2; exit 1; \
-	fi; \
-	echo "Stopped."
+	@$(call stop_port,$(PORT),Vite)
+	@$(call stop_port,$(SERVER_PORT),The Python server)
 
+# -F rather than -f: a log run truncates is followed from its new start
 tail:
-	@tail -f "$(LOG)/vite.log"
+	@tail -F "$(LOG)/vite.log" "$(LOG)/server.log"
 
 dev: run tail
 
+# Waits up to ten seconds for $(1) to be listened on, else shows the end of
+# var/log/$(2).log and fails
+define wait_for_port
+for i in $$(seq 20); do \
+	lsof -ti tcp:$(1) -sTCP:LISTEN > /dev/null && exit 0; sleep 0.5; \
+done; \
+echo "Nothing is listening on port $(1); the end of $(LOG)/$(2).log:" >&2; \
+tail -20 "$(LOG)/$(2).log" >&2; exit 1
+endef
+
+# The processes holding port $(1): listening on it, or bound to it and not
+# listening -- as uvicorn's reloader is while the app it runs fails to
+# import, which a LISTEN-only search misses though nothing else can bind the
+# port. A connection, to or from the port, is someone else's: a browser's.
+port_holders = lsof -nP -iTCP:$(1) -sTCP:LISTEN,CLOSED -Fpn \
+	| awk '/^p/ { pid = substr($$0, 2) } /^n/ && !/->/ { print pid }' | sort -u
+
+# SIGTERM to every process holding $(1) -- uvicorn's reloader and its worker
+# both do -- then, if the port is still held after five seconds, SIGKILL,
+# saying so. Fails if even that leaves it held.
+define stop_port
+pids=$$($(call port_holders,$(1))); \
+if [ -z "$$pids" ]; then echo "$(2) was not running (port $(1))."; exit 0; fi; \
+kill $$pids 2> /dev/null; \
+for i in $$(seq 50); do \
+	[ -z "$$($(call port_holders,$(1)))" ] && { echo "$(2) stopped (port $(1))."; exit 0; }; \
+	sleep 0.1; \
+done; \
+echo "$(2) still held port $(1) five seconds after SIGTERM; sending SIGKILL." >&2; \
+kill -9 $$($(call port_holders,$(1))) 2> /dev/null; \
+sleep 0.5; \
+if [ -n "$$($(call port_holders,$(1)))" ]; then \
+	echo "Port $(1) is still held." >&2; exit 1; \
+fi; \
+echo "$(2) stopped (port $(1))."
+endef
+
 
 # A Python example, in the foreground, reloading as its code changes
-server: python-sync
+server: python-sync server-exists
+	$(UV) uvicorn examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) --reload
+
+server-exists:
 	@test -f py/examples/$(SERVER).py || { \
 		echo "No py/examples/$(SERVER).py; there are:" \
 			$$(cd py/examples && ls *.py | grep -v -e _test -e __init__ | sed 's/\.py$$//') >&2; \
 		exit 1; }
-	$(UV) uvicorn examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) --reload
 
 
 clean:

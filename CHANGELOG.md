@@ -117,7 +117,7 @@ Python package). Breaking changes come first under each release.
   the request instead of replacing, removing or refusing it.
 - **`add_consumer(..., own_methods=True)`**: a type whose things answer every
   method at their URL themselves, as `Resource` is registered.
-- **Python examples**, in `py/examples`, run with `make server`
+- **Python examples**, in `py/examples`, run with `make run` or `make server`
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in
   `GetOnly`; `functions.py` a function answering `GET` and `POST`, in a

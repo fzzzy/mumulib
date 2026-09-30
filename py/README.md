@@ -65,8 +65,9 @@ extension alone decides what comes back.
 ## Examples
 
 `py/examples` holds servers built on mumulib, each a module with an ASGI `app`;
-`make server` at the repository root runs one (`SERVER=<name>`, default
-`hello`) on port 8001. The smallest, `hello.py`, publishes
+`make run` at the repository root runs one (`SERVER=<name>`, default
+`hello`) on port 8001, in the background, and `make server` in the
+foreground. The smallest, `hello.py`, publishes
 `{"index": "Hello, world!"}`: `/` is the string as HTML, and the only URL
 there is, since the root has no name of its own. It is wrapped in `GetOnly`,
 read-only (see Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
