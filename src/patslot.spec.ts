@@ -1,4 +1,4 @@
-import { test, expect } from './coverage'
+import { test, expect } from './coverage.fixture'
 
 test.describe('Mumulib PatSlot Tests', () => {
   test.beforeEach(async ({ page }) => {

@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process'
 import * as path from 'node:path'
 import { test, expect } from '@playwright/test'
 
-const ROOT = path.join(__dirname, '..')
-const FIXTURES = path.join(__dirname, 'fixtures')
+const ROOT = path.join(__dirname, '..', '..')
+const FIXTURES = path.join(__dirname, 'test_fixtures')
 
 // The checker as a project's Makefile would run it
 function check(...paths: string[]) {
@@ -37,7 +37,7 @@ test.describe('Mumulib single-file component type checking', () => {
       // this.missingMethod(count)
       { line: 9, column: 10, code: 2339 },
     ])
-    expect(run.stdout).toContain('tests/fixtures/broken.sfc.html:8:11')
+    expect(run.stdout).toContain('src/vite/test_fixtures/broken.sfc.html:8:11')
     expect(run.status).toBe(1)
   })
 

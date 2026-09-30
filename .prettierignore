@@ -8,4 +8,4 @@ var
 python
 package-lock.json
 # Fixtures whose exact layout the tests assert
-tests/fixtures
+src/vite/test_fixtures

@@ -34,7 +34,15 @@ export default tseslint.config(
   },
   {
     // Node-side files: the build and test tooling
-    files: ['*.mts', '*.ts', 'scripts/**', 'tests/**', '*.js', 'src/vite/**'],
+    files: [
+      '*.mts',
+      '*.ts',
+      '*.js',
+      'scripts/**',
+      'src/vite/**',
+      'src/**/*.spec.ts',
+      'src/coverage.fixture.ts',
+    ],
     languageOptions: {
       globals: {
         ...globals.node,

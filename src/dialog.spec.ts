@@ -1,4 +1,4 @@
-import { test, expect } from './coverage'
+import { test, expect } from './coverage.fixture'
 
 test.describe('Mumulib Dialog Tests', () => {
   test.beforeEach(async ({ page }) => {

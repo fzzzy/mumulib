@@ -2,10 +2,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { createCoverageMap } from 'istanbul-lib-coverage'
 import { createSourceMapStore } from 'istanbul-lib-source-maps'
-import { test, expect } from './coverage'
+import { test, expect } from '../coverage.fixture'
 
 const COUNTER = path.join(
   __dirname,
+  '..',
   '..',
   'examples',
   'use_sfc',
