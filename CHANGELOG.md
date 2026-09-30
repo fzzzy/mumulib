@@ -74,5 +74,8 @@ Python package). Breaking changes come first under each release.
   library bundles and their declarations are unchanged.
 - TypeScript 6; ESLint and prettier; ruff, pyright (strict) and pytest for the
   Python.
+- The repository is two directories: `ts/` for the TypeScript library, its
+  package.json, configs, tests and examples, and `py/` (was `python/`) for the
+  Python package. The Makefile at the root runs both.
 - `make check` runs everything CI runs, including browser coverage from the
   Playwright tests; `make run`, `stop`, `tail` and `dev` serve the examples.

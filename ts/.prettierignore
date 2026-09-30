@@ -5,7 +5,6 @@ playwright-report
 test-results
 .nyc_output
 var
-python
 package-lock.json
 # Fixtures whose exact layout the tests assert
 src/vite/test_fixtures

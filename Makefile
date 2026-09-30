@@ -1,31 +1,33 @@
 .PHONY: check lint fix typecheck test py-test browser-test build dist python-sync \
-	run stop tail dev clean tags
+	node_modules run stop tail dev clean tags
 
 # The examples' dev server, and where its output goes
 PORT := 8000
 LOG := $(CURDIR)/var/log
 
-# Every tool through uv, from python/, so each reads python/pyproject.toml and
-# leaves its caches and .coverage there rather than at the root.
-UV := uv run --directory python --extra dev --locked
+# The TypeScript library is in ts/ and the Python one in py/. Every Python tool
+# runs through uv from py/, so each reads py/pyproject.toml and leaves its
+# caches and .coverage there; every npm script runs in ts/.
+UV := uv run --directory py --extra dev --locked
+NPM := cd ts && npm
 
 
 check: lint typecheck build test
 
 
 lint: node_modules python-sync
-	npm run lint
+	$(NPM) run lint
 	$(UV) ruff check
 	$(UV) ruff format --check
 
 fix: node_modules python-sync
-	npm run format
+	$(NPM) run format
 	$(UV) ruff check --fix
 	$(UV) ruff format
 
 typecheck: node_modules python-sync
-	npm run test:unit
-	node src/vite/sfc-check.mjs examples
+	$(NPM) run test:unit
+	cd ts && node src/vite/sfc-check.mjs examples
 	$(UV) pyright
 
 
@@ -34,30 +36,32 @@ test: py-test browser-test
 py-test: python-sync
 	$(UV) pytest --cov=mumulib --cov-branch
 
-# Against Vite's dev server, instrumented; nyc then reports what src/ ran
+# Against Vite's dev server, instrumented; nyc then reports what ts/src/ ran
 browser-test: node_modules
-	npm run test:browser
-	npm run coverage
+	$(NPM) run test:browser
+	$(NPM) run coverage
 
 
 build: python-sync dist
 
 dist: node_modules
-	npm run build
+	$(NPM) run build
 
 python-sync:
-	uv sync --project python --extra dev --locked
+	uv sync --project py --extra dev --locked
 
-node_modules: package.json package-lock.json
-	npm ci
-	touch node_modules
+node_modules: ts/node_modules
+
+ts/node_modules: ts/package.json ts/package-lock.json
+	$(NPM) ci
+	touch ts/node_modules
 
 
 # The examples, served from source at http://127.0.0.1:$(PORT)/
 run: node_modules
 	@mkdir -p "$(LOG)"
 	@$(MAKE) --no-print-directory stop > /dev/null
-	@exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
+	@cd ts && exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
 		lsof -ti tcp:$(PORT) -sTCP:LISTEN > /dev/null && break; sleep 0.5; \
 	done; \
@@ -93,8 +97,8 @@ dev: run tail
 
 
 clean:
-	rm -rf node_modules python/.venv dist var .nyc_output coverage-frontend
-	find python -name __pycache__ -prune -exec rm -rf {} +
+	rm -rf var ts/node_modules ts/dist ts/.nyc_output ts/coverage-frontend py/.venv
+	find py -name __pycache__ -prune -exec rm -rf {} +
 
 
 tags: python-sync

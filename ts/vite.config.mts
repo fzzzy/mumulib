@@ -34,8 +34,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: { mumulib: entry },
   },
-  // The pages, not every .html under the root: python/ has templates of its
-  // own, which are not pages at all
+  // The pages, not every .html under the root: the sfc checker's fixtures
+  // are components, and deliberately wrong ones
   optimizeDeps: {
     entries: ['index.html', 'examples/**/index.html'],
   },

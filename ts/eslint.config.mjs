@@ -13,7 +13,6 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       'var/**',
-      'python/**',
     ],
   },
   ...tseslint.configs.recommended,

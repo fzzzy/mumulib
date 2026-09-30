@@ -45,11 +45,11 @@ extension alone decides what comes back.
 From the repository root:
 
 ```sh
-uv sync --project python --extra dev --locked
-uv run --directory python --extra dev --locked pytest --cov=mumulib --cov-branch
-uv run --directory python --extra dev --locked ruff check
-uv run --directory python --extra dev --locked ruff format --check
-uv run --directory python --extra dev --locked pyright
+uv sync --project py --extra dev --locked
+uv run --directory py --extra dev --locked pytest --cov=mumulib --cov-branch
+uv run --directory py --extra dev --locked ruff check
+uv run --directory py --extra dev --locked ruff format --check
+uv run --directory py --extra dev --locked pyright
 ```
 
 The development extra includes pytest with pytest-cov, ruff, pyright and
