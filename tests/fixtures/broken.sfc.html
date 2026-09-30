@@ -1,0 +1,12 @@
+<template>
+  <p>Deliberately wrong, for the type checker's tests</p>
+</template>
+
+<script>
+export default class Broken extends HTMLElement {
+  connectedCallback() {
+    const count: number = 'not a number'
+    this.missingMethod(count)
+  }
+}
+</script>

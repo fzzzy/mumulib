@@ -355,4 +355,14 @@ A component's script has a source map back to its own lines in the
 `.sfc.html`, and coverage tools such as vite-plugin-istanbul count it -- give
 them `.html` among their extensions.
 
+Vite strips a component's types without checking them, and tsc cannot see
+into a `.sfc.html`, so `mumulib-sfc-check` checks them: with the project's
+tsconfig, each error at its line and column in the component, exiting 1 if
+there are any. Give it the directories to look in, or it searches the working
+directory; `--project` names a tsconfig. It needs `typescript` installed.
+
+```sh
+npx mumulib-sfc-check src
+```
+
 [http://127.0.0.1:8000/examples/use_sfc/](http://127.0.0.1:8000/examples/use_sfc/)

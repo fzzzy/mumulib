@@ -25,6 +25,7 @@ fix: node_modules python-sync
 
 typecheck: node_modules python-sync
 	npm run test:unit
+	node src/vite/sfc-check.mjs examples
 	$(UV) pyright
 
 

@@ -103,6 +103,39 @@ function mappings(source, start, length, before) {
 }
 
 /**
+ * A `.sfc.html` as the TypeScript module it stands for, and where its script
+ * came from: `start` and `length` in the source, and the `lines` of generated
+ * header before it. The plugin makes its source map from these, and the type
+ * checker puts errors back in place with them.
+ *
+ * @param {string} source
+ * @param {string} filename
+ * @returns {{ code: string, script: { start: number, length: number, lines: number } | null }}
+ */
+export function parseSfc(source, filename) {
+  const template = /<template>([\s\S]*?)<\/template>/.exec(source)
+  const script = /<script[^>]*>([\s\S]*?)<\/script>/.exec(source)
+  if (!template && !script) {
+    throw new Error(`${filename}: a .sfc.html needs a <template> or a <script>`)
+  }
+  const header = template ? templateCode(template[1].trim()) : ''
+  if (!script) {
+    return {
+      code: `${header}\nexport default defineComponent(template);\n`,
+      script: null,
+    }
+  }
+  return {
+    code: header + script[1],
+    script: {
+      start: script.index + script[0].indexOf('>') + 1,
+      length: script[1].length,
+      lines: header.split('\n').length - 1,
+    },
+  }
+}
+
+/**
  * A `.sfc.html` as the TypeScript module it stands for, with its source map.
  *
  * @param {string} source
@@ -110,27 +143,18 @@ function mappings(source, start, length, before) {
  * @returns {{ code: string, map: import('vite').Rollup.SourceMapInput }}
  */
 export function compileSfc(source, filename) {
-  const template = /<template>([\s\S]*?)<\/template>/.exec(source)
-  const script = /<script[^>]*>([\s\S]*?)<\/script>/.exec(source)
-  if (!template && !script) {
-    throw new Error(`${filename}: a .sfc.html needs a <template> or a <script>`)
-  }
-
-  const header = template ? templateCode(template[1].trim()) : ''
-  const start = script ? script.index + script[0].indexOf('>') + 1 : 0
-  const body = script ? script[1] : ''
-  const before = header.split('\n').length - 1
+  const { code, script } = parseSfc(source, filename)
   return {
-    code: script
-      ? header + body
-      : `${header}\nexport default defineComponent(template);\n`,
+    code,
     // With no script, nothing maps; the map still says whose module it is
     map: {
       version: 3,
       sources: [filename],
       sourcesContent: [source],
       names: [],
-      mappings: script ? mappings(source, start, body.length, before) : '',
+      mappings: script
+        ? mappings(source, script.start, script.length, script.lines)
+        : '',
     },
   }
 }
