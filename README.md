@@ -29,6 +29,9 @@ TypeScript; everything runs from here, through the Makefile.
 - `make run` starts Vite's dev server on port 8000, serving `ts/examples` from
   source, and returns; `make tail` follows its log in `var/log/vite.log`,
   `make stop` stops it, and `make dev` is run and tail together.
+- `make server` runs a Python example from `py/examples`, in the foreground on
+  port 8001, reloading as it changes: `hello` unless `SERVER` names another,
+  as in `make server SERVER=todos`.
 
 Each half keeps its own dependencies: `ts/package-lock.json`, installed with
 `npm ci`, and `py/uv.lock`, in `py/.venv`. Run `uv lock --project py` after

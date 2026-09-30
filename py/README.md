@@ -40,6 +40,14 @@ extension alone decides what comes back.
   multipart), never what the response is; no response varies by request
   headers.
 
+## Examples
+
+`py/examples` holds servers built on mumulib, each a module with an ASGI `app`;
+`make server` at the repository root runs one (`SERVER=<name>`, default
+`hello`) on port 8001. The smallest, `hello.py`, publishes
+`{"index": "Hello, world!"}`: `/`, `/index.txt` and `/index.json` are the one
+string as HTML, text and JSON.
+
 ## Development
 
 From the repository root:

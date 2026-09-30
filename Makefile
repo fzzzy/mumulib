@@ -1,10 +1,14 @@
 .PHONY: check lint fix typecheck test py-test browser-test node-test build dist \
 	python-sync \
-	node_modules run stop tail dev clean tags
+	node_modules run stop tail dev server clean tags
 
 # The examples' dev server, and where its output goes
 PORT := 8000
 LOG := $(CURDIR)/var/log
+
+# make server runs one of py/examples: SERVER=<name> for another than hello
+SERVER ?= hello
+SERVER_PORT ?= 8001
 
 # The TypeScript library is in ts/ and the Python one in py/. Every Python tool
 # runs through uv from py/, so each reads py/pyproject.toml and leaves its
@@ -99,6 +103,15 @@ tail:
 	@tail -f "$(LOG)/vite.log"
 
 dev: run tail
+
+
+# A Python example, in the foreground, reloading as its code changes
+server: python-sync
+	@test -f py/examples/$(SERVER).py || { \
+		echo "No py/examples/$(SERVER).py; there are:" \
+			$$(cd py/examples && ls *.py | grep -v -e _test -e __init__ | sed 's/\.py$$//') >&2; \
+		exit 1; }
+	$(UV) uvicorn examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) --reload
 
 
 clean:

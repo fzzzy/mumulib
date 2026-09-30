@@ -53,6 +53,8 @@ Python package). Breaking changes come first under each release.
   dependency.
 - **`mumulib/sfc-client`**: the declaration of what importing a `.sfc.html`
   gives, referenced as `vite/client` is.
+- **Python examples**, in `py/examples`, run with `make server`
+  (`SERVER=<name>`); the first, `hello.py`, publishes one string.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when

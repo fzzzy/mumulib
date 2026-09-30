@@ -31,6 +31,8 @@ dev = [
     # lxml ships no type information; without these, pyright strict cannot
     # see lxml.etree at all (reportMissingTypeStubs in tags.py).
     "lxml-stubs>=0.5.1",
+    # To run the examples; mumulib itself needs no particular ASGI server
+    "uvicorn>=0.52.4",
 ]
 
 [project.urls]
@@ -53,10 +55,10 @@ pythonVersion = "3.12"
 typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"
-include = ["mumulib"]
+include = ["mumulib", "examples"]
 
 [tool.pytest.ini_options]
-testpaths = ["mumulib"]
+testpaths = ["mumulib", "examples"]
 python_files = ["*_test.py"]
 
 [tool.coverage.run]
