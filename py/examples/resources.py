@@ -12,9 +12,9 @@ produced as though it had been published there, of the URL's type.
     GET    /                                  the page: a form, and the list
     GET    /about.txt                         About's template, as text
     GET    /todos.json                        [{"text": ..., "done": ..., "url": ...}]
-    GET    /todos.html                        the list as <ul>
+    GET    /todos.html                        the list's page, from a template
     POST   /todos.json  {"text": "Milk"}      {"url": "/todos/items/2.json"}
-    POST   /todos.html  text=Milk             the list as <ul>  (the form at /)
+    POST   /todos.html  text=Milk             the list's page  (the form at /)
     GET    /todos/items/0.json                {"text": ..., "done": ...}
     GET    /todos/items/                      a listing of links to each item
     PUT    /todos/items/0.json  {"done": true}    the item, done
@@ -28,11 +28,13 @@ has no handle_DELETE, so it cannot be removed.
 """
 
 import html
+from io import BytesIO
 from typing import Any, cast
 
 from mumulib.mumutypes import HTTPResponse, State
 from mumulib.resource import Resource
 from mumulib.server import consumers_app
+from mumulib.tags import Stan, parse_template
 
 INDEX = """<!doctype html>
 <title>Resources</title>
@@ -43,6 +45,32 @@ INDEX = """<!doctype html>
 <p><a href="/todos.html">The list</a>, <a href="/todos.json">as JSON</a>,
 and <a href="/todos/items/">each item</a>.</p>
 """
+
+
+# The list's page. The <li> is a pattern, data-pat: copied for each item,
+# and its slots, data-slot for content and data-attr for attributes, filled
+# on the copy. The <ul> is the page's slot, filled with the copies, which
+# takes the place of the pattern that was there.
+LIST_PAGE = parse_template(
+    BytesIO(
+        b"""<!doctype html>
+<html>
+<head><title>To do</title></head>
+<body>
+<h1>To do</h1>
+<ul data-slot="items">
+  <li data-pat="item">
+    <a data-slot="text" data-attr="href=url">An item</a>
+    <span data-slot="mark"> (done)</span>
+  </li>
+</ul>
+<p><a href="/">Add another</a></p>
+</body>
+</html>
+"""
+    )
+)
+assert LIST_PAGE is not None
 
 
 def fields(state: State) -> dict[str, Any]:
@@ -86,16 +114,31 @@ class Todos(Resource):
         # This resource's own URL, /todos.json, without its extension
         base = str(state.get("url", "")).rpartition(".")[0]
         if state["extension"] == "html":
-            items = "".join(
-                f'  <li><a href="{base}/items/{i}.html">{html.escape(todo.text)}'
-                f"</a>{' (done)' if todo.done else ''}</li>\n"
-                for i, todo in enumerate(self.child_items)
-            )
-            return f"<ul>\n{items}</ul>\n"
+            return self.render_page(base)
         return [
             {"text": todo.text, "done": todo.done, "url": f"{base}/items/{i}.json"}
             for i, todo in enumerate(self.child_items)
         ]
+
+    def render_page(self, base: str) -> Stan:
+        """The list page: the item pattern copied and filled for each item,
+        and the copies filled into the page's items slot."""
+        assert LIST_PAGE is not None
+        items = [
+            LIST_PAGE.clone_pat(
+                "item",
+                # Slots are written out as they are given: the text is a
+                # visitor's, so escaped here
+                text=html.escape(todo.text),
+                url=f"{base}/items/{i}.html",
+                mark=" (done)" if todo.done else "",
+            )
+            for i, todo in enumerate(self.child_items)
+        ]
+        # A copy, filled: the template itself stays as it is for the next
+        page = LIST_PAGE.copy()
+        page.fill_slots("items", items)
+        return page
 
     def handle_POST(self, state: State) -> Any:
         text = fields(state).get("text")

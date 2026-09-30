@@ -74,7 +74,30 @@ class TestResources(unittest.TestCase):
             ],
         )
         _, _, body = self.request("/todos.html")
-        self.assertIn(b'<a href="/todos/items/1.html">Test it</a>', body)
+        # The page's pattern, filled once for each item, and nothing else
+        self.assertEqual(body.count(b'data-pat="item"'), 2)
+        self.assertIn(b'href="/todos/items/1.html"', body)
+        self.assertIn(b"Test it", body)
+        self.assertNotIn(b"An item", body)
+        self.assertNotIn(b"(done)", body)
+
+    def test_a_done_item_is_marked_on_the_page(self):
+        self.request("/todos/items/1.json", "PUT", {"done": True})
+        _, _, body = self.request("/todos.html")
+        self.assertEqual(body.count(b"(done)"), 1)
+
+    def test_the_template_is_filled_afresh_each_time(self):
+        self.request("/todos.html")
+        self.request("/todos.json", "POST", {"text": "Milk"})
+        _, _, body = self.request("/todos.html")
+        self.assertEqual(body.count(b'data-pat="item"'), 3)
+        # An empty list is an empty <ul>
+        site = resources.Site()
+        site.child_todos = resources.Todos()
+        self.app = resources.consumers_app(site)
+        _, _, body = self.request("/todos.html")
+        self.assertIn(b'<ul data-slot="items">', body)
+        self.assertNotIn(b"<li", body)
 
     def test_post_adds_one_and_says_where(self):
         self.assertEqual(
@@ -89,7 +112,8 @@ class TestResources(unittest.TestCase):
         status, _, body = self.request("/todos.html", "POST", form=b"text=%3Cb%3E")
         self.assertEqual(status, 200)
         # Escaped: what a visitor sends is never markup
-        self.assertIn(b">&lt;b&gt;</a>", body)
+        self.assertIn(b"&lt;b&gt;", body)
+        self.assertNotIn(b"<b>", body)
 
     def test_a_put_is_the_items_own_and_changes_it_in_place(self):
         # The site at hand, to see the Todo object is changed, not replaced
