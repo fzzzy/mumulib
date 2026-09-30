@@ -31,7 +31,7 @@ PUBLIC = {
         "content_type_for",
     },
     "server": {"consumers_app", "EventSource"},
-    "consumers": {"consume", "add_consumer", "GetOnly"},
+    "consumers": {"consume", "add_consumer", "GetOnly", "RefuseIndex"},
     "producers": {"produce", "add_producer"},
     "shaped": {
         "is_shaped",

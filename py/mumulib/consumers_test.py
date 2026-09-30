@@ -3,8 +3,9 @@ import asyncio
 import json
 import unittest
 from types import MappingProxyType
+from urllib.parse import unquote
 
-from mumulib.consumers import GetOnly
+from mumulib.consumers import GetOnly, RefuseIndex
 from mumulib.server import consumers_app
 
 
@@ -369,7 +370,13 @@ def call(root, method, path, body=None):
         return {"type": "http.request", "body": data, "more_body": False}
 
     headers = [(b"content-type", b"application/json")] if body is not None else []
-    scope = {"type": "http", "method": method, "path": path, "headers": headers}
+    # An ASGI server hands the app its path percent-decoded
+    scope = {
+        "type": "http",
+        "method": method,
+        "path": unquote(path),
+        "headers": headers,
+    }
 
     async def go():
         await consumers_app(root)({**scope, "state": {}}, receive, send)
@@ -426,8 +433,8 @@ class TestGetOnly(unittest.TestCase):
         self.assertEqual(guarded.wrapped, {"name": "mumulib"})
 
 
-class TestDirectory(unittest.TestCase):
-    """A Path to a directory serves what is in it, and nothing outside it."""
+class DirectorySite(unittest.TestCase):
+    """A directory to serve, with things in it that must not be served."""
 
     def setUp(self):
         import tempfile
@@ -443,12 +450,19 @@ class TestDirectory(unittest.TestCase):
         (self.site / "sub" / "index.html").write_text("<p>sub index</p>")
         (self.site / ".env").write_text("SECRET=1")
         (self.site / "pixel.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\xff")
+        (self.site / "README").write_text("no extension, so no URL")
+        (self.site / "a b&c.txt").write_text("escaped")
+        (self.site / "data.json").write_text('{"from": "a file"}')
         (base / "outside.txt").write_text("outside")
         (self.site / "escape.txt").symlink_to(base / "outside.txt")
         self.root = {"static": self.site}
 
     def tearDown(self):
         self.tmp.cleanup()
+
+
+class TestDirectory(DirectorySite):
+    """A Path to a directory serves what is in it, and nothing outside it."""
 
     def test_a_file_is_its_bytes_with_the_urls_type(self):
         status, headers, body = call(self.root, "GET", "/static/style.css")
@@ -467,10 +481,56 @@ class TestDirectory(unittest.TestCase):
             call(self.root, "GET", "/static/sub/note.txt")[2].strip(), b"nested"
         )
 
-    def test_index_is_the_directorys_index_file_and_there_are_no_listings(self):
+    def test_the_index_file_wins_over_a_listing(self):
         status, _, body = call(self.root, "GET", "/static/sub/")
         self.assertEqual((status, body.strip()), (200, b"<p>sub index</p>"))
-        self.assertEqual(call(self.root, "GET", "/static/")[0], 404)
+
+    def test_a_directory_as_html_is_a_list_of_links(self):
+        status, headers, body = call(self.root, "GET", "/static/")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+        self.assertEqual(
+            body.decode().strip(),
+            "<ul>\n"
+            '  <li><a href="/static/a%20b%26c.txt">a b&amp;c.txt</a></li>\n'
+            '  <li><a href="/static/app.min.js">app.min.js</a></li>\n'
+            '  <li><a href="/static/data.json">data.json</a></li>\n'
+            '  <li><a href="/static/pixel.png">pixel.png</a></li>\n'
+            '  <li><a href="/static/style.css">style.css</a></li>\n'
+            '  <li><a href="/static/sub/">sub</a></li>\n'
+            "</ul>",
+        )
+
+    def test_a_directory_as_json_is_names_to_urls(self):
+        expected = {
+            "a b&c.txt": "/static/a%20b%26c.txt",
+            "app.min.js": "/static/app.min.js",
+            "data.json": "/static/data.json",
+            "pixel.png": "/static/pixel.png",
+            "style.css": "/static/style.css",
+            "sub": "/static/sub/index.json",
+        }
+        for path in ("/static/index.json", "/static.json"):
+            with self.subTest(path=path):
+                status, headers, body = call(self.root, "GET", path)
+                self.assertEqual(status, 200)
+                self.assertEqual(
+                    headers[b"content-type"], b"application/json; charset=UTF-8"
+                )
+                self.assertEqual(json.loads(body), expected)
+
+    def test_every_listed_url_is_served(self):
+        _, _, body = call(self.root, "GET", "/static/index.json")
+        for name, url in json.loads(body).items():
+            with self.subTest(name=name):
+                self.assertEqual(call(self.root, "GET", url)[0], 200)
+
+    def test_a_json_file_is_its_bytes_not_a_listing(self):
+        status, _, body = call(self.root, "GET", "/static/data.json")
+        self.assertEqual((status, json.loads(body)), (200, {"from": "a file"}))
+
+    def test_a_directory_is_listed_only_as_html_or_json(self):
+        self.assertEqual(call(self.root, "GET", "/static/index.txt")[0], 404)
 
     def test_nothing_outside_or_hidden_is_found(self):
         for path in [
@@ -480,7 +540,7 @@ class TestDirectory(unittest.TestCase):
             "/static/escape.txt",
             "/static/style.json",
             "/static/sub.html",
-            "/static.html",
+            "/static/README.txt",
             "/static/style.css/more.txt",
         ]:
             with self.subTest(path=path):
@@ -492,3 +552,34 @@ class TestDirectory(unittest.TestCase):
                 status, headers, _ = call(self.root, method, "/static/new.txt", "x")
                 self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
         self.assertFalse((self.site / "new.txt").exists())
+
+
+class TestRefuseIndex(DirectorySite):
+    """RefuseIndex: an index is not found, at any depth; the rest is served."""
+
+    def setUp(self):
+        super().setUp()
+        self.root = {"static": RefuseIndex(self.site)}
+
+    def test_the_index_is_not_found_at_any_depth(self):
+        for path in [
+            "/static/",
+            "/static/index.html",
+            "/static/index.json",
+            "/static/sub/",
+            "/static/sub/index.html",
+            "/static.html",
+            "/static.json",
+        ]:
+            with self.subTest(path=path):
+                self.assertEqual(call(self.root, "GET", path)[0], 404)
+
+    def test_everything_else_is_still_served(self):
+        self.assertEqual(call(self.root, "GET", "/static/style.css")[0], 200)
+        self.assertEqual(call(self.root, "GET", "/static/sub/note.txt")[0], 200)
+
+    def test_it_guards_a_dict_too(self):
+        root = RefuseIndex({"index": "home", "a": 1})
+        self.assertEqual(call(root, "GET", "/")[0], 404)
+        self.assertEqual(call(root, "GET", "/index.json")[0], 404)
+        self.assertEqual(call(root, "GET", "/a.json")[2], b"1\n")

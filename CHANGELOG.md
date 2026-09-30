@@ -65,8 +65,13 @@ Python package). Breaking changes come first under each release.
 - **Directories, served**: a `pathlib.Path` to a directory is walked into, so
   `{"static": Path("static")}` serves its files at `/static/<name>`, the URL's
   extension part of the name. `..`, hidden names and symlinks that lead
-  outside are not found, there are no listings, and a directory is read-only.
-  A `Path` to a file is served as one, as file objects are.
+  outside are not found, and a directory is read-only. A `Path` to a file is
+  served as one, as file objects are.
+- **Directory listings**: a directory's index, if it has no `index.<ext>` of
+  its own, lists it -- as HTML, a `<ul>` of links named for their files; as
+  JSON, `{name: URL}`. Only what could be fetched is listed.
+- **`consumers.RefuseIndex(obj)`**: a guard under which an index is not found
+  at any depth, nor the object asked for itself; everything else is served.
 - **Python examples**, in `py/examples`, run with `make server`
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in

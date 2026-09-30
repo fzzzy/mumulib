@@ -51,9 +51,14 @@ class TestFiles(unittest.TestCase):
                 self.assertIn(link, page)
                 self.assertEqual(get(link)[0], 200)
 
+    def test_the_directory_lists_itself(self):
+        status, content_type, body = get("/static/")
+        self.assertEqual((status, content_type), (200, b"text/html; charset=UTF-8"))
+        for name in ("hello.txt", "pixel.png", "style.css"):
+            self.assertIn(f'<a href="/static/{name}">{name}</a>'.encode(), body)
+
     def test_nothing_outside_the_directory(self):
         self.assertEqual(get("/static/../files.py")[0], 404)
-        self.assertEqual(get("/static/")[0], 404)
 
     def test_nothing_but_get(self):
         self.assertEqual(get("/static/hello.txt", "PUT")[0], 405)

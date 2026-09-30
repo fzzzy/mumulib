@@ -14,7 +14,8 @@ working; anything else in a module is its own.
 - `mumulib.server`: `consumers_app(root)`, to publish an object, and
   `EventSource(queue)`, to stream events from it.
 - `mumulib.consumers`: `consume`, `add_consumer` to walk into a new type, and
-  `GetOnly` to publish an object read-only.
+  the guards `GetOnly`, to publish an object read-only, and `RefuseIndex`, to
+  publish it with no index.
 - `mumulib.producers`: `produce`, and `add_producer` to render a new type.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
   `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
@@ -60,8 +61,14 @@ on each request. A `pathlib.Path` is too, and a `Path` to a directory is walked
 into: `{"static": Path("static")}` serves `static/style.css` at
 `/static/style.css`. The URL's extension is put back on the last segment as
 part of the file's name, and is the type it is served as, so a file needs an
-extension to be served. `index` is the directory's `index.<extension>`, if it
-has one, and a directory lists nothing.
+extension to be served.
+
+`index` is the directory's `index.<extension>`, if it has one, and else the
+directory itself -- which, as HTML or JSON, lists what is in it: `/static/` is
+a `<ul>` of links, each named for its file, and `/static/index.json` is
+`{name: URL}`, a subdirectory's URL its own listing in JSON. `/static.html`
+and `/static.json` are the directory itself too. Only what could be fetched is
+listed, and `RefuseIndex` is how to have no listing (see Guards).
 
 Only what is in the directory is found: `..`, hidden names such as `.git` and
 `.env`, and symlinks that lead outside are not. A directory is never written;
@@ -88,6 +95,19 @@ anything else with 405 Method Not Allowed and `Allow: GET`, at any depth below
 it. It guards what is reached through it, not its own place in a parent: in
 the second app, `PUT /about.json` is the unguarded dict's to answer, and would
 replace the entry. Guard the parent, or the root, to keep that too.
+
+A container's index is served by default: its `"index"` entry, or itself --
+all of a dict as JSON, a directory's listing. `RefuseIndex` is how to have
+none:
+
+```python
+app = consumers_app({"static": RefuseIndex(Path("static"))})
+```
+
+A request whose last segment is `index` is not found, at any depth below it,
+and neither is the object asked for itself (`/static.html`), which is its
+index by another name. Its files are served as before. The two guards nest:
+`GetOnly(RefuseIndex(root))`.
 
 A tuple, or a `types.MappingProxyType` -- the read-only view of a dict --
 cannot be changed either, and refuses `PUT` and `DELETE` with 405; `POST` to a

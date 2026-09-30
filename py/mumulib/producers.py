@@ -24,12 +24,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import html
 import json
 from collections.abc import AsyncGenerator
 from io import BufferedReader, TextIOWrapper
 from pathlib import Path, PurePath
 from types import FunctionType, MappingProxyType
 from typing import Any, cast
+from urllib.parse import quote
 
 import aiofiles
 
@@ -119,9 +121,75 @@ async def _produce_filename(
 
 add_producer(TextIOWrapper, produce_file)
 add_producer(BufferedReader, produce_file)
+
+
+def _directory_url(url: str) -> str:
+    """The URL of the directory a request named, ending in a slash.
+
+    /static/, /static/index.html and /static.html all name static, whose
+    entries are /static/<name>.
+    """
+    if url.endswith("/"):
+        return url
+    head, _, last = url.rpartition("/")
+    stem = last.rpartition(".")[0]
+    return f"{head}/" if stem == "index" else f"{head}/{stem}/"
+
+
+def _listing(directory: Path) -> list[tuple[str, bool]]:
+    """What a directory can serve, by name, and whether each is a directory.
+
+    What its consumer would not find is not listed: hidden names, symlinks
+    that lead outside, and files with no extension, which no URL can name.
+    """
+    root = directory.resolve()
+    entries: list[tuple[str, bool]] = []
+    for child in sorted(directory.iterdir()):
+        if child.name.startswith(".") or not child.resolve().is_relative_to(root):
+            continue
+        if child.is_dir():
+            entries.append((child.name, True))
+        elif child.suffix:
+            entries.append((child.name, False))
+    return entries
+
+
+async def produce_path_html(thing: Path, state: State) -> AsyncGenerator[Chunk]:
+    """A file, or a directory as a list of links to what is in it."""
+    if not thing.is_dir():
+        async for chunk in produce_path(thing, state):
+            yield chunk
+        return
+    base = _directory_url(state.get("url", "/"))
+    items = "".join(
+        f'  <li><a href="{html.escape(base + quote(name) + ("/" if is_dir else ""))}">'
+        f"{html.escape(name)}</a></li>\n"
+        for name, is_dir in _listing(thing)
+    )
+    yield f"<ul>\n{items}</ul>"
+
+
+async def produce_path_json(thing: Path, state: State) -> AsyncGenerator[Chunk]:
+    """A file, or a directory as {name: URL}; a subdirectory's is its listing."""
+    if not thing.is_dir():
+        async for chunk in produce_path(thing, state):
+            yield chunk
+        return
+    base = _directory_url(state.get("url", "/"))
+    yield json.dumps(
+        {
+            name: base + quote(name) + ("/index.json" if is_dir else "")
+            for name, is_dir in _listing(thing)
+        }
+    )
+
+
 # The platform's own Path class -- PosixPath or WindowsPath -- which is what a
-# Path is, and producers are found by exact type
+# Path is, and producers are found by exact type. A directory has a listing
+# as HTML and as JSON; as anything else it is not found.
 add_producer(type(Path()), produce_path)
+add_producer(type(Path()), produce_path_html, "text/html")
+add_producer(type(Path()), produce_path_json, "application/json")
 
 
 async def produce_json(thing: Any, state: State) -> AsyncGenerator[str]:

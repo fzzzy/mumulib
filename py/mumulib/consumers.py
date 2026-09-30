@@ -30,16 +30,24 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
-from mumulib.mumutypes import Chunk, Consumer, Send, SpecialResponse, State
+from mumulib.mumutypes import (
+    Chunk,
+    Consumer,
+    NotFoundResponse,
+    Send,
+    SpecialResponse,
+    State,
+)
 from mumulib.producers import add_producer, produce
 
 # The public API: Walking into an object, teaching it a new type of object to
-# walk into, and guarding one read-only. The built-in consumers and their
-# limits are the module's own.
+# walk into, and guarding one: read-only, or with no index. The built-in
+# consumers and their limits are the module's own.
 __all__ = [
     "consume",
     "add_consumer",
     "GetOnly",
+    "RefuseIndex",
 ]
 
 _consumer_adapters: dict[type[Any], Consumer] = {}
@@ -449,8 +457,9 @@ async def _consume_directory(
 
     The server takes the extension off the last segment, as the type; it goes
     back on here, as part of the file's name, so /static/app.min.js is
-    static/app.min.js. index is index.<extension>, if there is one. There are
-    no listings, which would publish every name in the directory.
+    static/app.min.js. index is index.<extension>, if there is one, and else
+    the directory itself -- which, as HTML or JSON, is a listing of what is in
+    it. RefuseIndex is how to have no listing.
 
     What is served stays inside the directory: .. and hidden names, like .git
     or .env, are not found, and neither is a symlink that leads outside. And a
@@ -466,6 +475,8 @@ async def _consume_directory(
     if not name or name.startswith(".") or "/" in name or "\\" in name:
         return None
     child = parent / name
+    if not child.exists() and len(segments) == 1 and segments[0] == "index":
+        return parent
     if not child.exists() or not child.resolve().is_relative_to(parent.resolve()):
         return None
     return await consume(child, segments[1:], state, send)
@@ -473,3 +484,39 @@ async def _consume_directory(
 
 # As for the producer: the platform's own Path class, by exact type
 add_consumer(type(Path()), _consume_directory)
+
+
+class RefuseIndex:
+    """An object whose index is not found.
+
+    A container's index -- its "index" entry, or itself: a dict as JSON, a
+    directory's listing -- is served by default. Wrapped in RefuseIndex, a
+    request whose last segment is index is not found at any depth below it,
+    and neither is the object asked for itself (/static.html, above), which
+    is its index by another name. Everything else is handed on.
+
+        consumers_app({"static": RefuseIndex(Path("static"))})
+    """
+
+    def __init__(self, wrapped: Any) -> None:
+        self.wrapped = wrapped
+
+
+async def _consume_refuse_index(
+    parent: RefuseIndex, segments: list[str], state: State, send: Send
+) -> Any:
+    if segments[-1] == "index":
+        return None
+    return await consume(parent.wrapped, segments, state, send)
+
+
+async def _produce_refuse_index(
+    thing: RefuseIndex, state: State
+) -> AsyncIterator[Chunk]:
+    # Asked for itself: its index by another name
+    raise NotFoundResponse()
+    yield ""  # pragma: no cover -- an async generator, which raises first
+
+
+add_consumer(RefuseIndex, _consume_refuse_index)
+add_producer(RefuseIndex, _produce_refuse_index)
