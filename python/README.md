@@ -6,6 +6,22 @@ producing responses, validating data shapes, and HTML templating.
 The package includes `consumers`, `producers`, `server`, `shaped`, `mumutypes`,
 and `tags`. Runtime dependencies are aiofiles and lxml.
 
+## API
+
+Each module's `__all__` is its public API, and what mumulib promises to keep
+working; anything else in a module is its own.
+
+- `mumulib.server`: `consumers_app(root)`, to publish an object, and
+  `EventSource(queue)`, to stream events from it.
+- `mumulib.consumers`: `consume`, and `add_consumer` to walk into a new type.
+- `mumulib.producers`: `produce`, and `add_producer` to render a new type.
+- `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
+  `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
+- `mumulib.tags`: `Stan`, `Template`, `parse_template`, the slot functions,
+  `produce_html`, and the tag groups -- `tags.all.<element>` for any element.
+- `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
+  and the HTTP responses, and `content_type_for`.
+
 ## URLs
 
 `server.consumers_app(root)` publishes a Python object: a URL's path walks

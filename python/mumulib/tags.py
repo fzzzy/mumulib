@@ -6,6 +6,35 @@ from lxml import etree
 from mumulib import producers
 from mumulib.mumutypes import State
 
+# The public API: Building HTML, filling templates, and rendering them. Every
+# tag is tags.all.<name>; `all` is left out here only because `import *` would
+# shadow the builtin with it. The element lists behind the groups are the
+# module's own.
+__all__ = [
+    "Stan",
+    "Template",
+    "parse_template",
+    "fill_slots",
+    "clear_slots",
+    "append_slots",
+    "produce_html",
+    "main_root",
+    "document_metadata",
+    "sectioning_root",
+    "content_sectioning",
+    "text_content",
+    "inline_text_semantics",
+    "image_and_multimedia",
+    "embedded_content",
+    "svg_and_mathml",
+    "scripting",
+    "demarcating_edits",
+    "table_content",
+    "forms",
+    "interactive_elements",
+    "web_components",
+]
+
 # From MDN reference
 VOID_ELEMENTS: list[str] = [
     "area",

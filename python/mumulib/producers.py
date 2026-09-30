@@ -36,6 +36,13 @@ import aiofiles
 from mumulib import mumutypes
 from mumulib.mumutypes import Chunk, Producer, State
 
+# The public API: Turning an object into a response, and teaching it a new
+# type to turn. The built-in producers are the module's own.
+__all__ = [
+    "produce",
+    "add_producer",
+]
+
 
 def custom_serializer(obj: object) -> dict[str, Any] | None:
     if isinstance(obj, MappingProxyType):

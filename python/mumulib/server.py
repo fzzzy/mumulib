@@ -18,6 +18,13 @@ from mumulib.mumutypes import (
 )
 from mumulib.producers import produce
 
+# The public API: Publishing an object, and streaming events from it. The body
+# parsers and path helpers are the app's own.
+__all__ = [
+    "consumers_app",
+    "EventSource",
+]
+
 # Default max request body size: 10MB
 DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
 

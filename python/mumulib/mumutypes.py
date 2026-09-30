@@ -2,6 +2,30 @@ import mimetypes
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
+# The public API: The ASGI shapes mumulib's signatures use, the responses a
+# consumer or producer can return or raise, and the extension-to-type rule.
+__all__ = [
+    "Message",
+    "Scope",
+    "Receive",
+    "Send",
+    "ASGIApp",
+    "State",
+    "Writer",
+    "Chunk",
+    "Consumer",
+    "Producer",
+    "SpecialResponse",
+    "HTTPResponse",
+    "BadRequestResponse",
+    "NotFoundResponse",
+    "MethodNotAllowedResponse",
+    "CreatedResponse",
+    "SeeOtherResponse",
+    "CONTENT_TYPES",
+    "content_type_for",
+]
+
 # ASGI, as far as mumulib uses it. Messages and scopes are plain dicts whose
 # keys depend on their "type", so their values stay Any.
 type Message = dict[str, Any]

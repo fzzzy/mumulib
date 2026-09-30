@@ -30,6 +30,13 @@ from typing import Any
 
 from mumulib.mumutypes import Consumer, Send, SpecialResponse, State
 
+# The public API: Walking into an object, and teaching it a new type of object
+# to walk into. The built-in consumers and their limits are the module's own.
+__all__ = [
+    "consume",
+    "add_consumer",
+]
+
 _consumer_adapters: dict[type[Any], Consumer] = {}
 
 # Security constants

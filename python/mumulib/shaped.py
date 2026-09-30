@@ -28,6 +28,23 @@ import traceback
 from collections.abc import Callable
 from typing import Any, cast
 
+# The public API: Checking data against a shape, and what is raised when it
+# does not fit or the shape itself is wrong.
+__all__ = [
+    "is_shaped",
+    "make_shape",
+    "would_retain_shape",
+    "anything",
+    "ShapeMismatch",
+    "TypeMismatch",
+    "KeyMismatch",
+    "SizeMismatch",
+    "PredicateMismatch",
+    "MalformedShape",
+    "AmbiguousShape",
+    "HeterogenousList",
+]
+
 CONTAINER_TYPES: list[type] = [dict, list, tuple]
 SCALAR_TYPES: list[type] = [int, float, str, bool]
 
