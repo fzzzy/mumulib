@@ -48,7 +48,9 @@ extension alone decides what comes back.
 `make server` at the repository root runs one (`SERVER=<name>`, default
 `hello`) on port 8001. The smallest, `hello.py`, publishes
 `{"index": "Hello, world!"}`: `/`, `/index.txt` and `/index.json` are the one
-string as HTML, text and JSON.
+string as HTML, text and JSON. A published dict can be changed through its
+URLs -- `PUT` writes an entry, `DELETE` removes one -- so `hello.py` wraps its
+app in a guard that answers anything but `GET` with 405.
 
 ## Development
 

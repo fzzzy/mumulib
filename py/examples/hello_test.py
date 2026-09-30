@@ -44,3 +44,46 @@ class TestHello(unittest.TestCase):
     def test_there_is_nothing_else(self):
         self.assertEqual(get("/other.html")[0], 404)
         self.assertEqual(get("/index")[0], 404)
+
+    def test_nothing_but_get_gets_in(self):
+        for method in ("PUT", "DELETE", "POST", "PATCH", "HEAD"):
+            with self.subTest(method=method):
+                status, _, body = get("/index.json", method)
+                self.assertEqual((status, body), (405, b"Only GET"))
+        # and nothing was changed on the way
+        self.assertEqual(get("/")[2], b"Hello, world!")
+
+    def test_the_405_says_what_is_allowed(self):
+        sent: list[Message] = []
+
+        async def send(message: Message) -> None:
+            sent.append(message)
+
+        async def receive() -> Message:
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def request() -> None:
+            scope = {"type": "http", "method": "PUT", "path": "/", "headers": []}
+            await app({**scope, "state": {}}, receive, send)
+
+        asyncio.run(request())
+        self.assertEqual(dict(sent[0]["headers"])[b"allow"], b"GET")
+
+    def test_lifespan_still_reaches_the_app(self):
+        sent: list[Message] = []
+        messages = iter([{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}])
+
+        async def send(message: Message) -> None:
+            sent.append(message)
+
+        async def receive() -> Message:
+            return next(messages)
+
+        async def lifespan() -> None:
+            await app({"type": "lifespan", "state": {}}, receive, send)
+
+        asyncio.run(lifespan())
+        self.assertEqual(
+            [m["type"] for m in sent],
+            ["lifespan.startup.complete", "lifespan.shutdown.complete"],
+        )
