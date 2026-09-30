@@ -127,7 +127,7 @@ async def produce_resource(thing: Resource, state: State) -> AsyncIterator[Chunk
 
 
 def _register(cls: type[Resource]) -> None:
-    add_consumer(cls, consume_resource)
+    add_consumer(cls, consume_resource, own_methods=True)
     add_producer(cls, produce_resource)
 
 

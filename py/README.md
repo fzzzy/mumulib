@@ -101,9 +101,14 @@ container -- it is named as a file, `/profile.html` or `/profile.json` -- and
 its children can be anything publishable. Each subclass is registered as it
 is defined, by `__init_subclass__`.
 
-A resource's handlers answer when the walk ends at it through another
-resource, or at the root; a plain dict answers `PUT` and `DELETE` for its own
-entries itself, replacing or removing the resource.
+A resource answers every method at its own URL, wherever it is published:
+in a dict, a list, a tuple or a `MappingProxyType`, the container hands it
+the request rather than writing, deleting or refusing it. `PUT
+/profile.json` is the resource's `handle_PUT`, not a replacement for it, and
+`DELETE` its `handle_DELETE`; one it does not handle is 405. Guards above it
+still narrow: under `GetOnly` it is only read. A type of your own can answer
+for itself the same way, registered with
+`add_consumer(type, consumer, own_methods=True)`.
 
 ## Files and directories
 

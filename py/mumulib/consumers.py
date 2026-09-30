@@ -123,11 +123,15 @@ def validate_list_index(index_str: str) -> int:
 # thing, for a type only some of whose things are
 _containers: dict[type[Any], bool | Callable[[Any], bool]] = {}
 
+# Which types answer every method at their own URL, as a Resource does
+_own_methods: set[type[Any]] = set()
+
 
 def add_consumer(
     adapter_for_type: type[Any],
     conv: Consumer,
     container: bool | Callable[[Any], bool] = False,
+    own_methods: bool = False,
 ) -> None:
     """Register a consumer function for a specific data type.
 
@@ -139,9 +143,42 @@ def add_consumer(
             a URL walks into, reached as a whole at their slash as HTML and at
             their name as data, and hidden whole by RefuseIndex. True, False,
             or a function asked of each thing: a Path is one if a directory.
+        own_methods: Whether things of this type answer every method at their
+            own URL themselves, as a Resource does. A container they are in
+            hands them the request rather than writing or refusing it: a PUT
+            to one is its own to answer, not a replacement.
     """
     _consumer_adapters[adapter_for_type] = conv
     _containers[adapter_for_type] = container
+    if own_methods:
+        _own_methods.add(adapter_for_type)
+    else:
+        _own_methods.discard(adapter_for_type)
+
+
+def answers_own_methods(thing: object) -> bool:
+    """Whether a thing answers every method at its URL itself, as its type
+    was registered with add_consumer."""
+    return type(thing) in _own_methods
+
+
+def _own_handler(parent: Any, segment: str) -> Any | None:
+    """The entry at segment if it answers its own methods, and else None.
+
+    What a container does at the last segment -- a write, a delete, a
+    refusal -- is for its plain entries; an entry that answers for itself is
+    handed the request instead, whatever the method.
+    """
+    try:
+        if isinstance(parent, (list, tuple)):
+            items = cast(list[Any] | tuple[Any, ...], parent)
+            index = validate_list_index(segment)
+            entry = items[index] if index < len(items) else None
+        else:
+            entry = cast(dict[str, Any], parent).get(sanitize_dict_key(segment))
+    except ValueError:
+        return None
+    return entry if answers_own_methods(entry) else None
 
 
 def answer(
@@ -212,6 +249,9 @@ async def consume_tuple(
         any or None: The resolved object or None if invalid.
     """
     if len(segments) == 1 and state["method"] != "GET":
+        own = _own_handler(parent, segments[0])
+        if own is not None:
+            return own
         return refuse("GET")
     child: Any
     try:
@@ -261,6 +301,9 @@ async def consume_list(
     if len(segments) == 1:
         method = state.get("method", "GET").upper()
         index_str = segments[0]
+        own = _own_handler(parent, index_str) if method != "GET" else None
+        if own is not None:
+            return own
 
         if method == "PUT" and index_str == "last":
             # Append new element
@@ -323,6 +366,9 @@ async def _consume_immutabledict(
         any or None: The resolved object or None if the key does not exist.
     """
     if len(segments) == 1 and state["method"] != "GET" and state["method"] != "POST":
+        own = _own_handler(parent, segments[0])
+        if own is not None:
+            return own
         return refuse("GET, POST")
     child: Any
     try:
@@ -371,6 +417,9 @@ async def consume_dict(
             key = sanitize_dict_key(segments[0])
         except ValueError:
             return None
+        own = _own_handler(parent, key) if method != "GET" else None
+        if own is not None:
+            return own
 
         if method == "PUT":
             # Created if it was not found before: absent, or None

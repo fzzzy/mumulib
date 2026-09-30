@@ -112,7 +112,11 @@ Python package). Breaking changes come first under each release.
 - **`resource.Resource`**: a class to subclass, with children as `child_`
   attributes and `render(state)` calling `handle_<METHOD>`: `GET` renders its
   `template`, and anything else is 405 unless the subclass handles it. Every
-  subclass is registered as it is defined.
+  subclass is registered as it is defined. A resource answers every method
+  at its own URL: a dict, list, tuple or `MappingProxyType` it is in hands it
+  the request instead of replacing, removing or refusing it.
+- **`add_consumer(..., own_methods=True)`**: a type whose things answer every
+  method at their URL themselves, as `Resource` is registered.
 - **Python examples**, in `py/examples`, run with `make server`
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in
