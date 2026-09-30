@@ -3,6 +3,7 @@ import asyncio
 import json
 import unittest
 
+from mumulib.mumutypes import SpecialResponse
 from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
     consumers_app,
@@ -218,8 +219,8 @@ class TestConsumersAppLifespan(unittest.TestCase):
 class TestConsumersAppRouting(unittest.TestCase):
     """Test content-type routing based on path extensions"""
 
-    async def async_test_json_content_type_header(self):
-        """Test that application/json content-type header is handled correctly"""
+    async def async_test_request_content_type_does_not_choose_the_response(self):
+        """A JSON request body is parsed, but the URL alone sets the reply's type"""
         root = {"data": {"result": "success"}}
         app = consumers_app(root)
 
@@ -240,22 +241,23 @@ class TestConsumersAppRouting(unittest.TestCase):
         scope = {
             "type": "http",
             "method": "POST",
-            "path": "/data",
+            "path": "/data.html",
             "headers": [(b"content-type", b"application/json")],
             "state": {},
         }
 
         await app(scope, receive, send)
 
-        # Check that response has JSON content-type
+        # A JSON body is read as JSON, but the URL said .html, and that is
+        # the response's type
         response_start = sent_messages[0]
         self.assertEqual(response_start["type"], "http.response.start")
         headers = dict(response_start["headers"])
-        self.assertIn(b"application/json", headers[b"content-type"])
+        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
 
-    def test_json_content_type_header(self):
+    def test_request_content_type_does_not_choose_the_response(self):
         """Wrapper to run async test"""
-        asyncio.run(self.async_test_json_content_type_header())
+        asyncio.run(self.async_test_request_content_type_does_not_choose_the_response())
 
     async def async_test_json_path_extension(self):
         """Test that .json paths set JSON accept headers"""
@@ -296,7 +298,7 @@ class TestConsumersAppRouting(unittest.TestCase):
 
     async def async_test_html_path_extension(self):
         """Test that .html paths set HTML accept headers"""
-        root = {"message.html": "hello"}
+        root = {"message": "hello"}
         app = consumers_app(root)
 
         sent_messages = []
@@ -480,7 +482,7 @@ class TestBytesResultHandling(unittest.TestCase):
         scope = {
             "type": "http",
             "method": "GET",
-            "path": "/binary",
+            "path": "/binary.bin",
             "headers": [],
             "state": {},
         }
@@ -549,7 +551,7 @@ class TestExceptionHandling(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/anything",
+                "path": "/anything.json",
                 "headers": [],
                 "state": {},
             }
@@ -612,7 +614,7 @@ class TestExceptionHandling(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.json",
                 "headers": [],
                 "state": {},
             }
@@ -681,7 +683,7 @@ class TestExceptionHandling(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.json",
                 "headers": [],
                 "state": {},
             }
@@ -744,7 +746,7 @@ class TestExceptionHandling(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.json",
                 "headers": [],
                 "state": {},
             }
@@ -804,7 +806,7 @@ class TestExceptionHandling(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.json",
                 "headers": [],
                 "state": {},
             }
@@ -872,7 +874,7 @@ class TestExceptionHandling(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.json",
                 "headers": [],
                 "state": {},
             }
@@ -933,7 +935,7 @@ class TestExceptionHandling(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.json",
                 "headers": [],
                 "state": {},
             }
@@ -1026,7 +1028,7 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.txt",
                 "headers": [],
                 "state": {},
             }
@@ -1038,7 +1040,8 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             self.assertEqual(response_start["type"], "http.response.start")
             self.assertEqual(response_start["status"], 200)
             self.assertEqual(
-                response_start["headers"], [(b"content-type", b"text/plain")]
+                response_start["headers"],
+                [(b"content-type", b"text/plain; charset=UTF-8")],
             )
 
             # Verify the initial body was sent (from SpecialResponse leaf_object)
@@ -1125,7 +1128,7 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/test",
+                "path": "/test.txt",
                 "headers": [],
                 "state": {},
             }
@@ -1137,7 +1140,8 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             self.assertEqual(response_start["type"], "http.response.start")
             self.assertEqual(response_start["status"], 200)
             self.assertEqual(
-                response_start["headers"], [(b"content-type", b"text/plain")]
+                response_start["headers"],
+                [(b"content-type", b"text/plain; charset=UTF-8")],
             )
 
             # Verify the body was sent
@@ -1190,7 +1194,7 @@ class TestUnknownContentType(unittest.TestCase):
         scope = {
             "type": "http",
             "method": "POST",
-            "path": "/data",
+            "path": "/data.json",
             "headers": [(b"content-type", b"application/x-custom-type")],
             "state": {},
         }
@@ -1229,7 +1233,7 @@ class TestRequestSizeLimits(unittest.TestCase):
         scope = {
             "type": "http",
             "method": "POST",
-            "path": "/data",
+            "path": "/data.json",
             "headers": [(b"content-type", b"application/json")],
             "state": {},
         }
@@ -1269,7 +1273,7 @@ class TestRequestSizeLimits(unittest.TestCase):
         scope = {
             "type": "http",
             "method": "POST",
-            "path": "/data",
+            "path": "/data.json",
             "headers": [(b"content-type", b"application/x-www-form-urlencoded")],
             "state": {},
         }
@@ -1315,7 +1319,7 @@ class TestRequestSizeLimits(unittest.TestCase):
         scope = {
             "type": "http",
             "method": "POST",
-            "path": "/data",
+            "path": "/data.json",
             "headers": [
                 (
                     b"content-type",
@@ -1384,7 +1388,7 @@ class TestEventSource(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/stream",
+                "path": "/stream.sse",
                 "headers": [],
                 "state": {},
             }
@@ -1489,7 +1493,7 @@ class TestEventSource(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "GET",
-                "path": "/stream",
+                "path": "/stream.sse",
                 "headers": [],
                 "state": {},
             }
@@ -1520,3 +1524,86 @@ class TestEventSource(unittest.TestCase):
     def test_eventsource_client_disconnect(self):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_eventsource_client_disconnect())
+
+
+async def get(root, path, method="GET"):
+    """The response start and the whole body, for one request to root's app."""
+    sent = []
+
+    async def send(message):
+        sent.append(message)
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    scope = {"type": "http", "method": method, "path": path, "headers": []}
+    await consumers_app(root)({**scope, "state": {}}, receive, send)
+    start = sent[0]
+    body = b"".join(m.get("body", b"") for m in sent[1:])
+    return start["status"], dict(start["headers"]), body
+
+
+class TestUrlNamesTheType(unittest.TestCase):
+    """The extension on a URL is the only thing that sets the reply's type."""
+
+    def test_a_url_without_an_extension_is_not_found(self):
+        status, _, body = asyncio.run(get({"todos": [1]}, "/todos"))
+        self.assertEqual(status, 404)
+        self.assertIn(b"extension", body)
+
+    def test_an_extension_with_no_type_is_not_found(self):
+        status, _, _ = asyncio.run(get({"todos": [1]}, "/todos.nosuchtype"))
+        self.assertEqual(status, 404)
+
+    def test_the_extension_is_the_representation_not_the_key(self):
+        root = {"todos": ["write it"]}
+        status, headers, body = asyncio.run(get(root, "/todos.json"))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")
+        self.assertEqual(json.loads(body), ["write it"])
+        status, headers, _ = asyncio.run(get(root, "/todos.html"))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+
+    def test_the_site_root_is_index_html(self):
+        status, headers, body = asyncio.run(get({"index": "<p>home</p>"}, "/"))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+        self.assertEqual(body.strip(), b"<p>home</p>")
+
+    def test_index_names_the_container(self):
+        root = {"todos": {"a": 1}}
+        status, _, body = asyncio.run(get(root, "/todos/index.json"))
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"a": 1})
+
+    def test_other_extensions_take_their_type_from_mimetypes(self):
+        status, headers, _ = asyncio.run(get({"site": "p {}"}, "/site.css"))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"text/css; charset=UTF-8")
+        _, headers, _ = asyncio.run(get({"logo": b"\x89PNG"}, "/logo.png"))
+        self.assertEqual(headers[b"content-type"], b"image/png")
+
+    def test_a_producer_that_starts_the_reply_gets_the_urls_type(self):
+        from mumulib.producers import add_producer
+
+        class Report:
+            pass
+
+        async def produce_report(thing, state):
+            yield SpecialResponse(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [(b"content-type", b"text/plain"), (b"x-kept", b"1")],
+                },
+                b"\x00\x01binary",
+            )
+
+        add_producer(Report, produce_report)
+        status, headers, body = asyncio.run(get({"r": Report()}, "/r.json"))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")
+        self.assertEqual(headers[b"x-kept"], b"1")
+        # Bytes go out as they are, not as the text of their repr
+        self.assertTrue(body.startswith(b"\x00\x01binary"))

@@ -6,6 +6,24 @@ producing responses, validating data shapes, and HTML templating.
 The package includes `consumers`, `producers`, `server`, `shaped`, `mumutypes`,
 and `tags`. Runtime dependencies are aiofiles and lxml.
 
+## URLs
+
+`server.consumers_app(root)` publishes a Python object: a URL's path walks
+into it, through dicts by key and lists and tuples by index, and its
+extension alone decides what comes back.
+
+- `/todos.json` is `root["todos"]` as JSON, and `/todos.html` the same object
+  as HTML. The extension is the type, not part of the key. `.txt` is plain
+  text, `.sse` server-sent events, and any other extension is the type
+  `mimetypes` gives it.
+- A URL without an extension is 404, and so is one whose extension has no
+  type. `/` is `/index.html`.
+- `index` names the container: `/todos/index.json` is the todos, or their
+  `"index"` entry if they have one.
+- The request's `Content-Type` says how its body is parsed (JSON, form or
+  multipart), never what the response is; no response varies by request
+  headers.
+
 ## Development
 
 From the repository root:

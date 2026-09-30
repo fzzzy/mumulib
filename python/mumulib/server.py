@@ -1,5 +1,6 @@
 import asyncio
 import json
+import mimetypes
 import traceback
 from collections.abc import AsyncIterator
 from typing import Any
@@ -168,6 +169,56 @@ async def parse_multipart(
     return result
 
 
+# The type of every response is the one its URL's extension names, and
+# nothing else: not the request's headers, so no response varies by them.
+# These are the extensions mumulib's producers speak; any other goes through
+# mimetypes, and one with no type there is not found.
+CONTENT_TYPES = {
+    "json": "application/json",
+    "html": "text/html",
+    "txt": "text/plain",
+    "sse": "text/event-stream",
+}
+
+
+def content_type_for(extension: str) -> str | None:
+    """The Content-Type an extension names, charset and all, or None."""
+    extension = extension.lower()
+    mime = CONTENT_TYPES.get(extension) or mimetypes.types_map.get(f".{extension}")
+    if mime is None:
+        return None
+    if mime.startswith("text/") or mime in ("application/json", "text/javascript"):
+        return f"{mime}; charset=UTF-8"
+    return mime
+
+
+def split_path(path: str) -> tuple[list[str], str] | None:
+    """The segments to traverse, and the extension that names the type.
+
+    The extension comes off the last segment: /todos.json and /todos.html are
+    both root["todos"]. A last segment named index is the container itself, or
+    its "index" entry if it has one -- /todos/index.json is the todos -- as a
+    trailing slash used to be. A path without an extension is None, except
+    the site root, which is /index.html.
+    """
+    if path == "/":
+        path = "/index.html"
+    segments = path.split("/")[1:]
+    key, dot, extension = segments[-1].rpartition(".")
+    if not dot or not key or not extension:
+        return None
+    return [*segments[:-1], "" if key == "index" else key], extension
+
+
+def with_content_type(message: dict[str, Any], content_type: str) -> dict[str, Any]:
+    """A response start whose Content-Type is `content_type`, whatever it said."""
+    headers = [
+        (k, v) for k, v in message.get("headers", []) if k.lower() != b"content-type"
+    ]
+    headers.insert(0, (b"content-type", content_type.encode("utf8")))
+    return {**message, "headers": headers}
+
+
 def consumers_app(root: Any) -> ASGIApp:
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
@@ -184,25 +235,28 @@ def consumers_app(root: Any) -> ASGIApp:
         state = scope["state"]
         state["url"] = scope["path"]
         state["method"] = scope["method"]
-        content_type = None
-        if scope["path"].endswith(".json"):
-            state["accept"] = ["application/json", "*/*"]
-            content_type = "application/json; charset=UTF-8"
-        elif scope["path"].endswith(".html"):
-            state["accept"] = ["text/html", "*/*"]
-            content_type = "text/html; charset=UTF-8"
-        else:
-            state["accept"] = ["*/*"]
-            content_type = "text/html; charset=UTF-8"
+        parsed = split_path(scope["path"])
+        content_type = content_type_for(parsed[1]) if parsed else None
+        if parsed is None or content_type is None:
+            await send_error_response(
+                send,
+                404,
+                "Not Found",
+                f"A URL names its type with an extension: {scope['path']}",
+            )
+            return
+        segments, extension = parsed
+        state["extension"] = extension
+        state["content_type"] = content_type
+        state["accept"] = [content_type.split(";")[0], "*/*"]
 
         try:
             for key, value in scope["headers"]:
                 if key.lower() == b"content-type":
                     lowervalue = value.lower().split(b";")[0]
+                    # How the body is read; what comes back is the URL's
                     if lowervalue == b"application/json":
                         state["parsed_body"] = await parse_json(receive)
-                        state["accept"] = ["application/json", "*/*"]
-                        content_type = "application/json; charset=UTF-8"
                     elif lowervalue == b"application/x-www-form-urlencoded":
                         state["parsed_body"] = await parse_urlencoded(receive)
                     elif lowervalue == b"multipart/form-data":
@@ -216,7 +270,7 @@ def consumers_app(root: Any) -> ASGIApp:
             return
 
         try:
-            result = await consume(root, scope["path"].split("/")[1:], state, send)
+            result = await consume(root, segments, state, send)
         except Exception as exc:
             # Handle errors during request consumption/routing
             traceback.print_exc()
@@ -237,11 +291,18 @@ def consumers_app(root: Any) -> ASGIApp:
                 async for chunk in produce(result, state):
                     if first_chunk:
                         if isinstance(chunk, SpecialResponse):
-                            await send(chunk.asgi_send_dict)
+                            # A producer that starts the response itself still
+                            # answers with the type the URL asked for
+                            await send(
+                                with_content_type(chunk.asgi_send_dict, content_type)
+                            )
+                            leaf = chunk.leaf_object
                             await send(
                                 {
                                     "type": "http.response.body",
-                                    "body": str(chunk.leaf_object).encode("utf8"),
+                                    "body": leaf
+                                    if isinstance(leaf, bytes)
+                                    else str(leaf).encode("utf8"),
                                     "more_body": True,
                                 }
                             )
