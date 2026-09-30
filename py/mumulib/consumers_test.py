@@ -82,43 +82,33 @@ class Foo:
     pass
 
 
-ASGI_APP = consumers_app(
-    {
-        "hello": "world",
-        "tuple": ("this", "is", "a", "tuple"),
-        "list": ["this", "is", "a", "list"],
-        "immutable": MappingProxyType({"cannot": "touch this"}),
-        "immutable_with_index": MappingProxyType(
-            {"index": "index_value", "other": "other_value"}
-        ),
-        "not_found": Foo(),
-        "nested_list": [["asdf"], ["qwer"]],
-        "nested_dict": {"nested": {"again": "string"}},
-    }
-)
+# The root has no URL of its own for data -- no index.json -- so the tests
+# read it here where they need all of it
+ROOT = {
+    "hello": "world",
+    "tuple": ("this", "is", "a", "tuple"),
+    "list": ["this", "is", "a", "list"],
+    "immutable": MappingProxyType({"cannot": "touch this"}),
+    "immutable_with_index": MappingProxyType(
+        {"index": "index_value", "other": "other_value"}
+    ),
+    "not_found": Foo(),
+    "nested_list": [["asdf"], ["qwer"]],
+    "nested_dict": {"nested": {"again": "string"}},
+}
+ASGI_APP = consumers_app(ROOT)
 
 
 class TestASGIApp(unittest.IsolatedAsyncioTestCase):
     async def test_basic(self):
-        # Test GET /
-        response = await request(ASGI_APP, "GET", "/index.json", None)
+        # The root's HTML is its slash; it has no name for data
+        response = await request(ASGI_APP, "GET", "/", None)
         self.assertEqual(response["status"], 200)
-        self.assertEqual(
-            response["body"],
-            {
-                "hello": "world",
-                "tuple": ["this", "is", "a", "tuple"],
-                "list": ["this", "is", "a", "list"],
-                "immutable": {"cannot": "touch this"},
-                "immutable_with_index": {
-                    "index": "index_value",
-                    "other": "other_value",
-                },
-                "not_found": None,
-                "nested_list": [["asdf"], ["qwer"]],
-                "nested_dict": {"nested": {"again": "string"}},
-            },
-        )
+        response = await request(ASGI_APP, "GET", "/index.json", None)
+        self.assertEqual(response["status"], 404)
+        # Each entry is its own name
+        response = await request(ASGI_APP, "GET", "/nested_dict.json", None)
+        self.assertEqual(response["body"], {"nested": {"again": "string"}})
 
     async def test_basic_put_delete(self):
         # Test GET /hello
@@ -143,28 +133,24 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         response = await request(ASGI_APP, "DELETE", "/hello.json", None)
         self.assertEqual(response["status"], 200)
 
-        # Verify GET / after DELETE /hello
-        response = await request(ASGI_APP, "GET", "/index.json", None)
-        self.assertEqual(response["status"], 200)
+        # After DELETE /hello, it is gone from the root and nothing else is
+        self.assertNotIn("hello", ROOT)
         self.assertEqual(
-            response["body"],
+            set(ROOT),
             {
-                "tuple": ["this", "is", "a", "tuple"],
-                "list": ["this", "is", "a", "list"],
-                "immutable": {"cannot": "touch this"},
-                "immutable_with_index": {
-                    "index": "index_value",
-                    "other": "other_value",
-                },
-                "not_found": None,
-                "nested_list": [["asdf"], ["qwer"]],
-                "nested_dict": {"nested": {"again": "string"}},
+                "tuple",
+                "list",
+                "immutable",
+                "immutable_with_index",
+                "not_found",
+                "nested_list",
+                "nested_dict",
             },
         )
 
     async def test_tuple(self):
         # Test GET /tuple and /tuple/2
-        response = await request(ASGI_APP, "GET", "/tuple/index.json", None)
+        response = await request(ASGI_APP, "GET", "/tuple.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], ["this", "is", "a", "tuple"])
 
@@ -184,7 +170,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
     async def test_list(self):
         # Test GET /list and /list/1
-        response = await request(ASGI_APP, "GET", "/list/index.json", None)
+        response = await request(ASGI_APP, "GET", "/list.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], ["this", "is", "a", "list"])
 
@@ -197,7 +183,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 201)
 
         # Verify GET /list after PUT /list/1
-        response = await request(ASGI_APP, "GET", "/list/index.json", None)
+        response = await request(ASGI_APP, "GET", "/list.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], ["this", "modified", "a", "list"])
 
@@ -224,7 +210,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["headers"]["location"], "/list/4.json")
 
         # Verify GET /list after PUT /list/last
-        response = await request(ASGI_APP, "GET", "/list/index.json", None)
+        response = await request(ASGI_APP, "GET", "/list.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(
             response["body"], ["this", "modified", "a", "list", "appended"]
@@ -235,7 +221,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 200)
 
         # Verify GET /list after DELETE /list/1
-        response = await request(ASGI_APP, "GET", "/list/index.json", None)
+        response = await request(ASGI_APP, "GET", "/list.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], ["this", "a", "list", "appended"])
 
@@ -261,7 +247,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
     async def test_immutable(self):
         # Test GET /immutable
-        response = await request(ASGI_APP, "GET", "/immutable/index.json", None)
+        response = await request(ASGI_APP, "GET", "/immutable.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], {"cannot": "touch this"})
 
@@ -275,22 +261,25 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 405)
 
         # Verify GET /immutable after PUT and DELETE
-        response = await request(ASGI_APP, "GET", "/immutable/index.json", None)
+        response = await request(ASGI_APP, "GET", "/immutable.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], {"cannot": "touch this"})
 
     async def test_immutable_with_index(self):
-        # A container is never named as a file; and with an "index" entry,
-        # its index is that entry, so the dict as a whole has no URL
+        # As data, its name is the whole dict, "index" entry and all
         response = await request(ASGI_APP, "GET", "/immutable_with_index.json", None)
-        self.assertEqual(response["status"], 404)
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(
+            response["body"], {"index": "index_value", "other": "other_value"}
+        )
 
-        # Its index is the "index" entry
+        # Its slash is the "index" entry, as HTML; spelled out, it is no name
+        response = await request(ASGI_APP, "GET", "/immutable_with_index/", None)
+        self.assertEqual((response["status"], response["body"]), (200, "index_value"))
         response = await request(
             ASGI_APP, "GET", "/immutable_with_index/index.json", None
         )
-        self.assertEqual(response["status"], 200)
-        self.assertEqual(response["body"], "index_value")
+        self.assertEqual(response["status"], 404)
 
         # Test GET /immutable_with_index/other - should return the "other" value
         response = await request(
@@ -388,8 +377,8 @@ class TestGetOnly(unittest.TestCase):
 
     def test_get_goes_through_at_any_depth(self):
         root = GetOnly({"index": "home", "notes": {"a": "first"}})
-        status, _, body = call(root, "GET", "/index.json")
-        self.assertEqual((status, json.loads(body)), (200, "home"))
+        status, _, body = call(root, "GET", "/")
+        self.assertEqual((status, body.strip()), (200, b"home"))
         status, _, body = call(root, "GET", "/notes/a.json")
         self.assertEqual((status, json.loads(body)), (200, "first"))
 
@@ -397,13 +386,14 @@ class TestGetOnly(unittest.TestCase):
         data = {"index": "home", "notes": {"a": "first"}, "items": [1, 2]}
         root = GetOnly(data)
         for method, path in [
-            ("PUT", "/index.json"),
-            ("DELETE", "/index.json"),
+            ("PUT", "/"),
+            ("DELETE", "/"),
+            ("PUT", "/notes.json"),
             ("PUT", "/notes/a.json"),
             ("DELETE", "/notes/a.json"),
             ("PUT", "/items/last.json"),
             ("POST", "/notes/a.json"),
-            ("HEAD", "/index.json"),
+            ("HEAD", "/"),
         ]:
             with self.subTest(method=method, path=path):
                 status, headers, body = call(root, method, path, "changed")
@@ -415,12 +405,12 @@ class TestGetOnly(unittest.TestCase):
 
     def test_a_guarded_entry_is_what_it_wraps(self):
         root = {"about": GetOnly({"name": "mumulib"}), "motto": GetOnly("mumu")}
-        status, _, body = call(root, "GET", "/about/index.json")
+        status, _, body = call(root, "GET", "/about.json")
         self.assertEqual((status, json.loads(body)), (200, {"name": "mumulib"}))
         status, _, body = call(root, "GET", "/motto.json")
         self.assertEqual((status, json.loads(body)), (200, "mumu"))
-        # A guarded container is still a container: its index is its name
-        self.assertEqual(call(root, "GET", "/about.json")[0], 404)
+        # A guarded container is still a container: its HTML is its slash
+        self.assertEqual(call(root, "GET", "/about.html")[0], 404)
         status, _, _ = call(root, "PUT", "/about/name.json", "changed")
         self.assertEqual(status, 405)
 
@@ -509,24 +499,35 @@ class TestDirectory(DirectorySite):
             "data.json": "/static/data.json",
             "pixel.png": "/static/pixel.png",
             "style.css": "/static/style.css",
-            "sub": "/static/sub/index.json",
+            "sub": "/static/sub.json",
         }
-        status, headers, body = call(self.root, "GET", "/static/index.json")
+        status, headers, body = call(self.root, "GET", "/static.json")
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")
         self.assertEqual(json.loads(body), expected)
 
     def test_a_directory_has_one_url_per_type(self):
-        # Its HTML is its slash; any other type is index.<ext>; nothing else
-        for path in ("/static.html", "/static.json", "/static/index.html"):
+        # Its HTML is its slash, its data its name; index spelled out is none
+        for path in ("/static.html", "/static/index.html", "/static/index.json"):
             with self.subTest(path=path):
                 self.assertEqual(call(self.root, "GET", path)[0], 404)
-        # Its own index.html is served at its slash, and only there
+        # A subdirectory's too: its own index.html at its slash, and only there
         self.assertEqual(call(self.root, "GET", "/static/sub/")[0], 200)
         self.assertEqual(call(self.root, "GET", "/static/sub/index.html")[0], 404)
+        status, _, body = call(self.root, "GET", "/static/sub.json")
+        self.assertEqual(
+            (status, json.loads(body)),
+            (
+                200,
+                {
+                    "index.html": "/static/sub/index.html",
+                    "note.txt": "/static/sub/note.txt",
+                },
+            ),
+        )
 
     def test_every_listed_url_is_served(self):
-        _, _, body = call(self.root, "GET", "/static/index.json")
+        _, _, body = call(self.root, "GET", "/static.json")
         for name, url in json.loads(body).items():
             with self.subTest(name=name):
                 self.assertEqual(call(self.root, "GET", url)[0], 200)
@@ -536,7 +537,7 @@ class TestDirectory(DirectorySite):
         self.assertEqual((status, json.loads(body)), (200, {"from": "a file"}))
 
     def test_a_directory_is_listed_only_as_html_or_json(self):
-        self.assertEqual(call(self.root, "GET", "/static/index.txt")[0], 404)
+        self.assertEqual(call(self.root, "GET", "/static.txt")[0], 404)
 
     def test_nothing_outside_or_hidden_is_found(self):
         for path in [
@@ -573,7 +574,7 @@ class TestRefuseIndex(DirectorySite):
             "/static/index.html",
             "/static/index.json",
             "/static/sub/",
-            "/static/sub/index.html",
+            "/static/sub.json",
             "/static.html",
             "/static.json",
         ]:
@@ -592,5 +593,4 @@ class TestRefuseIndex(DirectorySite):
     def test_it_guards_a_dict_too(self):
         root = RefuseIndex({"index": "home", "a": 1})
         self.assertEqual(call(root, "GET", "/")[0], 404)
-        self.assertEqual(call(root, "GET", "/index.json")[0], 404)
         self.assertEqual(call(root, "GET", "/a.json")[2], b"1\n")

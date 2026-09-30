@@ -56,6 +56,12 @@ class TestFiles(unittest.TestCase):
         self.assertEqual((status, content_type), (200, b"text/html; charset=UTF-8"))
         for name in ("hello.txt", "pixel.png", "style.css"):
             self.assertIn(f'<a href="/static/{name}">{name}</a>'.encode(), body)
+        # and as data, by its name
+        status, content_type, body = get("/static.json")
+        self.assertEqual(
+            (status, content_type), (200, b"application/json; charset=UTF-8")
+        )
+        self.assertIn(b'"hello.txt": "/static/hello.txt"', body)
 
     def test_nothing_outside_the_directory(self):
         self.assertEqual(get("/static/../files.py")[0], 404)

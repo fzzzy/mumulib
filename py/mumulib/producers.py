@@ -126,10 +126,13 @@ add_producer(BufferedReader, produce_file)
 def _directory_url(url: str) -> str:
     """The URL of the directory a request named, ending in a slash.
 
-    A directory is named by its index: /static/, or /static/index.json. Its
-    entries are /static/<name>.
+    /static/ and /static.json both name static, whose entries are
+    /static/<name>.
     """
-    return url if url.endswith("/") else url.rpartition("/")[0] + "/"
+    if url.endswith("/"):
+        return url
+    head, _, last = url.rpartition("/")
+    return f"{head}/{last.rpartition('.')[0]}/"
 
 
 def _listing(directory: Path) -> list[tuple[str, bool]]:
@@ -166,7 +169,8 @@ async def produce_path_html(thing: Path, state: State) -> AsyncGenerator[Chunk]:
 
 
 async def produce_path_json(thing: Path, state: State) -> AsyncGenerator[Chunk]:
-    """A file, or a directory as {name: URL}; a subdirectory's is its listing."""
+    """A file, or a directory as {name: URL}; a subdirectory's is its listing,
+    /static/sub.json."""
     if not thing.is_dir():
         async for chunk in produce_path(thing, state):
             yield chunk
@@ -174,7 +178,7 @@ async def produce_path_json(thing: Path, state: State) -> AsyncGenerator[Chunk]:
     base = _directory_url(state.get("url", "/"))
     yield json.dumps(
         {
-            name: base + quote(name) + ("/index.json" if is_dir else "")
+            name: base + quote(name) + (".json" if is_dir else "")
             for name, is_dir in _listing(thing)
         }
     )

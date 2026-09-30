@@ -16,16 +16,16 @@ Python package). Breaking changes come first under each release.
   - The extension names a representation, not a key: `/motto.json` and
     `/motto.txt` are both `root["motto"]`. Keys no longer carry extensions. A
     URL without an extension is 404, and so is an extension with no type.
-  - A container -- a dict, list, tuple or directory -- has one URL per type,
-    its index: `/todos/` as HTML, for browsers, and `/todos/index.<ext>` as
-    any other type. It is never named as a file (`/todos.json` is 404), and
-    `index.html` spelled out is never a name (`/todos/` is). `/` is the root's.
-  - `index` is the one name for a container's own URL, where the empty key
-    used to be. It reads the container's `"index"` entry if there is one, and
-    else the container itself. `PUT` and `DELETE` there act on the `"index"`
-    entry, so what is put is what is read back; they used to write a `""` key
-    nothing could read. Anywhere else in a path, `index` is a key like any
-    other.
+  - A container -- a dict, list, tuple or directory -- has one URL per type:
+    its slash, `/todos/`, as HTML, for browsers, and its name,
+    `/todos.json`, as any other type. `/todos.html` is 404, and so is
+    `index.<ext>` spelled out, anywhere; the root, with no name of its own,
+    has `/` alone.
+  - The slash is the container's `"index"` entry if it has one, and else the
+    container; the name is always the container, as data. `PUT` and `DELETE`
+    on the slash write and remove the `"index"` entry, where they used to
+    write a `""` key nothing could read, and on the name replace and remove
+    the container. Anywhere else in a path, `index` is a key like any other.
   - A producer that starts the response itself, such as a file or an
     `EventSource`, gets the URL's type in place of its own.
 - **Each Python module declares its public API in `__all__`,** and only
@@ -69,12 +69,11 @@ Python package). Breaking changes come first under each release.
   extension part of the name. `..`, hidden names and symlinks that lead
   outside are not found, and a directory is read-only. A `Path` to a file is
   served as one, as file objects are.
-- **Directory listings**: a directory's index, if it has no `index.<ext>` of
-  its own, lists it -- as HTML, a `<ul>` of links named for their files; as
-  JSON, `{name: URL}`. Only what could be fetched is listed.
+- **Directory listings**: a directory's slash, if it has no `index.html` of
+  its own, is a `<ul>` of links named for its files, and its name as JSON is
+  `{name: URL}`. Only what could be fetched is listed.
 - **`consumers.RefuseIndex(obj)`**: a guard under which an index is not found
-  at any depth, and a container has no other URL; everything else is
-  served.
+  at any depth, nor any container reached through it; only leaves come out.
 - **Python examples**, in `py/examples`, run with `make server`
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in

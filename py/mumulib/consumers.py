@@ -33,6 +33,7 @@ from typing import Any
 from mumulib.mumutypes import (
     Chunk,
     Consumer,
+    NotFoundResponse,
     Send,
     SpecialResponse,
     State,
@@ -456,10 +457,10 @@ async def _consume_directory(
 
     The server takes the extension off the last segment, as the type; it goes
     back on here, as part of the file's name, so /static/app.min.js is
-    static/app.min.js. index is index.<extension>, if there is one, and else
-    the directory itself -- which, as HTML or JSON, is a listing of what is in
-    it. RefuseIndex is how to have no listing. index.html, spelled out, is
-    never a name here: /static/ is.
+    static/app.min.js. The directory's slash is its index.html, if it has
+    one, and else itself -- which, as HTML, is a listing of what is in it; as
+    JSON, at /static.json, it is the listing as data, and a subdirectory is
+    /static/sub.json. RefuseIndex is how to have no listing.
 
     What is served stays inside the directory: .. and hidden names, like .git
     or .env, are not found, and neither is a symlink that leads outside. And a
@@ -475,8 +476,13 @@ async def _consume_directory(
     if not name or name.startswith(".") or "/" in name or "\\" in name:
         return None
     child = parent / name
-    if not child.exists() and len(segments) == 1 and segments[0] == "index":
-        return parent
+    if not child.exists() and len(segments) == 1:
+        # Its slash: its index.html, or else itself
+        if segments[0] == "index":
+            return parent
+        # A subdirectory, as data: /static/sub.json
+        if state.get("extension") != "html" and (parent / segments[0]).is_dir():
+            child = parent / segments[0]
     if not child.exists() or not child.resolve().is_relative_to(parent.resolve()):
         return None
     return await consume(child, segments[1:], state, send)
@@ -489,10 +495,11 @@ add_consumer(type(Path()), _consume_directory)
 class RefuseIndex:
     """An object whose index is not found.
 
-    A container's index -- its "index" entry, or itself: a dict as JSON, a
-    directory's listing -- is served by default. Wrapped in RefuseIndex, a
-    request whose last segment is index is not found at any depth below it,
-    and a container has no other URL. Everything else is handed on.
+    A container is served whole by default: at its slash, its "index" entry
+    or itself, and by the name for data, itself -- a dict as JSON, a
+    directory's listing. Wrapped in RefuseIndex, neither is found at any
+    depth below it, nor the object itself: only what is not a container comes
+    out, which for a directory is its files.
 
         consumers_app({"static": RefuseIndex(Path("static"))})
     """
@@ -506,13 +513,18 @@ async def _consume_refuse_index(
 ) -> Any:
     if segments[-1] == "index":
         return None
-    return await consume(parent.wrapped, segments, state, send)
+    found = await consume(parent.wrapped, segments, state, send)
+    # A container below it, whole -- a directory's listing, a dict's JSON --
+    # is its index too, by the name for data
+    return None if is_container(found) else found
 
 
 async def _produce_refuse_index(
     thing: RefuseIndex, state: State
 ) -> AsyncIterator[Chunk]:
-    # Asked for itself, as a leaf: what it wraps
+    # Asked for itself: refused if a container, and else what it wraps
+    if is_container(thing.wrapped):
+        raise NotFoundResponse()
     async for chunk in produce(thing.wrapped, state):
         yield chunk
 
@@ -520,9 +532,9 @@ async def _produce_refuse_index(
 def is_container(thing: object) -> bool:
     """Whether a thing has entries a URL walks into, and so an index.
 
-    A container is reached only by its index -- /todos/ as HTML, and
-    /todos/index.<ext> as anything else -- and never named as though it were
-    a file: /todos.json is not the todos, so that each has one URL per type.
+    A container has one URL per type: its slash, /todos/, as HTML, and its
+    name, /todos.json, as anything else -- never /todos.html, and never
+    index.<ext> spelled out.
     """
     if isinstance(thing, (GetOnly, RefuseIndex)):
         return is_container(thing.wrapped)

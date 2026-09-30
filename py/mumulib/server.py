@@ -180,11 +180,10 @@ def split_path(path: str) -> tuple[list[str], str] | None:
     """The segments to traverse, and the extension that names the type.
 
     The extension comes off the last segment: /hello.json and /hello.txt are
-    both root["hello"]. A path ending in a slash is its container's index as
-    HTML -- /, or /todos/ -- which is for people, in browsers; any other type
-    is spelled out, as /todos/index.json. What index names is the consumers'
-    to say -- the container's "index" entry, or the container itself. Any
-    other path without an extension is None.
+    both root["hello"], and /todos.json is the todos, as data. A path ending
+    in a slash is its container's index, as HTML -- /, or /todos/ -- which is
+    for people in browsers: the container's "index" entry, or the container.
+    Any other path without an extension is None.
     """
     if path.endswith("/"):
         return [*path.split("/")[1:-1], "index"], "html"
@@ -231,15 +230,14 @@ def consumers_app(root: Any) -> ASGIApp:
             )
             return
         segments, extension = parsed
-        # One URL per type: a container's HTML is its slash alone, so
-        # index.html -- or index.htm -- spelled out is no name for it
-        explicit_index = segments[-1] == "index" and not scope["path"].endswith("/")
-        if explicit_index and content_type.startswith("text/html"):
+        # One URL per type: an index is its slash, and never spelled out --
+        # not index.html, and not index.json, even at the root
+        if segments[-1] == "index" and not scope["path"].endswith("/"):
             await send_error_response(
                 send,
                 404,
                 "Not Found",
-                f"A container's HTML is at its slash, not {scope['path']}",
+                f"An index is its slash, not {scope['path']}",
             )
             return
         state["extension"] = extension
@@ -272,9 +270,13 @@ def consumers_app(root: Any) -> ASGIApp:
             traceback.print_exc()
             await send_error_response(send, 500, "Internal Server Error", str(exc))
             return
-        # A container is named by its index, never as a file: /todos.json is
-        # not the todos, /todos/index.json is
-        if result is not None and segments[-1] != "index" and is_container(result):
+        # A container's HTML is its slash alone: /todos/, not /todos.html
+        if (
+            result is not None
+            and segments[-1] != "index"
+            and content_type.startswith("text/html")
+            and is_container(result)
+        ):
             result = None
         if result is None:
             await send_error_response(

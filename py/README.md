@@ -35,15 +35,16 @@ extension alone decides what comes back.
   `.sse` server-sent events, and any other extension is the type `mimetypes`
   gives it. A URL without an extension is 404, and so is one whose extension
   has no type.
-- A container -- a dict, list, tuple or directory -- has one URL per type, its
-  index: `/todos/` as HTML, which is for people in browsers, and
-  `/todos/index.json`, or `index.<ext>`, as anything else. It is never named
-  as a file: `/todos.json` is 404, and so is `/todos/index.html` spelled out.
-  `/` is the root's.
-- The index is the container's `"index"` entry if it has one, and else the
-  container itself -- so a dict with an `"index"` entry is reached through
-  its entries alone. `PUT` and `DELETE` at `index.<ext>` act on the `"index"`
-  entry.
+- A container -- a dict, list, tuple or directory -- has one URL per type:
+  its slash, `/todos/`, as HTML, which is for people in browsers, and its
+  name, `/todos.json`, as anything else, as a leaf's is. `/todos.html` is
+  404, and so is `index.<ext>` spelled out, anywhere.
+- The slash is the container's `"index"` entry if it has one, and else the
+  container itself; its name is always the container itself, as data. `PUT`
+  and `DELETE` on the slash write and remove the `"index"` entry, and on the
+  name replace and remove the container.
+- The root is the one exception: it has no name in a parent, so `/` is its
+  only URL, and it cannot be replaced whole. Its data is its entries'.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
   multipart), never what the response is; no response varies by request
   headers.
@@ -67,12 +68,11 @@ into: `{"static": Path("static")}` serves `static/style.css` at
 part of the file's name, and is the type it is served as, so a file needs an
 extension to be served.
 
-`index` is the directory's `index.<extension>`, if it has one, and else the
-directory itself -- which, as HTML or JSON, lists what is in it: `/static/` is
-a `<ul>` of links, each named for its file, and `/static/index.json` is
-`{name: URL}`, a subdirectory's URL its own listing in JSON. Its own
-`index.html` is served at `/static/`, and only there. Only what could be
-fetched is listed, and `RefuseIndex` is how to have no listing (see Guards).
+The slash, `/static/`, is the directory's `index.html` if it has one, and
+else a `<ul>` of links, each named for its file. Its name, `/static.json`, is
+`{name: URL}`, a subdirectory's URL its own listing, `/static/sub.json`. Only
+what could be fetched is listed, and `RefuseIndex` is how to have no listing
+(see Guards).
 
 Only what is in the directory is found: `..`, hidden names such as `.git` and
 `.env`, and symlinks that lead outside are not. A directory is never written;
@@ -100,17 +100,17 @@ it. It guards what is reached through it, not its own place in a parent: in
 the second app, `PUT /about.json` is the unguarded dict's to answer, and would
 replace the entry. Guard the parent, or the root, to keep that too.
 
-A container's index is served by default: its `"index"` entry, or itself --
-all of a dict as JSON, a directory's listing. `RefuseIndex` is how to have
-none:
+A container is served whole by default: at its slash, its `"index"` entry or
+itself, and at its name, itself -- a dict as JSON, a directory's listing.
+`RefuseIndex` is how to have neither:
 
 ```python
 app = consumers_app({"static": RefuseIndex(Path("static"))})
 ```
 
-A request for an index -- a URL ending in a slash, or in `index.<ext>` -- is
-not found, at any depth below it, and a container has no other URL. Its files
-are served as before. The two guards nest:
+No slash is found below it, and no container reached through it -- nor the
+wrapped object itself, if it is one. Only what is not a container comes out:
+a directory's files, a dict's leaves. The two guards nest:
 `GetOnly(RefuseIndex(root))`.
 
 A tuple, or a `types.MappingProxyType` -- the read-only view of a dict --

@@ -1565,31 +1565,39 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
 
-    def test_a_container_is_named_by_its_index_and_nothing_else(self):
+    def test_a_container_has_one_url_per_type(self):
         root = {"todos": ["write it"]}
         # Its HTML is its slash, for people in browsers
         status, headers, _ = asyncio.run(get(root, "/todos/"))
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
-        # Any other type is index.<ext>
-        status, _, body = asyncio.run(get(root, "/todos/index.json"))
+        # Any other type is its name, as a leaf's is
+        status, _, body = asyncio.run(get(root, "/todos.json"))
         self.assertEqual((status, json.loads(body)), (200, ["write it"]))
-        # And nothing else: not as a file, and not index.html spelled out
+        # And nothing else: not HTML by its name, and no index spelled out
         for path in (
-            "/todos.json",
             "/todos.html",
             "/todos/index.html",
             "/todos/index.htm",
+            "/todos/index.json",
         ):
             with self.subTest(path=path):
                 self.assertEqual(asyncio.run(get(root, path))[0], 404)
 
-    def test_the_root_is_the_same(self):
+    def test_the_index_entry_is_the_slash_and_only_the_slash(self):
+        # A dict with a front page still has its data by name
+        root = {"todos": {"index": "<p>my todos</p>", "a": 1}}
+        _, _, body = asyncio.run(get(root, "/todos/"))
+        self.assertEqual(body.strip(), b"<p>my todos</p>")
+        _, _, body = asyncio.run(get(root, "/todos.json"))
+        self.assertEqual(json.loads(body), {"index": "<p>my todos</p>", "a": 1})
+
+    def test_the_root_has_its_slash_and_no_other_name(self):
         root = {"index": "<p>home</p>"}
         self.assertEqual(asyncio.run(get(root, "/"))[0], 200)
-        self.assertEqual(asyncio.run(get(root, "/index.html"))[0], 404)
-        _, _, body = asyncio.run(get(root, "/index.json"))
-        self.assertEqual(json.loads(body), "<p>home</p>")
+        for path in ("/index.html", "/index.json", "/index.txt"):
+            with self.subTest(path=path):
+                self.assertEqual(asyncio.run(get(root, path))[0], 404)
 
     def test_the_site_root_is_index_html(self):
         status, headers, body = asyncio.run(get({"index": "<p>home</p>"}, "/"))
@@ -1604,7 +1612,7 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
         self.assertEqual(body.strip(), b"<ul></ul>")
 
-    def test_put_to_index_writes_the_index_entry(self):
+    def test_put_to_the_slash_writes_the_index_entry(self):
         root = {"index": "old"}
 
         async def put():
@@ -1619,7 +1627,7 @@ class TestUrlNamesTheType(unittest.TestCase):
             scope = {
                 "type": "http",
                 "method": "PUT",
-                "path": "/index.json",
+                "path": "/",
                 "headers": [(b"content-type", b"application/json")],
                 "state": {},
             }
@@ -1629,8 +1637,8 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(asyncio.run(put()), 201)
         # What was put is what comes back, and nothing else was written
         self.assertEqual(root, {"index": "new"})
-        _, _, body = asyncio.run(get(root, "/index.json"))
-        self.assertEqual(json.loads(body), "new")
+        _, _, body = asyncio.run(get(root, "/"))
+        self.assertEqual(body.strip(), b"new")
 
     def test_index_is_only_special_last(self):
         # In the middle of a path it is a key like any other
@@ -1642,11 +1650,32 @@ class TestUrlNamesTheType(unittest.TestCase):
         status, _, _ = asyncio.run(get({"a": 1}, "//a.json"))
         self.assertEqual(status, 404)
 
-    def test_index_names_the_container(self):
+    def test_a_container_is_replaced_and_removed_by_its_name(self):
         root = {"todos": {"a": 1}}
-        status, _, body = asyncio.run(get(root, "/todos/index.json"))
-        self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body), {"a": 1})
+
+        async def put():
+            sent = []
+
+            async def send(message):
+                sent.append(message)
+
+            async def receive():
+                return {"type": "http.request", "body": b'["new"]', "more_body": False}
+
+            scope = {
+                "type": "http",
+                "method": "PUT",
+                "path": "/todos.json",
+                "headers": [(b"content-type", b"application/json")],
+                "state": {},
+            }
+            await consumers_app(root)(scope, receive, send)
+            return sent[0]["status"]
+
+        self.assertEqual(asyncio.run(put()), 201)
+        self.assertEqual(root, {"todos": ["new"]})
+        self.assertEqual(asyncio.run(get(root, "/todos.json", "DELETE"))[0], 200)
+        self.assertEqual(root, {})
 
     def test_other_extensions_take_their_type_from_mimetypes(self):
         status, headers, _ = asyncio.run(get({"site": "p {}"}, "/site.css"))

@@ -2,13 +2,12 @@
 
     make server                       # this one; SERVER=<name> for another
 
-The dict is the site, and its "index" entry is what / and every index URL
-serve. They differ only in their extension, which is the type it comes back
-as:
+The dict is the site, and its "index" entry is what / serves, as HTML:
 
-    /             Hello, world!       text/html (/ is /index.html)
-    /index.txt    Hello, world!       text/plain
-    /index.json   "Hello, world!"     application/json
+    /             Hello, world!       text/html
+
+/ is the only URL: an index is its slash, and the root has no name of its
+own for data. files.py shows extensions choosing the type.
 
 A published dict can be changed through its URLs -- PUT writes an entry and
 DELETE removes one -- so this one is wrapped in GetOnly, which hands GET on
