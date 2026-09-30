@@ -61,6 +61,13 @@ Python package). Breaking changes come first under each release.
 
 ### Fixed
 
+- **patslot works in Node.** It read `element.dataset`, which domino -- the DOM
+  mumulib brings to Node -- does not have, so every fill threw there; it reads
+  and writes the `data-*` attributes instead, the same in a browser. The Node
+  bundles also supply the element classes the code checks with `instanceof`,
+  as they already supplied `document`, and `state` schedules a re-run with a
+  timeout where there is no `requestAnimationFrame`. `make check` now installs
+  the packed package and uses it from Node, by `require` and by `import`.
 - The Python server sent a producer's binary response as the text of its
   Python repr (`b'...'`) instead of the bytes.
 - Files of every type are served as their exact bytes. The file producer read

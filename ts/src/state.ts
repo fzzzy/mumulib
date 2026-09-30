@@ -84,7 +84,7 @@ async function _set_state(
   if (setting === 1) {
     update_dom_state(state)
     if (debug_mode) {
-      document.body.dataset.state = JSON.stringify(state)
+      document.body.setAttribute('data-state', JSON.stringify(state))
       console.log('onstatechange', state)
     }
     for (const onstatechange of obs) {
@@ -96,7 +96,11 @@ async function _set_state(
   setting--
   if (setting === 0 && dirty) {
     dirty = false
-    window.requestAnimationFrame(() => set_state(null))
+    // The next frame in a browser; in Node, which has none, the next turn
+    const later =
+      globalThis.requestAnimationFrame ??
+      ((then: () => void) => setTimeout(then, 0))
+    later(() => set_state(null))
   }
 }
 

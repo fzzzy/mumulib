@@ -6,12 +6,28 @@ import { sfcPlugin } from './src/vite/sfc.mjs'
 const root = import.meta.dirname
 const entry = resolve(root, 'src/index.ts')
 
-// A DOM for Node, where the templating and dialog code have none of their own.
-// The browser build needs no such thing.
-const dominoEsm =
-  "import domino from 'domino';\nif (typeof document === 'undefined') globalThis.document = domino.createWindow('').document;"
-const dominoCjs =
-  "if (typeof document === 'undefined') globalThis.document = require('domino').createWindow('').document;"
+// A DOM for Node, where the templating and dialog code have none of their own:
+// domino's document, and the element classes the code checks with instanceof.
+// Each is set only if missing, so a DOM already there -- jsdom in someone's
+// tests -- is left alone. The browser build needs no such thing.
+const DOM_CLASSES = [
+  'Node',
+  'Element',
+  'HTMLElement',
+  'HTMLInputElement',
+  'HTMLSelectElement',
+  'HTMLTextAreaElement',
+  'HTMLFormElement',
+  'HTMLDialogElement',
+]
+const domFromDomino = (domino: string) =>
+  `if (typeof document === 'undefined') {
+  const window = ${domino}.createWindow('');
+  globalThis.document = window.document;
+  for (const name of ${JSON.stringify(DOM_CLASSES)}) globalThis[name] ??= window[name];
+}`
+const dominoEsm = `import domino from 'domino';\n${domFromDomino('domino')}`
+const dominoCjs = domFromDomino("require('domino')")
 
 // `vite` serves the examples from source, with `mumulib` resolving to src/.
 // `vite build` writes the browser bundle; `vite build --mode node` the two

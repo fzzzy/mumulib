@@ -115,7 +115,8 @@ async function _fill_or_append_slots(
   const descendantSlots = Array.from(
     node.querySelectorAll(`[data-slot=${slotname}]`)
   )
-  if (node.dataset.slot == slotname) {
+  // Attributes, not dataset, which domino -- the DOM in Node -- lacks
+  if (node.getAttribute('data-slot') == slotname) {
     slots = [node, ...descendantSlots]
   } else {
     slots = descendantSlots
@@ -130,7 +131,7 @@ async function _fill_or_append_slots(
       if (append) {
         slot.appendChild(pat.cloneNode(true) as Element)
       } else {
-        pat.dataset.slot = slotname
+        pat.setAttribute('data-slot', slotname)
         slot.replaceWith(pat.cloneNode(true) as Element)
       }
     } else if (
@@ -185,7 +186,7 @@ async function _fill_or_append_slots(
     }
   }
   let attrslots: HTMLElement[] | Element[] | NodeListOf<Element> = []
-  if (node.dataset.attr) {
+  if (node.getAttribute('data-attr')) {
     attrslots = [node]
   }
   attrslots = [
@@ -194,7 +195,7 @@ async function _fill_or_append_slots(
   ]
 
   for (const attrslot of attrslots) {
-    const attrs = (attrslot as HTMLElement).dataset.attr || ''
+    const attrs = attrslot.getAttribute('data-attr') || ''
     //console.log("attrs", attrs);
     const mappings = attrs.split(',')
     const results: Promise<void>[] = mappings.map(async (mapping) => {

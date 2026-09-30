@@ -1,4 +1,5 @@
-.PHONY: check lint fix typecheck test py-test browser-test build dist python-sync \
+.PHONY: check lint fix typecheck test py-test browser-test node-test build dist \
+	python-sync \
 	node_modules run stop tail dev clean tags
 
 # The examples' dev server, and where its output goes
@@ -31,7 +32,7 @@ typecheck: node_modules python-sync
 	$(UV) pyright
 
 
-test: py-test browser-test
+test: py-test browser-test node-test
 
 py-test: python-sync
 	$(UV) pytest --cov=mumulib --cov-branch
@@ -40,6 +41,10 @@ py-test: python-sync
 browser-test: node_modules
 	$(NPM) run test:browser
 	$(NPM) run coverage
+
+# The package as published, installed and used from Node, with domino's DOM
+node-test: dist
+	cd ts && node scripts/node-check.mjs
 
 
 build: python-sync dist

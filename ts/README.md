@@ -9,6 +9,14 @@ patslot provides a simple html templating api, with html templates that can be f
 
 dialog provides functionality to show html dialog elements populated with state from the state module, and automatically update the state when form inputs in the dialog change.
 
+Node
+=====
+
+`require('mumulib')` and `import 'mumulib'` work in Node as in a browser. Where
+there is no DOM, mumulib makes one with [domino](https://github.com/fgnass/domino):
+`document`, and the element classes it needs. A DOM already there, such as
+jsdom's, is left alone.
+
 Examples
 =====
 
