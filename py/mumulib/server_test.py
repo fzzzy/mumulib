@@ -1707,3 +1707,63 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(headers[b"x-kept"], b"1")
         # Bytes go out as they are, not as the text of their repr
         self.assertTrue(body.startswith(b"\x00\x01binary"))
+
+
+class TestFunctionsInTheTree(unittest.TestCase):
+    """A function a URL ends at is its own producer, called as f(f, state)."""
+
+    def setUp(self):
+        self.calls = []
+
+        async def f(thing, state):
+            self.calls.append((thing, dict(state)))
+            yield "one,"
+            yield "two"
+
+        self.f = f
+
+    def test_it_is_called_with_itself_and_the_request(self):
+        status, headers, body = asyncio.run(get({"f": self.f}, "/f.txt"))
+        self.assertEqual((status, body.strip()), (200, b"one,two"))
+        self.assertEqual(headers[b"content-type"], b"text/plain; charset=UTF-8")
+        [(thing, state)] = self.calls
+        self.assertIs(thing, self.f)
+        self.assertEqual(
+            (state["method"], state["url"], state["extension"]),
+            ("GET", "/f.txt", "txt"),
+        )
+
+    def test_post_calls_it_with_the_body(self):
+        async def post():
+            sent = []
+
+            async def send(message):
+                sent.append(message)
+
+            async def receive():
+                return {"type": "http.request", "body": b'{"n": 1}', "more_body": False}
+
+            scope = {
+                "type": "http",
+                "method": "POST",
+                "path": "/f.json",
+                "headers": [(b"content-type", b"application/json")],
+                "state": {},
+            }
+            await consumers_app({"f": self.f})(scope, receive, send)
+            return sent[0]["status"]
+
+        self.assertEqual(asyncio.run(post()), 200)
+        self.assertEqual(self.calls[0][1]["parsed_body"], {"n": 1})
+
+    def test_it_is_a_leaf(self):
+        for path in ("/f/", "/f/more.txt"):
+            with self.subTest(path=path):
+                self.assertEqual(asyncio.run(get({"f": self.f}, path))[0], 404)
+        self.assertEqual(self.calls, [])
+
+    def test_its_parent_answers_put_and_delete_for_it(self):
+        root = {"f": self.f}
+        self.assertEqual(asyncio.run(get(root, "/f.txt", "DELETE"))[0], 200)
+        self.assertEqual(root, {})
+        self.assertEqual(self.calls, [])

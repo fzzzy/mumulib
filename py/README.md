@@ -58,7 +58,8 @@ extension alone decides what comes back.
 `{"index": "Hello, world!"}`: `/`, `/index.txt` and `/index.json` are the one
 string as HTML, text and JSON, and it is wrapped in `GetOnly`, read-only (see
 Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
-stylesheet, text and image from a directory.
+stylesheet, text and image from a directory, and `functions.py`
+(`SERVER=functions`) a function that answers `GET` and `POST`.
 
 ## Files and directories
 
@@ -78,6 +79,27 @@ what could be fetched is listed, and `RefuseIndex` is how to have no listing
 Only what is in the directory is found: `..`, hidden names such as `.git` and
 `.env`, and symlinks that lead outside are not. A directory is never written;
 anything but `GET` is 405.
+
+## Functions
+
+A function the URL ends at is its own producer: it is called as
+`f(f, state)` -- the first argument is the function itself -- and must be an
+async generator, whose chunks are the response, of the URL's type. `state`
+holds the request: `"method"`, `"url"`, `"extension"`, `"content_type"`, and
+`"parsed_body"` for a request with a body.
+
+```python
+async def greet(thing, state):
+    yield "Hello, world!"
+
+
+app = consumers_app(MappingProxyType({"greet": greet}))
+```
+
+It is called for `GET` and for `POST`, with the body. It is a leaf: nothing is
+below it, and it has no slash. `PUT` and `DELETE` at its name are its
+parent's to answer -- a plain dict would replace or remove the function -- so
+publish it in a `MappingProxyType`, which refuses both.
 
 ## Guards
 
