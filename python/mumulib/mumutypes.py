@@ -1,3 +1,4 @@
+import mimetypes
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
@@ -89,3 +90,26 @@ class SeeOtherResponse(SpecialResponse):
             },
             "",
         )
+
+
+# The type of every response is the one its URL's extension names, and
+# nothing else: not the request's headers, so no response varies by them.
+# These are the extensions mumulib's producers speak; any other goes through
+# mimetypes, and one with no type there is not found.
+CONTENT_TYPES = {
+    "json": "application/json",
+    "html": "text/html",
+    "txt": "text/plain",
+    "sse": "text/event-stream",
+}
+
+
+def content_type_for(extension: str) -> str | None:
+    """The Content-Type an extension names, charset and all, or None."""
+    extension = extension.lower()
+    mime = CONTENT_TYPES.get(extension) or mimetypes.types_map.get(f".{extension}")
+    if mime is None:
+        return None
+    if mime.startswith("text/") or mime in ("application/json", "text/javascript"):
+        return f"{mime}; charset=UTF-8"
+    return mime

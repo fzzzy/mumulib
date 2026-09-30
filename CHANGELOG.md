@@ -54,6 +54,10 @@ Python package). Breaking changes come first under each release.
 
 - The Python server sent a producer's binary response as the text of its
   Python repr (`b'...'`) instead of the bytes.
+- Files of every type are served as their exact bytes. The file producer read
+  all but `.ttf` fonts as text, so an image or any other binary file failed to
+  decode, and text was re-encoded; nothing is decoded now. A file's type is
+  the URL's, or else the one its name's extension gives.
 - Multipart form bodies are decoded correctly.
 - The README's `fill_slots` example passed a dict where the function takes one
   slot name and value.

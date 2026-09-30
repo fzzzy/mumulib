@@ -25,9 +25,9 @@ THE SOFTWARE.
 """
 
 import json
-import mimetypes
 from collections.abc import AsyncGenerator
 from io import BufferedReader, TextIOWrapper
+from pathlib import PurePath
 from types import FunctionType, MappingProxyType
 from typing import Any, cast
 
@@ -73,29 +73,22 @@ async def produce(thing: object, state: State) -> AsyncGenerator[Chunk]:
 async def produce_file(
     thing: TextIOWrapper | BufferedReader, state: State
 ) -> AsyncGenerator[mumutypes.SpecialResponse]:
+    # Bytes, whatever the file holds: nothing is decoded, so an image or a
+    # font goes out exactly as it is on disk, and text as its own bytes
     filename = str(thing.name)
-    content_type = mimetypes.guess_type(filename)
-
-    content: str | bytes
-    if content_type[0] == "font/ttf":
-        async with aiofiles.open(filename, "rb") as newthing:
-            content = await newthing.read()
-        charset = b""
-    else:
-        async with aiofiles.open(filename) as newthing:
-            content = await newthing.read()
-        charset = b"; charset=UTF-8"
+    async with aiofiles.open(filename, "rb") as file:
+        content = await file.read()
+    # The URL's type when the server gives one, else the file's own
+    content_type = (
+        state.get("content_type")
+        or mumutypes.content_type_for(PurePath(filename).suffix[1:])
+        or "application/octet-stream"
+    )
     yield mumutypes.SpecialResponse(
         {
             "type": "http.response.start",
             "status": 200,
-            "headers": [
-                (
-                    b"content-type",
-                    (content_type[0] or "application/octet-stream").encode("utf8")
-                    + charset,
-                )
-            ],
+            "headers": [(b"content-type", content_type.encode("utf8"))],
         },
         content,
     )

@@ -1,6 +1,5 @@
 import asyncio
 import json
-import mimetypes
 import traceback
 from collections.abc import AsyncIterator
 from typing import Any
@@ -15,6 +14,7 @@ from mumulib.mumutypes import (
     Send,
     SpecialResponse,
     State,
+    content_type_for,
 )
 from mumulib.producers import produce
 
@@ -167,29 +167,6 @@ async def parse_multipart(
             else:
                 result[name.decode("utf-8")] = stripped_content.decode("utf-8")
     return result
-
-
-# The type of every response is the one its URL's extension names, and
-# nothing else: not the request's headers, so no response varies by them.
-# These are the extensions mumulib's producers speak; any other goes through
-# mimetypes, and one with no type there is not found.
-CONTENT_TYPES = {
-    "json": "application/json",
-    "html": "text/html",
-    "txt": "text/plain",
-    "sse": "text/event-stream",
-}
-
-
-def content_type_for(extension: str) -> str | None:
-    """The Content-Type an extension names, charset and all, or None."""
-    extension = extension.lower()
-    mime = CONTENT_TYPES.get(extension) or mimetypes.types_map.get(f".{extension}")
-    if mime is None:
-        return None
-    if mime.startswith("text/") or mime in ("application/json", "text/javascript"):
-        return f"{mime}; charset=UTF-8"
-    return mime
 
 
 def split_path(path: str) -> tuple[list[str], str] | None:

@@ -320,9 +320,9 @@ class TestProduceFile(unittest.TestCase):
             # Text file should have charset
             self.assertIn(b"charset=UTF-8", headers[0][1])
 
-            # Verify body contains file content
-            self.assertIsInstance(response.leaf_object, str)
-            self.assertIn("mumulib", response.leaf_object)
+            # The file's bytes, undecoded
+            self.assertIsInstance(response.leaf_object, bytes)
+            self.assertIn(b"mumulib", response.leaf_object)
 
     def test_produce_text_file(self):
         """Wrapper to run async test"""
@@ -370,7 +370,7 @@ class TestProduceFile(unittest.TestCase):
             # Should have some content type (either detected or default)
             self.assertIsNotNone(content_type)
             # Should have charset for text file
-            self.assertIn(b"charset=UTF-8", content_type)
+            self.assertEqual(content_type, b"application/octet-stream")
 
     def test_produce_file_with_unknown_type(self):
         """Wrapper to run async test"""
@@ -416,3 +416,48 @@ class TestProduceFile(unittest.TestCase):
     def test_produce_ttf_file(self):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_produce_ttf_file())
+
+
+class TestFilesOverHttp(unittest.TestCase):
+    """Files served by consumers_app arrive as their exact bytes."""
+
+    def serve(self, root, path):
+        from mumulib.server import consumers_app
+
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        scope = {"type": "http", "method": "GET", "path": path, "headers": []}
+
+        async def request():
+            await consumers_app(root)({**scope, "state": {}}, receive, send)
+
+        asyncio.run(request())
+        body = b"".join(m.get("body", b"") for m in sent[1:])
+        return sent[0]["status"], dict(sent[0]["headers"]), body
+
+    def test_a_binary_file_arrives_byte_for_byte(self):
+        path = HERE / "test_fixtures" / "pixel.png"
+        with open(path, "rb") as file:
+            status, headers, body = self.serve({"pixel": file}, "/pixel.png")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"image/png")
+        self.assertTrue(body.startswith(path.read_bytes()))
+
+    def test_a_file_opened_as_text_is_still_sent_as_its_bytes(self):
+        path = HERE / "test_fixtures" / "pixel.png"
+        with open(path) as file:
+            _, _, body = self.serve({"pixel": file}, "/pixel.png")
+        self.assertTrue(body.startswith(path.read_bytes()))
+
+    def test_the_url_names_a_files_type(self):
+        path = HERE.parent / "README.md"
+        with open(path) as file:
+            _, headers, body = self.serve({"readme": file}, "/readme.txt")
+        self.assertEqual(headers[b"content-type"], b"text/plain; charset=UTF-8")
+        self.assertTrue(body.startswith(path.read_bytes()))
