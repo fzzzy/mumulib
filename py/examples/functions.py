@@ -3,10 +3,12 @@
     make server SERVER=functions
 
 A function published in the tree is its own producer. When a URL ends at
-it, it is called as f(f, state) -- the first argument is the function
-itself -- and must be an async generator: what it yields is the response,
-of the type the URL names. state holds the request: "method", "url",
-"extension", "content_type", and "parsed_body" for a request with one.
+it, it is called as f(state), where state holds the request: "method",
+"url", "extension", "content_type", and "parsed_body" for a request with
+one. Any kind of function will do: what an async generator or a generator
+yields is the response, and what a coroutine or a plain function returns is
+produced as though it had been published there -- a string as text, a dict
+as JSON -- of the type the URL names.
 
     GET  /greet.txt                     Hello, world!
     GET  /greet.json                    {"greeting": "Hello, world!"}
@@ -38,7 +40,7 @@ INDEX = """<!doctype html>
 """
 
 
-async def greet(thing: Any, state: State) -> AsyncIterator[str]:
+async def greet(state: State) -> AsyncIterator[str]:
     # A JSON object or a form: either way, a dict of what was sent
     body = state.get("parsed_body")
     fields = cast(dict[str, Any], body) if isinstance(body, dict) else {}

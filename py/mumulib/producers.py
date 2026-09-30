@@ -25,11 +25,19 @@ THE SOFTWARE.
 """
 
 import html
+import inspect
 import json
 from collections.abc import AsyncGenerator
 from io import BufferedReader, TextIOWrapper
 from pathlib import Path, PurePath
-from types import FunctionType, MappingProxyType
+from types import (
+    BuiltinFunctionType,
+    FunctionType,
+    GeneratorType,
+    MappingProxyType,
+    MethodType,
+    MethodWrapperType,
+)
 from typing import Any, cast
 from urllib.parse import quote
 
@@ -73,10 +81,39 @@ async def produce(thing: object, state: State) -> AsyncGenerator[Chunk]:
                 yield chunk
             return
     if isinstance(thing, FunctionType):
-        async for chunk in thing(thing, state):
+        async for chunk in _produce_call(thing, state):
             yield chunk
         return
     yield str(thing)
+
+
+async def _produce_call(function: FunctionType, state: State) -> AsyncGenerator[Chunk]:
+    """A function a URL ended at: called with the request, and its answer.
+
+    Whatever kind of function it is. An async generator's chunks are the
+    response, and a plain generator's; a coroutine's result, and a plain
+    function's return value, are produced as though they had been published
+    there -- a dict is JSON at .json, a string is text.
+    """
+    result: Any = function(state)
+    if hasattr(result, "__aiter__"):
+        async for chunk in result:
+            yield chunk
+        return
+    if inspect.isawaitable(result):
+        result = await result
+    if isinstance(result, GeneratorType):
+        for chunk in cast(GeneratorType[Chunk, None, None], result):
+            yield chunk
+        return
+    async for chunk in produce(result, state):
+        yield chunk
+
+
+async def _produce_not_found(thing: object, state: State) -> AsyncGenerator[Chunk]:
+    # Not something to publish: its repr would say where it lives in memory
+    raise mumutypes.NotFoundResponse()
+    yield ""  # pragma: no cover -- an async generator, which raises first
 
 
 async def produce_file(
@@ -209,3 +246,8 @@ for typ in JSON_TYPES:
 
 # Add bytes producer for binary data (using */* to match all content types)
 add_producer(bytes, produce_bytes)
+
+# A method -- bound, built in, or a wrapper like "abc".__str__ -- is not a
+# function to call for a request, and its repr is no answer: not found
+for _method_type in (MethodType, BuiltinFunctionType, MethodWrapperType):
+    add_producer(_method_type, _produce_not_found)

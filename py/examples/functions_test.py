@@ -79,9 +79,9 @@ class TestFunctions(unittest.TestCase):
                 self.assertEqual(status, 405)
         self.assertEqual(request("/greet.txt")[2], b"Hello, world!")
 
-    def test_it_is_called_with_itself_first(self):
+    def test_it_is_called_with_the_request(self):
         async def first() -> object:
-            async for _ in greet(greet, {"extension": "txt"}):
-                return _
+            async for chunk in greet({"extension": "txt"}):
+                return chunk
 
         self.assertEqual(asyncio.run(first()), "Hello, world!")

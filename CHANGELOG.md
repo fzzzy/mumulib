@@ -34,6 +34,9 @@ Python package). Breaking changes come first under each release.
   the element lists and the other helpers are the modules' own.
 - **`tags.all` is now `tags.every`:** `tags.every.div` and so on. Under
   `import *`, `all` shadowed the builtin; there is no alias.
+- **A function in the tree is called as `f(state)`,** not `f(f, state)`:
+  the function itself was the first argument, which only `EventSource`'s
+  closure could have used, and it needs nothing but its queue.
 - **Python types are inline.** The `.pyi` stub files are gone; the package is
   annotated throughout, passes pyright in strict mode, and ships `py.typed`.
 - **`tags.produce_html` refuses an attribute that is not text.** An attribute
@@ -99,6 +102,12 @@ Python package). Breaking changes come first under each release.
   as they already supplied `document`, and `state` schedules a re-run with a
   timeout where there is no `requestAnimationFrame`. `make check` now installs
   the packed package and uses it from Node, by `require` and by `import`.
+- A function in the tree answers whatever kind it is. Only an async
+  generator did; a plain function, a coroutine, a plain generator or a lambda
+  was a 500. What a function returns is produced as though it had been
+  published there.
+- A method in the tree -- bound, built in, or a wrapper -- is 404. It had been
+  served as its repr, which says where it lives in memory.
 - The Python server sent a producer's binary response as the text of its
   Python repr (`b'...'`) instead of the bytes.
 - `PUT` to a list's `last` answers with the new element's own URL in

@@ -82,14 +82,16 @@ anything but `GET` is 405.
 
 ## Functions
 
-A function the URL ends at is its own producer: it is called as
-`f(f, state)` -- the first argument is the function itself -- and must be an
-async generator, whose chunks are the response, of the URL's type. `state`
-holds the request: `"method"`, `"url"`, `"extension"`, `"content_type"`, and
-`"parsed_body"` for a request with a body.
+A function the URL ends at is its own producer: it is called as `f(state)`,
+where `state` holds the request -- `"method"`, `"url"`, `"extension"`,
+`"content_type"`, and `"parsed_body"` for a request with a body. Any kind of
+function will do. What an async generator or a generator yields is the
+response; what a coroutine or a plain function returns is produced as though
+it had been published there, so a dict is JSON at `.json`. Either way it is
+the URL's type.
 
 ```python
-async def greet(thing, state):
+async def greet(state):
     yield "Hello, world!"
 
 
@@ -100,6 +102,9 @@ It is called for `GET` and for `POST`, with the body. It is a leaf: nothing is
 below it, and it has no slash. `PUT` and `DELETE` at its name are its
 parent's to answer -- a plain dict would replace or remove the function -- so
 publish it in a `MappingProxyType`, which refuses both.
+
+A method -- bound, built in, or a wrapper such as `"abc".__str__` -- is not a
+function to call for a request, and is not found.
 
 ## Guards
 

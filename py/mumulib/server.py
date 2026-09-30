@@ -1,14 +1,13 @@
 import asyncio
 import json
 import traceback
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 from urllib import parse
 
 from mumulib.consumers import consume, is_container
 from mumulib.mumutypes import (
     ASGIApp,
-    Producer,
     Receive,
     Scope,
     Send,
@@ -390,10 +389,13 @@ def consumers_app(root: Any) -> ASGIApp:
     return app
 
 
-def EventSource(output_queue: asyncio.Queue[Any]) -> Producer:
-    async def handle_eventsource(
-        _: object, state: State
-    ) -> AsyncIterator[SpecialResponse]:
+def EventSource(
+    output_queue: asyncio.Queue[Any],
+) -> Callable[[State], AsyncIterator[SpecialResponse]]:
+    """A function to publish: its URL streams output_queue as server-sent
+    events, one for each item put on it, until the client goes."""
+
+    async def handle_eventsource(state: State) -> AsyncIterator[SpecialResponse]:
         async def writer(send: Send, receive: Receive) -> None:
             while True:
                 # Create tasks for the ASGI receive and the queue. ASGI only

@@ -1710,24 +1710,23 @@ class TestUrlNamesTheType(unittest.TestCase):
 
 
 class TestFunctionsInTheTree(unittest.TestCase):
-    """A function a URL ends at is its own producer, called as f(f, state)."""
+    """A function a URL ends at is its own producer, called as f(state)."""
 
     def setUp(self):
         self.calls = []
 
-        async def f(thing, state):
-            self.calls.append((thing, dict(state)))
+        async def f(state):
+            self.calls.append(dict(state))
             yield "one,"
             yield "two"
 
         self.f = f
 
-    def test_it_is_called_with_itself_and_the_request(self):
+    def test_it_is_called_with_the_request(self):
         status, headers, body = asyncio.run(get({"f": self.f}, "/f.txt"))
         self.assertEqual((status, body.strip()), (200, b"one,two"))
         self.assertEqual(headers[b"content-type"], b"text/plain; charset=UTF-8")
-        [(thing, state)] = self.calls
-        self.assertIs(thing, self.f)
+        [state] = self.calls
         self.assertEqual(
             (state["method"], state["url"], state["extension"]),
             ("GET", "/f.txt", "txt"),
@@ -1754,13 +1753,21 @@ class TestFunctionsInTheTree(unittest.TestCase):
             return sent[0]["status"]
 
         self.assertEqual(asyncio.run(post()), 200)
-        self.assertEqual(self.calls[0][1]["parsed_body"], {"n": 1})
+        self.assertEqual(self.calls[0]["parsed_body"], {"n": 1})
 
     def test_it_is_a_leaf(self):
         for path in ("/f/", "/f/more.txt"):
             with self.subTest(path=path):
                 self.assertEqual(asyncio.run(get({"f": self.f}, path))[0], 404)
         self.assertEqual(self.calls, [])
+
+    def test_a_method_is_not_found(self):
+        root = {"upper": "abc".upper, "str": "abc".__str__}
+        for path in ("/upper.txt", "/str.txt"):
+            with self.subTest(path=path):
+                status, _, body = asyncio.run(get(root, path))
+                self.assertEqual(status, 404)
+                self.assertNotIn(b"built-in", body)
 
     def test_its_parent_answers_put_and_delete_for_it(self):
         root = {"f": self.f}

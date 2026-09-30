@@ -192,58 +192,68 @@ class TestProduceWithAdapters(unittest.TestCase):
 
 
 class TestProduceWithFunctions(unittest.TestCase):
-    """Test produce function with function objects"""
+    """A function is called with the request, whatever kind it is."""
 
-    async def async_test_function_producer(self):
-        """Test that function objects are called as producers"""
+    def produced(self, thing, state=None):
+        state = {"accept": ["text/plain", "*/*"]} if state is None else state
 
-        # Create a function that acts as a producer
-        async def my_function(func, state):
-            yield "function-output-1"
-            yield "function-output-2"
+        async def collect():
+            return [chunk async for chunk in produce(thing, state)]
 
-        # State with accept headers that won't match any adapter
-        state = {"accept": ["text/plain"]}
+        return asyncio.run(collect())
 
-        # Call produce with the function
-        chunks = []
-        async for chunk in produce(my_function, state):
-            chunks.append(chunk)
+    def test_it_is_called_with_the_request_alone(self):
+        received = []
 
-        # Verify function was called and produced output
-        self.assertEqual(chunks, ["function-output-1", "function-output-2"])
-
-    def test_function_producer(self):
-        """Wrapper to run async test"""
-        asyncio.run(self.async_test_function_producer())
-
-    async def async_test_function_receives_itself(self):
-        """Test that function producer receives itself as first argument"""
-        # Track what arguments the function receives
-        received_args = []
-
-        async def tracking_function(func, state):
-            received_args.append(("func", func))
-            received_args.append(("state", state))
+        async def f(state):
+            received.append(state)
             yield "output"
 
-        state = {"accept": ["text/plain"]}
+        state = {"accept": ["text/plain", "*/*"]}
+        self.assertEqual(self.produced(f, state), ["output"])
+        self.assertEqual(received, [state])
 
-        # Call produce
-        chunks = []
-        async for chunk in produce(tracking_function, state):
-            chunks.append(chunk)
+    def test_every_kind_of_function_answers(self):
+        async def async_generator(state):
+            yield "one,"
+            yield "two"
 
-        # Verify function received itself as first argument
-        self.assertEqual(len(received_args), 2)
-        self.assertEqual(received_args[0][0], "func")
-        self.assertEqual(received_args[0][1], tracking_function)
-        self.assertEqual(received_args[1][0], "state")
-        self.assertEqual(received_args[1][1], state)
+        async def coroutine(state):
+            return "from a coroutine"
 
-    def test_function_receives_itself(self):
-        """Wrapper to run async test"""
-        asyncio.run(self.async_test_function_receives_itself())
+        def generator(state):
+            yield "a,"
+            yield "b"
+
+        def plain(state):
+            return "from a function"
+
+        for function, expected in [
+            (async_generator, ["one,", "two"]),
+            (coroutine, ["from a coroutine"]),
+            (generator, ["a,", "b"]),
+            (plain, ["from a function"]),
+            (lambda state: "from a lambda", ["from a lambda"]),
+        ]:
+            with self.subTest(function=function.__name__):
+                self.assertEqual(self.produced(function), expected)
+
+    def test_what_it_returns_is_produced_as_if_published(self):
+        def data(state):
+            return {"a": 1}
+
+        state = {"accept": ["application/json", "*/*"]}
+        self.assertEqual(self.produced(data, state), ['{"a": 1}'])
+
+    def test_a_method_is_not_found(self):
+        class Thing:
+            def method(self):
+                return "never called"
+
+        for method in (Thing().method, "abc".upper, "abc".__str__):
+            with self.subTest(method=method):
+                with self.assertRaises(mumutypes.NotFoundResponse):
+                    self.produced(method)
 
 
 class TestProduceJson(unittest.TestCase):
