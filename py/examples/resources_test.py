@@ -79,12 +79,14 @@ class TestResources(unittest.TestCase):
         self.assertIn(b'href="/todos/items/1.html"', body)
         self.assertIn(b"Test it", body)
         self.assertNotIn(b"An item", body)
-        self.assertNotIn(b"(done)", body)
 
-    def test_a_done_item_is_marked_on_the_page(self):
+    def test_each_item_has_a_checkbox_for_its_own_url(self):
         self.request("/todos/items/1.json", "PUT", {"done": True})
         _, _, body = self.request("/todos.html")
-        self.assertEqual(body.count(b"(done)"), 1)
+        self.assertIn(b'data-url="/todos/items/0.json" data-done="false"', body)
+        self.assertIn(b'data-url="/todos/items/1.json" data-done="true"', body)
+        # And the page's script to PUT what it is set to
+        self.assertIn(b'method: "PUT"', body)
 
     def test_the_template_is_filled_afresh_each_time(self):
         self.request("/todos.html")

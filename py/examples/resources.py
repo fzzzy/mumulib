@@ -12,7 +12,8 @@ produced as though it had been published there, of the URL's type.
     GET    /                                  the page: a form, and the list
     GET    /about.txt                         About's template, as text
     GET    /todos.json                        [{"text": ..., "done": ..., "url": ...}]
-    GET    /todos.html                        the list's page, from a template
+    GET    /todos.html                        the list's page, from a template,
+                                              with a checkbox that PUTs each item
     POST   /todos.json  {"text": "Milk"}      {"url": "/todos/items/2.json"}
     POST   /todos.html  text=Milk             the list's page  (the form at /)
     GET    /todos/items/0.json                {"text": ..., "done": ...}
@@ -51,6 +52,11 @@ and <a href="/todos/items/">each item</a>.</p>
 # and its slots, data-slot for content and data-attr for attributes, filled
 # on the copy. The <ul> is the page's slot, filled with the copies, which
 # takes the place of the pattern that was there.
+#
+# Each item's checkbox PUTs {"done": ...} to the item's own URL, and is put
+# back if that fails. A slot can set an attribute but not leave one out, and
+# checked is on whenever it is there at all, so the box gets its state from
+# data-done instead.
 LIST_PAGE = parse_template(
     BytesIO(
         b"""<!doctype html>
@@ -60,11 +66,24 @@ LIST_PAGE = parse_template(
 <h1>To do</h1>
 <ul data-slot="items">
   <li data-pat="item">
+    <input type="checkbox" data-attr="data-url=json_url,data-done=done" />
     <a data-slot="text" data-attr="href=url">An item</a>
-    <span data-slot="mark"> (done)</span>
   </li>
 </ul>
 <p><a href="/">Add another</a></p>
+<script>
+for (const box of document.querySelectorAll("input[data-url]")) {
+  box.checked = box.dataset.done === "true";
+  box.addEventListener("change", async () => {
+    const response = await fetch(box.dataset.url, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ done: box.checked }),
+    });
+    if (!response.ok) box.checked = !box.checked;
+  });
+}
+</script>
 </body>
 </html>
 """
@@ -131,7 +150,8 @@ class Todos(Resource):
                 # visitor's, so escaped here
                 text=html.escape(todo.text),
                 url=f"{base}/items/{i}.html",
-                mark=" (done)" if todo.done else "",
+                json_url=f"{base}/items/{i}.json",
+                done="true" if todo.done else "false",
             )
             for i, todo in enumerate(self.child_items)
         ]
