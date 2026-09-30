@@ -30,16 +30,20 @@ working; anything else in a module is its own.
 into it, through dicts by key and lists and tuples by index, and its
 extension alone decides what comes back.
 
-- `/todos.json` is `root["todos"]` as JSON, and `/todos.html` the same object
-  as HTML. The extension is the type, not part of the key. `.txt` is plain
-  text, `.sse` server-sent events, and any other extension is the type
-  `mimetypes` gives it.
-- A URL without an extension is 404, and so is one whose extension has no
-  type -- except one ending in a slash, which is its index as HTML: `/` is
-  `/index.html`, and `/todos/` is `/todos/index.html`.
-- `index`, last in a path, is the container's `"index"` entry if it has one,
-  and else the container itself: `/todos/index.json` is the todos. `PUT` and
-  `DELETE` there act on the `"index"` entry.
+- `/motto.json` is `root["motto"]` as JSON, and `/motto.txt` the same value as
+  text. The extension is the type, not part of the key. `.txt` is plain text,
+  `.sse` server-sent events, and any other extension is the type `mimetypes`
+  gives it. A URL without an extension is 404, and so is one whose extension
+  has no type.
+- A container -- a dict, list, tuple or directory -- has one URL per type, its
+  index: `/todos/` as HTML, which is for people in browsers, and
+  `/todos/index.json`, or `index.<ext>`, as anything else. It is never named
+  as a file: `/todos.json` is 404, and so is `/todos/index.html` spelled out.
+  `/` is the root's.
+- The index is the container's `"index"` entry if it has one, and else the
+  container itself -- so a dict with an `"index"` entry is reached through
+  its entries alone. `PUT` and `DELETE` at `index.<ext>` act on the `"index"`
+  entry.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
   multipart), never what the response is; no response varies by request
   headers.
@@ -66,9 +70,9 @@ extension to be served.
 `index` is the directory's `index.<extension>`, if it has one, and else the
 directory itself -- which, as HTML or JSON, lists what is in it: `/static/` is
 a `<ul>` of links, each named for its file, and `/static/index.json` is
-`{name: URL}`, a subdirectory's URL its own listing in JSON. `/static.html`
-and `/static.json` are the directory itself too. Only what could be fetched is
-listed, and `RefuseIndex` is how to have no listing (see Guards).
+`{name: URL}`, a subdirectory's URL its own listing in JSON. Its own
+`index.html` is served at `/static/`, and only there. Only what could be
+fetched is listed, and `RefuseIndex` is how to have no listing (see Guards).
 
 Only what is in the directory is found: `..`, hidden names such as `.git` and
 `.env`, and symlinks that lead outside are not. A directory is never written;
@@ -104,9 +108,9 @@ none:
 app = consumers_app({"static": RefuseIndex(Path("static"))})
 ```
 
-A request whose last segment is `index` is not found, at any depth below it,
-and neither is the object asked for itself (`/static.html`), which is its
-index by another name. Its files are served as before. The two guards nest:
+A request for an index -- a URL ending in a slash, or in `index.<ext>` -- is
+not found, at any depth below it, and a container has no other URL. Its files
+are served as before. The two guards nest:
 `GetOnly(RefuseIndex(root))`.
 
 A tuple, or a `types.MappingProxyType` -- the read-only view of a dict --

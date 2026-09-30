@@ -221,7 +221,7 @@ class TestConsumersAppRouting(unittest.TestCase):
 
     async def async_test_request_content_type_does_not_choose_the_response(self):
         """A JSON request body is parsed, but the URL alone sets the reply's type"""
-        root = {"data": {"result": "success"}}
+        root = {"data": "success"}
         app = consumers_app(root)
 
         json_body = json.dumps({"key": "value"})
@@ -1556,14 +1556,40 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(status, 404)
 
     def test_the_extension_is_the_representation_not_the_key(self):
-        root = {"todos": ["write it"]}
-        status, headers, body = asyncio.run(get(root, "/todos.json"))
+        root = {"motto": "write it"}
+        status, headers, body = asyncio.run(get(root, "/motto.json"))
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")
-        self.assertEqual(json.loads(body), ["write it"])
-        status, headers, _ = asyncio.run(get(root, "/todos.html"))
+        self.assertEqual(json.loads(body), "write it")
+        status, headers, _ = asyncio.run(get(root, "/motto.html"))
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+
+    def test_a_container_is_named_by_its_index_and_nothing_else(self):
+        root = {"todos": ["write it"]}
+        # Its HTML is its slash, for people in browsers
+        status, headers, _ = asyncio.run(get(root, "/todos/"))
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+        # Any other type is index.<ext>
+        status, _, body = asyncio.run(get(root, "/todos/index.json"))
+        self.assertEqual((status, json.loads(body)), (200, ["write it"]))
+        # And nothing else: not as a file, and not index.html spelled out
+        for path in (
+            "/todos.json",
+            "/todos.html",
+            "/todos/index.html",
+            "/todos/index.htm",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(asyncio.run(get(root, path))[0], 404)
+
+    def test_the_root_is_the_same(self):
+        root = {"index": "<p>home</p>"}
+        self.assertEqual(asyncio.run(get(root, "/"))[0], 200)
+        self.assertEqual(asyncio.run(get(root, "/index.html"))[0], 404)
+        _, _, body = asyncio.run(get(root, "/index.json"))
+        self.assertEqual(json.loads(body), "<p>home</p>")
 
     def test_the_site_root_is_index_html(self):
         status, headers, body = asyncio.run(get({"index": "<p>home</p>"}, "/"))

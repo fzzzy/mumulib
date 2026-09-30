@@ -126,14 +126,10 @@ add_producer(BufferedReader, produce_file)
 def _directory_url(url: str) -> str:
     """The URL of the directory a request named, ending in a slash.
 
-    /static/, /static/index.html and /static.html all name static, whose
+    A directory is named by its index: /static/, or /static/index.json. Its
     entries are /static/<name>.
     """
-    if url.endswith("/"):
-        return url
-    head, _, last = url.rpartition("/")
-    stem = last.rpartition(".")[0]
-    return f"{head}/" if stem == "index" else f"{head}/{stem}/"
+    return url if url.endswith("/") else url.rpartition("/")[0] + "/"
 
 
 def _listing(directory: Path) -> list[tuple[str, bool]]:

@@ -33,7 +33,6 @@ from typing import Any
 from mumulib.mumutypes import (
     Chunk,
     Consumer,
-    NotFoundResponse,
     Send,
     SpecialResponse,
     State,
@@ -459,7 +458,8 @@ async def _consume_directory(
     back on here, as part of the file's name, so /static/app.min.js is
     static/app.min.js. index is index.<extension>, if there is one, and else
     the directory itself -- which, as HTML or JSON, is a listing of what is in
-    it. RefuseIndex is how to have no listing.
+    it. RefuseIndex is how to have no listing. index.html, spelled out, is
+    never a name here: /static/ is.
 
     What is served stays inside the directory: .. and hidden names, like .git
     or .env, are not found, and neither is a symlink that leads outside. And a
@@ -492,8 +492,7 @@ class RefuseIndex:
     A container's index -- its "index" entry, or itself: a dict as JSON, a
     directory's listing -- is served by default. Wrapped in RefuseIndex, a
     request whose last segment is index is not found at any depth below it,
-    and neither is the object asked for itself (/static.html, above), which
-    is its index by another name. Everything else is handed on.
+    and a container has no other URL. Everything else is handed on.
 
         consumers_app({"static": RefuseIndex(Path("static"))})
     """
@@ -513,9 +512,23 @@ async def _consume_refuse_index(
 async def _produce_refuse_index(
     thing: RefuseIndex, state: State
 ) -> AsyncIterator[Chunk]:
-    # Asked for itself: its index by another name
-    raise NotFoundResponse()
-    yield ""  # pragma: no cover -- an async generator, which raises first
+    # Asked for itself, as a leaf: what it wraps
+    async for chunk in produce(thing.wrapped, state):
+        yield chunk
+
+
+def is_container(thing: object) -> bool:
+    """Whether a thing has entries a URL walks into, and so an index.
+
+    A container is reached only by its index -- /todos/ as HTML, and
+    /todos/index.<ext> as anything else -- and never named as though it were
+    a file: /todos.json is not the todos, so that each has one URL per type.
+    """
+    if isinstance(thing, (GetOnly, RefuseIndex)):
+        return is_container(thing.wrapped)
+    if isinstance(thing, Path):
+        return thing.is_dir()
+    return isinstance(thing, (dict, list, tuple, MappingProxyType))
 
 
 add_consumer(RefuseIndex, _consume_refuse_index)

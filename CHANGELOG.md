@@ -13,17 +13,19 @@ Python package). Breaking changes come first under each release.
   Python's `mimetypes` knows. The request's own `Content-Type` still decides how
   its body is parsed, but it no longer changes what comes back, so no response
   depends on request headers and none needs `Vary`.
-  - The extension names a representation, not a key: `/todos.json` and
-    `/todos.html` are both `root["todos"]`. Keys no longer carry extensions.
-  - A URL without an extension is 404, and so is an extension with no type,
-    except that a URL ending in a slash is its index as HTML: `/` is
-    `/index.html`, and `/todos/` is `/todos/index.html`.
+  - The extension names a representation, not a key: `/motto.json` and
+    `/motto.txt` are both `root["motto"]`. Keys no longer carry extensions. A
+    URL without an extension is 404, and so is an extension with no type.
+  - A container -- a dict, list, tuple or directory -- has one URL per type,
+    its index: `/todos/` as HTML, for browsers, and `/todos/index.<ext>` as
+    any other type. It is never named as a file (`/todos.json` is 404), and
+    `index.html` spelled out is never a name (`/todos/` is). `/` is the root's.
   - `index` is the one name for a container's own URL, where the empty key
-    used to be. As the last segment it reads the container's `"index"` entry
-    if there is one, and else the container itself: `/todos/index.json` is
-    the todos. `PUT` and `DELETE` there act on the `"index"` entry, so what is
-    put is what is read back; they used to write a `""` key nothing could
-    read. Anywhere else in a path, `index` is a key like any other.
+    used to be. It reads the container's `"index"` entry if there is one, and
+    else the container itself. `PUT` and `DELETE` there act on the `"index"`
+    entry, so what is put is what is read back; they used to write a `""` key
+    nothing could read. Anywhere else in a path, `index` is a key like any
+    other.
   - A producer that starts the response itself, such as a file or an
     `EventSource`, gets the URL's type in place of its own.
 - **Each Python module declares its public API in `__all__`,** and only
@@ -71,7 +73,8 @@ Python package). Breaking changes come first under each release.
   its own, lists it -- as HTML, a `<ul>` of links named for their files; as
   JSON, `{name: URL}`. Only what could be fetched is listed.
 - **`consumers.RefuseIndex(obj)`**: a guard under which an index is not found
-  at any depth, nor the object asked for itself; everything else is served.
+  at any depth, and a container has no other URL; everything else is
+  served.
 - **Python examples**, in `py/examples`, run with `make server`
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in

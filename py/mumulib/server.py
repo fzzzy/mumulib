@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 from urllib import parse
 
-from mumulib.consumers import consume
+from mumulib.consumers import consume, is_container
 from mumulib.mumutypes import (
     ASGIApp,
     Producer,
@@ -179,14 +179,15 @@ async def parse_multipart(
 def split_path(path: str) -> tuple[list[str], str] | None:
     """The segments to traverse, and the extension that names the type.
 
-    The extension comes off the last segment: /todos.json and /todos.html are
-    both root["todos"]. A path ending in a slash is its index, as HTML: / is
-    /index.html, and /todos/ is /todos/index.html. What index names is the
-    consumers' to say -- the container's "index" entry, or the container. Any
+    The extension comes off the last segment: /hello.json and /hello.txt are
+    both root["hello"]. A path ending in a slash is its container's index as
+    HTML -- /, or /todos/ -- which is for people, in browsers; any other type
+    is spelled out, as /todos/index.json. What index names is the consumers'
+    to say -- the container's "index" entry, or the container itself. Any
     other path without an extension is None.
     """
     if path.endswith("/"):
-        path += "index.html"
+        return [*path.split("/")[1:-1], "index"], "html"
     segments = path.split("/")[1:]
     key, dot, extension = segments[-1].rpartition(".")
     if not dot or not key or not extension:
@@ -230,6 +231,17 @@ def consumers_app(root: Any) -> ASGIApp:
             )
             return
         segments, extension = parsed
+        # One URL per type: a container's HTML is its slash alone, so
+        # index.html -- or index.htm -- spelled out is no name for it
+        explicit_index = segments[-1] == "index" and not scope["path"].endswith("/")
+        if explicit_index and content_type.startswith("text/html"):
+            await send_error_response(
+                send,
+                404,
+                "Not Found",
+                f"A container's HTML is at its slash, not {scope['path']}",
+            )
+            return
         state["extension"] = extension
         state["content_type"] = content_type
         state["accept"] = [content_type.split(";")[0], "*/*"]
@@ -260,6 +272,10 @@ def consumers_app(root: Any) -> ASGIApp:
             traceback.print_exc()
             await send_error_response(send, 500, "Internal Server Error", str(exc))
             return
+        # A container is named by its index, never as a file: /todos.json is
+        # not the todos, /todos/index.json is
+        if result is not None and segments[-1] != "index" and is_container(result):
+            result = None
         if result is None:
             await send_error_response(
                 send, 404, "Not Found", f"Resource not found: {scope['path']}"

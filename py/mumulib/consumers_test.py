@@ -197,7 +197,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 201)
 
         # Verify GET /list after PUT /list/1
-        response = await request(ASGI_APP, "GET", "/list.json", None)
+        response = await request(ASGI_APP, "GET", "/list/index.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], ["this", "modified", "a", "list"])
 
@@ -224,7 +224,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["headers"]["location"], "/list/4.json")
 
         # Verify GET /list after PUT /list/last
-        response = await request(ASGI_APP, "GET", "/list.json", None)
+        response = await request(ASGI_APP, "GET", "/list/index.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(
             response["body"], ["this", "modified", "a", "list", "appended"]
@@ -235,7 +235,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 200)
 
         # Verify GET /list after DELETE /list/1
-        response = await request(ASGI_APP, "GET", "/list.json", None)
+        response = await request(ASGI_APP, "GET", "/list/index.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], ["this", "a", "list", "appended"])
 
@@ -261,7 +261,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
     async def test_immutable(self):
         # Test GET /immutable
-        response = await request(ASGI_APP, "GET", "/immutable.json", None)
+        response = await request(ASGI_APP, "GET", "/immutable/index.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], {"cannot": "touch this"})
 
@@ -275,20 +275,17 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["status"], 405)
 
         # Verify GET /immutable after PUT and DELETE
-        response = await request(ASGI_APP, "GET", "/immutable.json", None)
+        response = await request(ASGI_APP, "GET", "/immutable/index.json", None)
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["body"], {"cannot": "touch this"})
 
     async def test_immutable_with_index(self):
-        # Test GET /immutable_with_index - should return the whole dict
+        # A container is never named as a file; and with an "index" entry,
+        # its index is that entry, so the dict as a whole has no URL
         response = await request(ASGI_APP, "GET", "/immutable_with_index.json", None)
-        self.assertEqual(response["status"], 200)
-        self.assertEqual(
-            response["body"], {"index": "index_value", "other": "other_value"}
-        )
+        self.assertEqual(response["status"], 404)
 
-        # Test GET /immutable_with_index/ (with trailing slash) - should return
-        # the "index" value
+        # Its index is the "index" entry
         response = await request(
             ASGI_APP, "GET", "/immutable_with_index/index.json", None
         )
@@ -416,10 +413,14 @@ class TestGetOnly(unittest.TestCase):
             data, {"index": "home", "notes": {"a": "first"}, "items": [1, 2]}
         )
 
-    def test_a_guarded_entry_asked_for_itself_is_what_it_wraps(self):
-        root = {"about": GetOnly({"name": "mumulib"})}
-        status, _, body = call(root, "GET", "/about.json")
+    def test_a_guarded_entry_is_what_it_wraps(self):
+        root = {"about": GetOnly({"name": "mumulib"}), "motto": GetOnly("mumu")}
+        status, _, body = call(root, "GET", "/about/index.json")
         self.assertEqual((status, json.loads(body)), (200, {"name": "mumulib"}))
+        status, _, body = call(root, "GET", "/motto.json")
+        self.assertEqual((status, json.loads(body)), (200, "mumu"))
+        # A guarded container is still a container: its index is its name
+        self.assertEqual(call(root, "GET", "/about.json")[0], 404)
         status, _, _ = call(root, "PUT", "/about/name.json", "changed")
         self.assertEqual(status, 405)
 
@@ -510,14 +511,19 @@ class TestDirectory(DirectorySite):
             "style.css": "/static/style.css",
             "sub": "/static/sub/index.json",
         }
-        for path in ("/static/index.json", "/static.json"):
+        status, headers, body = call(self.root, "GET", "/static/index.json")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")
+        self.assertEqual(json.loads(body), expected)
+
+    def test_a_directory_has_one_url_per_type(self):
+        # Its HTML is its slash; any other type is index.<ext>; nothing else
+        for path in ("/static.html", "/static.json", "/static/index.html"):
             with self.subTest(path=path):
-                status, headers, body = call(self.root, "GET", path)
-                self.assertEqual(status, 200)
-                self.assertEqual(
-                    headers[b"content-type"], b"application/json; charset=UTF-8"
-                )
-                self.assertEqual(json.loads(body), expected)
+                self.assertEqual(call(self.root, "GET", path)[0], 404)
+        # Its own index.html is served at its slash, and only there
+        self.assertEqual(call(self.root, "GET", "/static/sub/")[0], 200)
+        self.assertEqual(call(self.root, "GET", "/static/sub/index.html")[0], 404)
 
     def test_every_listed_url_is_served(self):
         _, _, body = call(self.root, "GET", "/static/index.json")
@@ -577,6 +583,11 @@ class TestRefuseIndex(DirectorySite):
     def test_everything_else_is_still_served(self):
         self.assertEqual(call(self.root, "GET", "/static/style.css")[0], 200)
         self.assertEqual(call(self.root, "GET", "/static/sub/note.txt")[0], 200)
+
+    def test_a_guarded_leaf_is_what_it_wraps(self):
+        root = {"motto": RefuseIndex("mumu")}
+        status, _, body = call(root, "GET", "/motto.json")
+        self.assertEqual((status, json.loads(body)), (200, "mumu"))
 
     def test_it_guards_a_dict_too(self):
         root = RefuseIndex({"index": "home", "a": 1})
