@@ -5,7 +5,13 @@ import unittest
 from types import MappingProxyType
 from urllib.parse import unquote
 
-from mumulib.consumers import GetOnly, RefuseIndex
+from mumulib.consumers import (
+    GetOnly,
+    RefuseIndex,
+    add_consumer,
+    consume,
+    is_container,
+)
 from mumulib.server import consumers_app
 
 
@@ -594,3 +600,87 @@ class TestRefuseIndex(DirectorySite):
         root = RefuseIndex({"index": "home", "a": 1})
         self.assertEqual(call(root, "GET", "/")[0], 404)
         self.assertEqual(call(root, "GET", "/a.json")[2], b"1\n")
+
+
+class TestRefuseIndexWrites(unittest.TestCase):
+    """Under RefuseIndex, no container is written whole; leaves still are."""
+
+    def setUp(self):
+        self.data = {"todos": ["a"], "sub": {"x": 1}, "leaf": "v"}
+        self.root = RefuseIndex(self.data)
+
+    def unchanged(self):
+        self.assertEqual(self.data, {"todos": ["a"], "sub": {"x": 1}, "leaf": "v"})
+
+    def test_a_container_is_not_replaced_or_removed(self):
+        for method, body in (("PUT", {"y": 2}), ("DELETE", None)):
+            with self.subTest(method=method):
+                self.assertEqual(call(self.root, method, "/sub.json", body)[0], 404)
+        self.unchanged()
+
+    def test_no_container_is_put_where_there_was_none(self):
+        self.assertEqual(call(self.root, "PUT", "/new.json", {})[0], 404)
+        self.assertEqual(call(self.root, "PUT", "/todos/last.json", ["b"])[0], 404)
+        self.unchanged()
+
+    def test_the_slash_is_not_written(self):
+        self.assertEqual(call(self.root, "PUT", "/", "page")[0], 404)
+        self.unchanged()
+
+    def test_leaves_are_still_written(self):
+        self.assertEqual(call(self.root, "PUT", "/todos/0.json", "b")[0], 201)
+        self.assertEqual(call(self.root, "PUT", "/leaf.json", "w")[0], 201)
+        self.assertEqual(call(self.root, "PUT", "/new.json", "fresh")[0], 201)
+        self.assertEqual(call(self.root, "DELETE", "/sub/x.json")[0], 200)
+        self.assertEqual(
+            self.data,
+            {"todos": ["b"], "sub": {}, "leaf": "w", "new": "fresh"},
+        )
+
+
+class Shelf:
+    """A container of its own kind, for the tests of the container flag."""
+
+    def __init__(self, **books):
+        self.books = books
+
+
+class Leaflet:
+    """A type with a consumer, registered as no container."""
+
+
+async def consume_shelf(parent, segments, state, send):
+    if segments[0] in parent.books:
+        return await consume(parent.books[segments[0]], segments[1:], state, send)
+    return None
+
+
+async def consume_leaflet(parent, segments, state, send):
+    return None
+
+
+add_consumer(Shelf, consume_shelf, container=True)
+add_consumer(Leaflet, consume_leaflet)
+
+
+class TestContainerFlag(unittest.TestCase):
+    """add_consumer says which types are containers, and all of mumulib asks."""
+
+    def test_is_container_asks_the_registration(self):
+        self.assertTrue(is_container(Shelf()))
+        self.assertFalse(is_container(Leaflet()))
+        self.assertTrue(is_container(GetOnly(Shelf())))
+        self.assertFalse(is_container(object()))
+
+    def test_a_registered_container_is_a_container_to_the_server(self):
+        root = {"shelf": Shelf(novel="text")}
+        # Walked into as any container is
+        status, _, body = call(root, "GET", "/shelf/novel.json")
+        self.assertEqual((status, json.loads(body)), (200, "text"))
+        # Its HTML is its slash alone
+        self.assertEqual(call(root, "GET", "/shelf.html")[0], 404)
+
+    def test_refuse_index_hides_a_registered_container(self):
+        root = RefuseIndex({"shelf": Shelf(novel="text")})
+        self.assertEqual(call(root, "GET", "/shelf.json")[0], 404)
+        self.assertEqual(call(root, "GET", "/shelf/novel.json")[0], 200)

@@ -25,7 +25,7 @@ THE SOFTWARE.
 """
 
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -109,15 +109,29 @@ def validate_list_index(index_str: str) -> int:
     return index
 
 
-def add_consumer(adapter_for_type: type[Any], conv: Consumer) -> None:
+# Which types are containers -- True, False, or a question to ask of the
+# thing, for a type only some of whose things are
+_containers: dict[type[Any], bool | Callable[[Any], bool]] = {}
+
+
+def add_consumer(
+    adapter_for_type: type[Any],
+    conv: Consumer,
+    container: bool | Callable[[Any], bool] = False,
+) -> None:
     """Register a consumer function for a specific data type.
 
     Args:
         adapter_for_type (type): The type of data structure this consumer can handle.
         conv (coroutine): An async function with signature
             (parent, segments, state, send) that returns the resolved object or None.
+        container: Whether things of this type are containers -- with entries
+            a URL walks into, reached as a whole at their slash as HTML and at
+            their name as data, and hidden whole by RefuseIndex. True, False,
+            or a function asked of each thing: a Path is one if a directory.
     """
     _consumer_adapters[adapter_for_type] = conv
+    _containers[adapter_for_type] = container
 
 
 async def consume(
@@ -190,7 +204,7 @@ async def consume_tuple(
     return await consume(child, segments[1:], state, send)
 
 
-add_consumer(tuple, consume_tuple)
+add_consumer(tuple, consume_tuple, container=True)
 
 
 async def consume_list(
@@ -289,7 +303,7 @@ async def consume_list(
     return await consume_tuple(tuple(parent), segments, state, send)
 
 
-add_consumer(list, consume_list)
+add_consumer(list, consume_list, container=True)
 
 
 async def _consume_immutabledict(
@@ -334,7 +348,7 @@ async def _consume_immutabledict(
     return await consume(child, segments[1:], state, send)
 
 
-add_consumer(MappingProxyType, _consume_immutabledict)
+add_consumer(MappingProxyType, _consume_immutabledict, container=True)
 
 
 async def consume_dict(
@@ -395,7 +409,7 @@ async def consume_dict(
     return await _consume_immutabledict(MappingProxyType(parent), segments, state, send)
 
 
-add_consumer(dict, consume_dict)
+add_consumer(dict, consume_dict, container=True)
 
 
 class GetOnly:
@@ -446,7 +460,7 @@ async def _produce_get_only(thing: GetOnly, state: State) -> AsyncIterator[Chunk
         yield chunk
 
 
-add_consumer(GetOnly, _consume_get_only)
+add_consumer(GetOnly, _consume_get_only, container=lambda g: is_container(g.wrapped))
 add_producer(GetOnly, _produce_get_only)
 
 
@@ -489,7 +503,7 @@ async def _consume_directory(
 
 
 # As for the producer: the platform's own Path class, by exact type
-add_consumer(type(Path()), _consume_directory)
+add_consumer(type(Path()), _consume_directory, container=Path.is_dir)
 
 
 class RefuseIndex:
@@ -498,8 +512,10 @@ class RefuseIndex:
     A container is served whole by default: at its slash, its "index" entry
     or itself, and by the name for data, itself -- a dict as JSON, a
     directory's listing. Wrapped in RefuseIndex, neither is found at any
-    depth below it, nor the object itself: only what is not a container comes
-    out, which for a directory is its files.
+    depth below it, nor the object itself, and no container is written whole
+    there either -- replaced, removed, or put where there was none. Only what
+    is not a container comes out, which for a directory is its files; its
+    entries can still be written.
 
         consumers_app({"static": RefuseIndex(Path("static"))})
     """
@@ -513,6 +529,18 @@ async def _consume_refuse_index(
 ) -> Any:
     if segments[-1] == "index":
         return None
+    method = state.get("method", "GET").upper()
+    if method != "GET":
+        # A write happens during the walk, in the parent's consumer, so what
+        # it lands on is found first by walking to it as a read. Nothing below
+        # handles a container whole: not replacing or removing one, and not
+        # putting one where there was none.
+        target = await consume(
+            parent.wrapped, segments, {**state, "method": "GET"}, send
+        )
+        putting_one = method == "PUT" and is_container(state.get("parsed_body"))
+        if is_container(target) or putting_one:
+            return None
     found = await consume(parent.wrapped, segments, state, send)
     # A container below it, whole -- a directory's listing, a dict's JSON --
     # is its index too, by the name for data
@@ -532,16 +560,17 @@ async def _produce_refuse_index(
 def is_container(thing: object) -> bool:
     """Whether a thing has entries a URL walks into, and so an index.
 
-    A container has one URL per type: its slash, /todos/, as HTML, and its
-    name, /todos.json, as anything else -- never /todos.html, and never
-    index.<ext> spelled out.
+    As its type was registered with add_consumer. A container has one URL
+    per type: its slash, /todos/, as HTML, and its name, /todos.json, as
+    anything else -- never /todos.html, and never index.<ext> spelled out.
     """
-    if isinstance(thing, (GetOnly, RefuseIndex)):
-        return is_container(thing.wrapped)
-    if isinstance(thing, Path):
-        return thing.is_dir()
-    return isinstance(thing, (dict, list, tuple, MappingProxyType))
+    answer = _containers.get(type(thing), False)
+    return answer(thing) if callable(answer) else answer
 
 
-add_consumer(RefuseIndex, _consume_refuse_index)
+add_consumer(
+    RefuseIndex,
+    _consume_refuse_index,
+    container=lambda r: is_container(r.wrapped),
+)
 add_producer(RefuseIndex, _produce_refuse_index)

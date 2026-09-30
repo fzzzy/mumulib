@@ -72,8 +72,13 @@ Python package). Breaking changes come first under each release.
 - **Directory listings**: a directory's slash, if it has no `index.html` of
   its own, is a `<ul>` of links named for its files, and its name as JSON is
   `{name: URL}`. Only what could be fetched is listed.
-- **`consumers.RefuseIndex(obj)`**: a guard under which an index is not found
-  at any depth, nor any container reached through it; only leaves come out.
+- **`consumers.RefuseIndex(obj)`**: a guard under which no container is
+  handled whole, by any verb: no slash is found, no container is read,
+  replaced or removed, and none is put where there was none. Only leaves come
+  out or go in.
+- **`add_consumer(type, consumer, container=...)`**: says whether a type's
+  things are containers -- `True`, or a function of the thing -- which is
+  what the one-URL-per-type rule and `RefuseIndex` go by.
 - **Python examples**, in `py/examples`, run with `make server`
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in

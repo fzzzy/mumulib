@@ -13,7 +13,8 @@ working; anything else in a module is its own.
 
 - `mumulib.server`: `consumers_app(root)`, to publish an object, and
   `EventSource(queue)`, to stream events from it.
-- `mumulib.consumers`: `consume`, `add_consumer` to walk into a new type, and
+- `mumulib.consumers`: `consume`, `add_consumer` to walk into a new type --
+  `container=True`, or a function of the thing, if it is a container -- and
   the guards `GetOnly`, to publish an object read-only, and `RefuseIndex`, to
   publish it with no index.
 - `mumulib.producers`: `produce`, and `add_producer` to render a new type.
@@ -109,9 +110,16 @@ app = consumers_app({"static": RefuseIndex(Path("static"))})
 ```
 
 No slash is found below it, and no container reached through it -- nor the
-wrapped object itself, if it is one. Only what is not a container comes out:
-a directory's files, a dict's leaves. The two guards nest:
+wrapped object itself, if it is one. Nor is a container written whole there:
+not replaced, not removed, and not put where there was none. Only what is not
+a container comes out, or goes in: a directory's files, a dict's leaves. The
+two guards nest:
 `GetOnly(RefuseIndex(root))`.
+
+What counts as a container is what was registered as one:
+`add_consumer(type, consumer, container=True)` for a type of your own, or a
+function of the thing for a type only some of whose things are, as a `Path` is
+one if it is a directory.
 
 A tuple, or a `types.MappingProxyType` -- the read-only view of a dict --
 cannot be changed either, and refuses `PUT` and `DELETE` with 405; `POST` to a
