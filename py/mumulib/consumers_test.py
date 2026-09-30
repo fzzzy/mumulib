@@ -1,8 +1,10 @@
 # pyright: standard
+import asyncio
 import json
 import unittest
 from types import MappingProxyType
 
+from mumulib.consumers import GetOnly
 from mumulib.server import consumers_app
 
 
@@ -353,3 +355,72 @@ class TestSecurityValidation(unittest.IsolatedAsyncioTestCase):
         # Test tuple access with extremely large index
         response = await request(ASGI_APP, "GET", f"/tuple/{2**62}.json", None)
         self.assertEqual(response["status"], 404)
+
+
+def call(root, method, path, body=None):
+    """The status, headers and body of one request to root, published."""
+    sent = []
+
+    async def send(message):
+        sent.append(message)
+
+    async def receive():
+        data = json.dumps(body).encode() if body is not None else b""
+        return {"type": "http.request", "body": data, "more_body": False}
+
+    headers = [(b"content-type", b"application/json")] if body is not None else []
+    scope = {"type": "http", "method": method, "path": path, "headers": headers}
+
+    async def go():
+        await consumers_app(root)({**scope, "state": {}}, receive, send)
+
+    asyncio.run(go())
+    content = b"".join(m.get("body", b"") for m in sent[1:])
+    return sent[0]["status"], dict(sent[0]["headers"]), content
+
+
+class TestGetOnly(unittest.TestCase):
+    """GetOnly hands GET on to what it wraps, and refuses anything else."""
+
+    def test_get_goes_through_at_any_depth(self):
+        root = GetOnly({"index": "home", "notes": {"a": "first"}})
+        status, _, body = call(root, "GET", "/index.json")
+        self.assertEqual((status, json.loads(body)), (200, "home"))
+        status, _, body = call(root, "GET", "/notes/a.json")
+        self.assertEqual((status, json.loads(body)), (200, "first"))
+
+    def test_anything_else_is_refused_at_any_depth_and_changes_nothing(self):
+        data = {"index": "home", "notes": {"a": "first"}, "items": [1, 2]}
+        root = GetOnly(data)
+        for method, path in [
+            ("PUT", "/index.json"),
+            ("DELETE", "/index.json"),
+            ("PUT", "/notes/a.json"),
+            ("DELETE", "/notes/a.json"),
+            ("PUT", "/items/last.json"),
+            ("POST", "/notes/a.json"),
+            ("HEAD", "/index.json"),
+        ]:
+            with self.subTest(method=method, path=path):
+                status, headers, body = call(root, method, path, "changed")
+                self.assertEqual((status, body), (405, b"Only GET\n"))
+                self.assertEqual(headers[b"allow"], b"GET")
+        self.assertEqual(
+            data, {"index": "home", "notes": {"a": "first"}, "items": [1, 2]}
+        )
+
+    def test_a_guarded_entry_asked_for_itself_is_what_it_wraps(self):
+        root = {"about": GetOnly({"name": "mumulib"})}
+        status, _, body = call(root, "GET", "/about.json")
+        self.assertEqual((status, json.loads(body)), (200, {"name": "mumulib"}))
+        status, _, _ = call(root, "PUT", "/about/name.json", "changed")
+        self.assertEqual(status, 405)
+
+    def test_it_guards_what_is_below_it_not_its_place_in_the_parent(self):
+        # The unguarded dict answers for its own entries, this one included
+        guarded = GetOnly({"name": "mumulib"})
+        root = {"about": guarded}
+        status, _, _ = call(root, "PUT", "/about.json", "replaced")
+        self.assertEqual(status, 201)
+        self.assertEqual(root, {"about": "replaced"})
+        self.assertEqual(guarded.wrapped, {"name": "mumulib"})

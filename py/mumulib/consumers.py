@@ -25,16 +25,20 @@ THE SOFTWARE.
 """
 
 import sys
+from collections.abc import AsyncIterator
 from types import MappingProxyType
 from typing import Any
 
-from mumulib.mumutypes import Consumer, Send, SpecialResponse, State
+from mumulib.mumutypes import Chunk, Consumer, Send, SpecialResponse, State
+from mumulib.producers import add_producer, produce
 
-# The public API: Walking into an object, and teaching it a new type of object
-# to walk into. The built-in consumers and their limits are the module's own.
+# The public API: Walking into an object, teaching it a new type of object to
+# walk into, and guarding one read-only. The built-in consumers and their
+# limits are the module's own.
 __all__ = [
     "consume",
     "add_consumer",
+    "GetOnly",
 ]
 
 _consumer_adapters: dict[type[Any], Consumer] = {}
@@ -383,3 +387,55 @@ async def consume_dict(
 
 
 add_consumer(dict, consume_dict)
+
+
+class GetOnly:
+    """An object published to be read, and nothing else.
+
+    consumers_app publishes for reading and writing alike, on purpose: PUT
+    writes an entry of a dict or a list, and DELETE removes one. Wrapped in
+    GetOnly, an object hands GET on to what it wraps and answers anything else
+    with 405 Method Not Allowed, at any depth below it:
+
+        consumers_app(GetOnly(root))              # the whole site, read-only
+        consumers_app({"notes": notes, "about": GetOnly(about)})
+
+    It guards what is reached through it, not its own place in a parent: PUT
+    /about.json above is the unguarded dict's to answer, and would replace
+    the entry. Guard the parent, or the root, to keep that too.
+    """
+
+    def __init__(self, wrapped: Any) -> None:
+        self.wrapped = wrapped
+
+
+# What GetOnly answers anything but GET with
+_ONLY_GET = SpecialResponse(
+    {
+        "type": "http.response.start",
+        "status": 405,
+        "headers": [
+            (b"allow", b"GET"),
+            (b"content-type", b"text/plain; charset=UTF-8"),
+        ],
+    },
+    b"Only GET\n",
+)
+
+
+async def _consume_get_only(
+    parent: GetOnly, segments: list[str], state: State, send: Send
+) -> Any:
+    if state.get("method", "GET").upper() != "GET":
+        return _ONLY_GET
+    return await consume(parent.wrapped, segments, state, send)
+
+
+async def _produce_get_only(thing: GetOnly, state: State) -> AsyncIterator[Chunk]:
+    # GetOnly asked for itself, as /about.json above: what it wraps
+    async for chunk in produce(thing.wrapped, state):
+        yield chunk
+
+
+add_consumer(GetOnly, _consume_get_only)
+add_producer(GetOnly, _produce_get_only)

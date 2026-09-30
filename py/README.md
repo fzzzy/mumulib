@@ -11,10 +11,10 @@ and `tags`. Runtime dependencies are aiofiles and lxml.
 Each module's `__all__` is its public API, and what mumulib promises to keep
 working; anything else in a module is its own.
 
-- `mumulib.server`: `consumers_app(root)`, to publish an object,
-  `get_only(app)`, to publish it read-only, and `EventSource(queue)`, to
-  stream events from it.
-- `mumulib.consumers`: `consume`, and `add_consumer` to walk into a new type.
+- `mumulib.server`: `consumers_app(root)`, to publish an object, and
+  `EventSource(queue)`, to stream events from it.
+- `mumulib.consumers`: `consume`, `add_consumer` to walk into a new type, and
+  `GetOnly` to publish an object read-only.
 - `mumulib.producers`: `produce`, and `add_producer` to render a new type.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
   `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
@@ -49,7 +49,7 @@ extension alone decides what comes back.
 `make server` at the repository root runs one (`SERVER=<name>`, default
 `hello`) on port 8001. The smallest, `hello.py`, publishes
 `{"index": "Hello, world!"}`: `/`, `/index.txt` and `/index.json` are the one
-string as HTML, text and JSON, and it is read-only behind `get_only` (see
+string as HTML, text and JSON, and it is wrapped in `GetOnly`, read-only (see
 Guards).
 
 ## Guards
@@ -57,21 +57,26 @@ Guards).
 `consumers_app` publishes an object for reading and writing alike, on purpose:
 `PUT` writes an entry of a dict or a list (to a list's `last`, it appends),
 and `DELETE` removes one. What can be changed is the object's to decide, and
-mumulib does not guess. To publish one to be read and nothing else, guard it:
+mumulib does not guess. To publish an object to be read and nothing else,
+wrap it in `GetOnly`:
 
 ```python
-from mumulib.server import consumers_app, get_only
+from mumulib.consumers import GetOnly
+from mumulib.server import consumers_app
 
-app = get_only(consumers_app(root))
+app = consumers_app(GetOnly(root))  # all of it, read-only
+app = consumers_app({"notes": notes, "about": GetOnly(about)})
 ```
 
-`get_only` answers anything but `GET` with 405 Method Not Allowed and
-`Allow: GET`, before the request reaches the object.
+`GetOnly` is a consumer: it hands `GET` on to what it wraps, and answers
+anything else with 405 Method Not Allowed and `Allow: GET`, at any depth below
+it. It guards what is reached through it, not its own place in a parent: in
+the second app, `PUT /about.json` is the unguarded dict's to answer, and would
+replace the entry. Guard the parent, or the root, to keep that too.
 
-To guard part of an object instead, publish that part as something that
-cannot be changed: a tuple refuses `PUT` and `DELETE` with 405, and so does a
-`types.MappingProxyType`, the read-only view of a dict. (`POST` to a
-`MappingProxyType`'s entry still reads it.)
+A tuple, or a `types.MappingProxyType` -- the read-only view of a dict --
+cannot be changed either, and refuses `PUT` and `DELETE` with 405; `POST` to a
+`MappingProxyType`'s entry still reads it.
 
 ## Development
 

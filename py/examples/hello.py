@@ -11,10 +11,11 @@ as:
     /index.json   "Hello, world!"     application/json
 
 A published dict can be changed through its URLs -- PUT writes an entry and
-DELETE removes one -- so this one is behind mumulib's get_only, which lets
-only GET in.
+DELETE removes one -- so this one is wrapped in GetOnly, which hands GET on
+to the dict and refuses anything else.
 """
 
-from mumulib.server import consumers_app, get_only
+from mumulib.consumers import GetOnly
+from mumulib.server import consumers_app
 
-app = get_only(consumers_app({"index": "Hello, world!"}))
+app = consumers_app(GetOnly({"index": "Hello, world!"}))
