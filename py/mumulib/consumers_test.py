@@ -233,16 +233,35 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         response = await request(ASGI_APP, "DELETE", "/list/1.json", None)
         self.assertEqual(response["status"], 204)
 
-        # Verify GET /list after DELETE /list/1
+        # Verify GET /list after DELETE /list/1: its place is kept, as null
         response = await request(ASGI_APP, "GET", "/list.json", None)
         self.assertEqual(response["status"], 200)
-        self.assertEqual(response["body"], ["this", "a", "list", "appended"])
+        self.assertEqual(response["body"], ["this", None, "a", "list", "appended"])
 
         # Test DELETE /list/555 and /list/asdf: nothing there to delete
         response = await request(ASGI_APP, "DELETE", "/list/555.json", None)
         self.assertEqual(response["status"], 404)
         response = await request(ASGI_APP, "DELETE", "/list/asdf.json", None)
         self.assertEqual(response["status"], 404)
+
+    async def test_a_deleted_element_leaves_its_place(self):
+        app = consumers_app({"todos": ["a", "b", "c"]})
+        response = await request(app, "DELETE", "/todos/1.json", None)
+        self.assertEqual(response["status"], 204)
+        # It is not found, twice over, and nothing after it has moved
+        response = await request(app, "GET", "/todos/1.json", None)
+        self.assertEqual(response["status"], 404)
+        response = await request(app, "DELETE", "/todos/1.json", None)
+        self.assertEqual(response["status"], 404)
+        response = await request(app, "GET", "/todos/2.json", None)
+        self.assertEqual(response["body"], "c")
+        # Appending does not reuse it; a PUT to it brings it back
+        response = await request(app, "PUT", "/todos/last.json", "d")
+        self.assertEqual(response["headers"]["location"], "/todos/3.json")
+        response = await request(app, "PUT", "/todos/1.json", "again")
+        self.assertEqual(response["status"], 201)
+        response = await request(app, "GET", "/todos.json", None)
+        self.assertEqual(response["body"], ["a", "again", "c", "d"])
 
     async def test_nested_list(self):
         response = await request(ASGI_APP, "GET", "/nested_list/0/0.json", None)

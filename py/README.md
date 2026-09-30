@@ -153,6 +153,10 @@ function to call for a request, and is not found.
 `PUT` writes an entry of a dict or a list (to a list's `last`, it appends),
 and `DELETE` removes one. A `PUT` that creates is 201 Created, one that
 replaces and a `DELETE` are 204 No Content, and a `DELETE` of nothing is 404.
+A list's elements keep their URLs: `DELETE /todos/1.json` leaves `None` in its
+place, not found and `null` in the list's JSON, and `/todos/2.json` is still
+the same element. A `PUT` to `/todos/1.json` brings it back, and `last` never
+reuses it. How long a list or a dict may grow is the application's to decide.
 What can be changed is the object's to decide, and
 mumulib does not guess. To publish an object to be read and nothing else,
 wrap it in `GetOnly`:

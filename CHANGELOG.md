@@ -40,6 +40,11 @@ Python package). Breaking changes come first under each release.
   producers of their own, as text of any type; `True` and `False` are JSON
   alone, and `None` is `null` in a JSON document but not found as a URL's own
   answer.
+- **Deleting from a list leaves `None` in the element's place,** so no other
+  element's URL changes: after `DELETE /todos/1.json`, `/todos/2.json` is the
+  same element it was, where it used to be the next one along. The deleted
+  element's URL is not found, and `null` in the list's JSON, until a `PUT`
+  there brings it back.
 - **Writes answer with what they did.** A `PUT` that creates an entry is
   201 Created, as it was; one that replaces an entry is 204 No Content, where
   it was 201. A `DELETE` is 204, where it was 200, and a `DELETE` of an entry

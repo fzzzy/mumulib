@@ -234,11 +234,13 @@ async def consume_list(
     for appending.
     Supports GET, PUT, and DELETE methods:
       - GET: Return the requested element (if index is valid).
-      - PUT: Replace an existing element at the given index, 204 No Content, or
+      - PUT: Replace an existing element at the given index, 204 No Content
+        (201 Created if it had been deleted), or
         append a new element if 'last' is used, 201 Created with its URL in
         Location. If the index doesn't exist and isn't 'last', return 403.
-      - DELETE: Remove the element at the given index, 204 No Content, or 404
-        if there is none.
+      - DELETE: Leave None in the element's place, 204 No Content, so that
+        it is not found and no other element's URL changes; or 404 if there
+        was nothing there. A PUT to its index, 201, brings it back.
 
     Args:
         parent (list): The current list.
@@ -284,11 +286,17 @@ async def consume_list(
                     [(b"content-type", b"text/plain")],
                     b"Not allowed to put to nonexistant list element.  Use last.",
                 )
-            if method == "PUT":
-                parent[segnum] = state.get("parsed_body", None)
-            else:
-                del parent[segnum]
-            return answer(204)
+            # Nothing moves: a deleted element leaves None in its place, not
+            # found, and every other element keeps its URL. A PUT there
+            # brings it back.
+            found = parent[segnum] is not None
+            if method == "DELETE":
+                if not found:
+                    return None
+                parent[segnum] = None
+                return answer(204)
+            parent[segnum] = state.get("parsed_body", None)
+            return answer(204 if found else 201)
     # If we get here, we either haven't done PUT/DELETE, or the path continues.
     return await consume_tuple(tuple(parent), segments, state, send)
 
@@ -366,7 +374,8 @@ async def consume_dict(
             return None
 
         if method == "PUT":
-            created = key not in parent
+            # Created if it was not found before: absent, or None
+            created = parent.get(key) is None
             parent[key] = state.get("parsed_body", None)
             return answer(201 if created else 204)
 
