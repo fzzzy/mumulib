@@ -424,3 +424,71 @@ class TestGetOnly(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(root, {"about": "replaced"})
         self.assertEqual(guarded.wrapped, {"name": "mumulib"})
+
+
+class TestDirectory(unittest.TestCase):
+    """A Path to a directory serves what is in it, and nothing outside it."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        self.site = base / "site"
+        (self.site / "sub").mkdir(parents=True)
+        (self.site / "style.css").write_text("p { color: red }")
+        (self.site / "app.min.js").write_text("run()")
+        (self.site / "sub" / "note.txt").write_text("nested")
+        (self.site / "sub" / "index.html").write_text("<p>sub index</p>")
+        (self.site / ".env").write_text("SECRET=1")
+        (self.site / "pixel.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\xff")
+        (base / "outside.txt").write_text("outside")
+        (self.site / "escape.txt").symlink_to(base / "outside.txt")
+        self.root = {"static": self.site}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_a_file_is_its_bytes_with_the_urls_type(self):
+        status, headers, body = call(self.root, "GET", "/static/style.css")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"text/css; charset=UTF-8")
+        self.assertEqual(body.strip(), b"p { color: red }")
+        status, headers, body = call(self.root, "GET", "/static/pixel.png")
+        self.assertEqual(headers[b"content-type"], b"image/png")
+        self.assertTrue(body.startswith(b"\x89PNG\r\n\x1a\n\x00\xff"))
+
+    def test_names_with_dots_and_nested_directories(self):
+        self.assertEqual(
+            call(self.root, "GET", "/static/app.min.js")[2].strip(), b"run()"
+        )
+        self.assertEqual(
+            call(self.root, "GET", "/static/sub/note.txt")[2].strip(), b"nested"
+        )
+
+    def test_index_is_the_directorys_index_file_and_there_are_no_listings(self):
+        status, _, body = call(self.root, "GET", "/static/sub/")
+        self.assertEqual((status, body.strip()), (200, b"<p>sub index</p>"))
+        self.assertEqual(call(self.root, "GET", "/static/")[0], 404)
+
+    def test_nothing_outside_or_hidden_is_found(self):
+        for path in [
+            "/static/missing.txt",
+            "/static/../outside.txt",
+            "/static/.env",
+            "/static/escape.txt",
+            "/static/style.json",
+            "/static/sub.html",
+            "/static.html",
+            "/static/style.css/more.txt",
+        ]:
+            with self.subTest(path=path):
+                self.assertEqual(call(self.root, "GET", path)[0], 404)
+
+    def test_a_directory_is_never_written(self):
+        for method in ("PUT", "DELETE", "POST"):
+            with self.subTest(method=method):
+                status, headers, _ = call(self.root, method, "/static/new.txt", "x")
+                self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+        self.assertFalse((self.site / "new.txt").exists())

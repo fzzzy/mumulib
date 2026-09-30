@@ -27,7 +27,7 @@ THE SOFTWARE.
 import json
 from collections.abc import AsyncGenerator
 from io import BufferedReader, TextIOWrapper
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from types import FunctionType, MappingProxyType
 from typing import Any, cast
 
@@ -80,9 +80,25 @@ async def produce(thing: object, state: State) -> AsyncGenerator[Chunk]:
 async def produce_file(
     thing: TextIOWrapper | BufferedReader, state: State
 ) -> AsyncGenerator[mumutypes.SpecialResponse]:
+    async for chunk in _produce_filename(str(thing.name), state):
+        yield chunk
+
+
+async def produce_path(
+    thing: Path, state: State
+) -> AsyncGenerator[mumutypes.SpecialResponse]:
+    # A directory is walked into, not read: asked for as a file, it is not one
+    if thing.is_dir():
+        raise mumutypes.NotFoundResponse()
+    async for chunk in _produce_filename(str(thing), state):
+        yield chunk
+
+
+async def _produce_filename(
+    filename: str, state: State
+) -> AsyncGenerator[mumutypes.SpecialResponse]:
     # Bytes, whatever the file holds: nothing is decoded, so an image or a
     # font goes out exactly as it is on disk, and text as its own bytes
-    filename = str(thing.name)
     async with aiofiles.open(filename, "rb") as file:
         content = await file.read()
     # The URL's type when the server gives one, else the file's own
@@ -103,6 +119,9 @@ async def produce_file(
 
 add_producer(TextIOWrapper, produce_file)
 add_producer(BufferedReader, produce_file)
+# The platform's own Path class -- PosixPath or WindowsPath -- which is what a
+# Path is, and producers are found by exact type
+add_producer(type(Path()), produce_path)
 
 
 async def produce_json(thing: Any, state: State) -> AsyncGenerator[str]:

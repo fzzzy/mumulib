@@ -26,6 +26,7 @@ THE SOFTWARE.
 
 import sys
 from collections.abc import AsyncIterator
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
@@ -439,3 +440,36 @@ async def _produce_get_only(thing: GetOnly, state: State) -> AsyncIterator[Chunk
 
 add_consumer(GetOnly, _consume_get_only)
 add_producer(GetOnly, _produce_get_only)
+
+
+async def _consume_directory(
+    parent: Path, segments: list[str], state: State, send: Send
+) -> Any:
+    """Walk into a directory: each segment names what is in it.
+
+    The server takes the extension off the last segment, as the type; it goes
+    back on here, as part of the file's name, so /static/app.min.js is
+    static/app.min.js. index is index.<extension>, if there is one. There are
+    no listings, which would publish every name in the directory.
+
+    What is served stays inside the directory: .. and hidden names, like .git
+    or .env, are not found, and neither is a symlink that leads outside. And a
+    directory is read, never written: anything but GET is refused.
+    """
+    if not parent.is_dir():
+        return None
+    if state.get("method", "GET").upper() != "GET":
+        return _ONLY_GET
+    name = segments[0]
+    if len(segments) == 1 and state.get("extension"):
+        name = f"{name}.{state['extension']}"
+    if not name or name.startswith(".") or "/" in name or "\\" in name:
+        return None
+    child = parent / name
+    if not child.exists() or not child.resolve().is_relative_to(parent.resolve()):
+        return None
+    return await consume(child, segments[1:], state, send)
+
+
+# As for the producer: the platform's own Path class, by exact type
+add_consumer(type(Path()), _consume_directory)

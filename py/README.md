@@ -50,7 +50,22 @@ extension alone decides what comes back.
 `hello`) on port 8001. The smallest, `hello.py`, publishes
 `{"index": "Hello, world!"}`: `/`, `/index.txt` and `/index.json` are the one
 string as HTML, text and JSON, and it is wrapped in `GetOnly`, read-only (see
-Guards).
+Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
+stylesheet, text and image from a directory.
+
+## Files and directories
+
+A file object -- what `open()` returns -- is served as its bytes, read afresh
+on each request. A `pathlib.Path` is too, and a `Path` to a directory is walked
+into: `{"static": Path("static")}` serves `static/style.css` at
+`/static/style.css`. The URL's extension is put back on the last segment as
+part of the file's name, and is the type it is served as, so a file needs an
+extension to be served. `index` is the directory's `index.<extension>`, if it
+has one, and a directory lists nothing.
+
+Only what is in the directory is found: `..`, hidden names such as `.git` and
+`.env`, and symlinks that lead outside are not. A directory is never written;
+anything but `GET` is 405.
 
 ## Guards
 

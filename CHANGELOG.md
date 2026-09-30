@@ -62,9 +62,15 @@ Python package). Breaking changes come first under each release.
   Method Not Allowed, at any depth below it. `consumers_app` publishes for
   reading and writing alike, on purpose; this is how to publish read-only,
   all of an object or part of one.
+- **Directories, served**: a `pathlib.Path` to a directory is walked into, so
+  `{"static": Path("static")}` serves its files at `/static/<name>`, the URL's
+  extension part of the name. `..`, hidden names and symlinks that lead
+  outside are not found, there are no listings, and a directory is read-only.
+  A `Path` to a file is served as one, as file objects are.
 - **Python examples**, in `py/examples`, run with `make server`
-  (`SERVER=<name>`); the first, `hello.py`, publishes one string, read-only
-  in `GetOnly`.
+  (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
+  from an open file with its assets from a directory, both read-only in
+  `GetOnly`.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when
