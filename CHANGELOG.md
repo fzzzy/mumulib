@@ -33,6 +33,9 @@ Python package). Breaking changes come first under each release.
 - **`tags.produce_html` refuses an attribute that is not text.** An attribute
   whose value produces bytes or a `SpecialResponse` raises `TypeError` naming
   the attribute.
+- **`domino-shim.js` is gone.** It re-exported `dist/cjs/index.cjs`, which
+  `require('mumulib')` already resolves to, and was never in the published
+  package.
 - **The npm package no longer includes the built examples.** `dist/` holds the
   library bundles and their types; the examples are served from source by
   `make run`.

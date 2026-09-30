@@ -48,11 +48,5 @@ export default tseslint.config(
       },
     },
   },
-  {
-    // The legacy CommonJS entry point, where require is the whole job
-    files: ['domino-shim.js'],
-    languageOptions: { sourceType: 'commonjs' },
-    rules: { '@typescript-eslint/no-require-imports': 'off' },
-  },
   eslintConfigPrettier
 )
