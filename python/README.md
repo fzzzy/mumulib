@@ -18,7 +18,7 @@ working; anything else in a module is its own.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
   `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
 - `mumulib.tags`: `Stan`, `Template`, `parse_template`, the slot functions,
-  `produce_html`, and the tag groups -- `tags.all.<element>` for any element.
+  `produce_html`, and the tag groups -- `tags.every.<element>` for any element.
 - `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
   and the HTTP responses, and `content_type_for`.
 

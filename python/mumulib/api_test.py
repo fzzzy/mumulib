@@ -70,6 +70,7 @@ PUBLIC = {
         "forms",
         "interactive_elements",
         "web_components",
+        "every",
     },
 }
 

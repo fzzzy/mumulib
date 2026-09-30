@@ -25,9 +25,9 @@ Python package). Breaking changes come first under each release.
 - **Each Python module declares its public API in `__all__`,** and only
   those names are promised. `from mumulib.<module> import *` brings in those
   alone; the body parsers, the built-in consumers and producers, the limits,
-  the element lists and the other helpers are the modules' own. `tags.all`
-  stays reachable as `tags.all`, but is not in `__all__`, so that `import *`
-  cannot shadow the builtin.
+  the element lists and the other helpers are the modules' own.
+- **`tags.all` is now `tags.every`:** `tags.every.div` and so on. Under
+  `import *`, `all` shadowed the builtin; there is no alias.
 - **Python types are inline.** The `.pyi` stub files are gone; the package is
   annotated throughout, passes pyright in strict mode, and ships `py.typed`.
 - **`tags.produce_html` refuses an attribute that is not text.** An attribute

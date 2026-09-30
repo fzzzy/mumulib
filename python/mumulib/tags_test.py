@@ -7,7 +7,7 @@ from pathlib import Path
 
 from mumulib import producers, tags
 from mumulib.tags import Stan, Template, parse_template
-from mumulib.tags import all as t
+from mumulib.tags import every as t
 
 HERE = Path(__file__).parent
 
@@ -84,10 +84,10 @@ class TestStanBuilding(unittest.TestCase):
         node = t.div(id="x")[[t.p["hello"], "b"]]
         self.assertEqual(
             repr(node),
-            "all.div(id='x')[\n    all.p[\n        'hello'\n    ],\n    'b'\n]",
+            "every.div(id='x')[\n    every.p[\n        'hello'\n    ],\n    'b'\n]",
         )
-        self.assertEqual(repr(t.br), "all.br")
-        self.assertEqual(repr(t.hr(a=1, b=2)), "all.hr(a=1, b=2)")
+        self.assertEqual(repr(t.br), "every.br")
+        self.assertEqual(repr(t.hr(a=1, b=2)), "every.hr(a=1, b=2)")
 
     def test_reindent_tree(self):
         leaf = Stan("i", 0)
@@ -331,3 +331,12 @@ class TestProduceHtml(unittest.TestCase):
             return [chunk async for chunk in producers.produce(t.hr, state)]
 
         self.assertEqual(asyncio.run(collect()), ["<hr", " />\n"])
+
+
+class TestEvery(unittest.TestCase):
+    def test_every_tag_is_in_every(self):
+        self.assertIsInstance(tags.every.div, Stan)
+
+    def test_there_is_no_tags_all(self):
+        # Renamed to every in 2.0: all shadowed the builtin under import *
+        self.assertFalse(hasattr(tags, "all"))

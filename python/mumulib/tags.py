@@ -7,9 +7,8 @@ from mumulib import producers
 from mumulib.mumutypes import State
 
 # The public API: Building HTML, filling templates, and rendering them. Every
-# tag is tags.all.<name>; `all` is left out here only because `import *` would
-# shadow the builtin with it. The element lists behind the groups are the
-# module's own.
+# tag is tags.every.<name>, and the groups hold them by kind. The element lists
+# behind the groups are the module's own.
 __all__ = [
     "Stan",
     "Template",
@@ -33,6 +32,7 @@ __all__ = [
     "forms",
     "interactive_elements",
     "web_components",
+    "every",
 ]
 
 # From MDN reference
@@ -340,7 +340,7 @@ class Stan:
                 child.children.append(value)
 
     def __repr__(self) -> str:
-        result = f"all.{self.tagname}"
+        result = f"every.{self.tagname}"
         if self.attributes:
             result += "("
             for x in self.attributes:
@@ -367,7 +367,7 @@ class TagGroup:
 
     if TYPE_CHECKING:
         # The tags are set with setattr, so declare them for type checkers:
-        # tags.all.div is a Stan. Not defined at runtime, so a misspelt tag
+        # tags.every.div is a Stan. Not defined at runtime, so a misspelt tag
         # still raises AttributeError.
         def __getattr__(self, name: str) -> Stan: ...
 
@@ -387,7 +387,7 @@ table_content = TagGroup(*TABLE_CONTENT)
 forms = TagGroup(*FORMS)
 interactive_elements = TagGroup(*INTERACTIVE_ELEMENTS)
 web_components = TagGroup(*WEB_COMPONENTS)
-all = TagGroup(*ALL_ELEMENTS)
+every = TagGroup(*ALL_ELEMENTS)
 
 
 def parse_template(source: IO[bytes]) -> Stan | None:
