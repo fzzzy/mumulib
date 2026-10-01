@@ -17,17 +17,16 @@ function editLink(page: Page, kind: string, id: string) {
   return page.locator(`a[href="/editors/${kind}/${id}.html"]`)
 }
 
-// An edit link opens its form in the dialog; Save posts it, and the page that
-// answers is the index again
+// An edit link goes to the object's edit page; Save posts its form, and the
+// page that answers is the index again
 async function edit(page: Page, kind: string, id: string) {
   await editLink(page, kind, id).click()
-  const dialog = page.locator('#editor')
-  await expect(dialog.locator('form')).toBeVisible()
-  return dialog
+  await page.waitForURL(`${EDITORS}/editors/${kind}/${id}.html`)
+  return page.locator('form')
 }
 
 async function save(page: Page) {
-  await page.locator('#editor').getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Save' }).click()
   await page.waitForURL(INDEX)
 }
 
@@ -39,17 +38,17 @@ test.describe('The editors example', () => {
     await expect(page.locator('#deploys tbody tr')).toHaveCount(2)
   })
 
-  test('a character is edited in the dialog, and posted', async ({
+  test('a character is edited on its page, and posted', async ({
     page,
   }, info) => {
     const { c } = OWN[info.project.name]
     await page.goto(INDEX)
     const name = (await editLink(page, 'characters', c).textContent())?.trim()
-    const dialog = await edit(page, 'characters', c)
-    // The form is the edit page's, filled from the character's state
-    await expect(dialog.locator('input[name="name"]')).toHaveValue(name ?? '')
+    const form = await edit(page, 'characters', c)
+    // The form is filled from the character's state
+    await expect(form.locator('input[name="name"]')).toHaveValue(name ?? '')
     const prompt = `A prompt from ${info.project.name} at ${Date.now()}`
-    await dialog.locator('textarea[name="prompt"]').fill(prompt)
+    await form.locator('textarea[name="prompt"]').fill(prompt)
     await save(page)
     await expect(page.locator('#characters')).toContainText(prompt)
   })
@@ -75,12 +74,12 @@ test.describe('The editors example', () => {
     const row = page.locator('#parties tr', {
       has: editLink(page, 'parties', p),
     })
-    let dialog = await edit(page, 'parties', p)
-    await dialog.locator('select[name="members[]"]').selectOption(['c1', 'c3'])
+    let form = await edit(page, 'parties', p)
+    await form.locator('select[name="members[]"]').selectOption(['c1', 'c3'])
     await save(page)
     await expect(row).toContainText('Code Reviewer, Shell Helper')
-    dialog = await edit(page, 'parties', p)
-    await dialog.locator('select[name="members[]"]').selectOption([])
+    form = await edit(page, 'parties', p)
+    await form.locator('select[name="members[]"]').selectOption([])
     await save(page)
     await expect(row.locator('td').nth(1)).toHaveText('')
   })
@@ -93,11 +92,11 @@ test.describe('The editors example', () => {
       await page.request.get(`${EDITORS}/editors/deploys/${d}.json`)
     ).json()
     await page.goto(INDEX)
-    const dialog = await edit(page, 'deploys', d)
-    await expect(dialog.locator('select[name="party"] option')).toHaveCount(2)
-    await expect(dialog).toContainText(`Status: ${before.status}`)
+    const form = await edit(page, 'deploys', d)
+    await expect(form.locator('select[name="party"] option')).toHaveCount(2)
+    await expect(form).toContainText(`Status: ${before.status}`)
     const party = before.party === 'p1' ? 'p2' : 'p1'
-    await dialog.locator('select[name="party"]').selectOption(party)
+    await form.locator('select[name="party"]').selectOption(party)
     await save(page)
     const row = page.locator('#deploys tr', {
       has: editLink(page, 'deploys', d),
@@ -109,14 +108,13 @@ test.describe('The editors example', () => {
     expect(after).toEqual({ ...before, party })
   })
 
-  test('cancel closes the dialog and saves nothing', async ({ page }, info) => {
+  test('cancel goes back and saves nothing', async ({ page }, info) => {
     const { c } = OWN[info.project.name]
     await page.goto(INDEX)
-    const dialog = await edit(page, 'characters', c)
-    await dialog.locator('input[name="agent_args"]').fill('--cancelled')
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(dialog).toBeHidden()
-    await expect(page).toHaveURL(INDEX)
+    const form = await edit(page, 'characters', c)
+    await form.locator('input[name="agent_args"]').fill('--cancelled')
+    await page.getByRole('link', { name: 'Cancel' }).click()
+    await page.waitForURL(INDEX)
     const kept = await (
       await page.request.get(`${EDITORS}/editors/characters/${c}.json`)
     ).json()
@@ -132,8 +130,8 @@ test.describe('The editors example', () => {
     const page = await browser.newPage()
     await page.goto(INDEX)
     const prompt = `Seen elsewhere, ${info.project.name} ${Date.now()}`
-    const dialog = await edit(page, 'characters', c)
-    await dialog.locator('textarea[name="prompt"]').fill(prompt)
+    const form = await edit(page, 'characters', c)
+    await form.locator('textarea[name="prompt"]').fill(prompt)
     await save(page)
     // The watcher never reloaded: its tables were fetched and put in place
     await expect(watcher.locator('#characters')).toContainText(prompt)

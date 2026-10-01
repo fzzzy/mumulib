@@ -21,11 +21,10 @@ Each object has an id that never changes, so its URL does not either, and
 renaming is a post to the URL it already had. A party's members and a
 deploy's party are ids, so they follow a rename.
 
-It works with no script at all: an edit link is a link, and a form a form.
-The pages' one script makes it nicer, in the way htmx does: an edit link's
-page is fetched and its <form> taken out and shown in a dialog, and when the
-server says something changed -- anyone's change, from any page -- /editors/
-is fetched and its tables put in place of these.
+An edit link is a link, and a form a form. The pages' one script keeps
+/editors/ up to date in the way htmx does: when the server says something
+changed -- anyone's change, from any page -- /editors/ is fetched again and
+its tables put in place of these.
 """
 
 from typing import Any, cast
@@ -46,23 +45,9 @@ input[type=text], textarea, select { display: block; width: 28em; font: inherit;
 textarea { height: 8em; }
 """
 
-# The one script: forms in a dialog, and tables kept up to date. A <script>
-# is written as it is, not escaped, so nothing of a visitor's goes in it.
+# The one script: the tables kept up to date. A <script> is written as it
+# is, not escaped, so nothing of a visitor's goes in it.
 SCRIPT = """
-const dialog = document.getElementById('editor')
-
-// An edit link: its page fetched, and its form shown in the dialog. The form
-// still posts as a form does, and the page that answers is this one again.
-document.addEventListener('click', async (event) => {
-  const link = event.target.closest('a[data-edit]')
-  if (!link || !dialog) return
-  event.preventDefault()
-  const html = await (await fetch(link.href)).text()
-  const page = new DOMParser().parseFromString(html, 'text/html')
-  dialog.replaceChildren(page.querySelector('form'))
-  dialog.showModal()
-})
-
 // Something changed, here or anywhere: the tables, fetched again
 new EventSource('/editors/changes.sse').onmessage = async () => {
   const html = await (await fetch('/editors/')).text()
@@ -76,7 +61,7 @@ new EventSource('/editors/changes.sse').onmessage = async () => {
 
 
 def page(title: str, *content: Any) -> Stan:
-    """A whole page: its title, what it holds, the dialog, and the script."""
+    """A whole page: its title, what it holds, and the script."""
     return t.html[
         t.head[
             t.meta(charset="utf-8"),
@@ -86,18 +71,17 @@ def page(title: str, *content: Any) -> Stan:
         t.body[
             t.p[t.a(href="/editors/")["Editors"]],
             *content,
-            t.dialog(id="editor"),
             t.script[SCRIPT],
         ],
     ]
 
 
 def buttons() -> Stan:
-    """Save posts the form; Cancel closes the dialog it is in, saving nothing."""
+    """Save posts the form; Cancel goes back, saving nothing."""
     return t.p[
         t.button["Save"],
         " ",
-        t.button(formmethod="dialog", formnovalidate="formnovalidate")["Cancel"],
+        t.a(href="/editors/")["Cancel"],
     ]
 
 
@@ -289,7 +273,7 @@ class Editors(Resource):
             t.thead[t.tr[t.th["Name"], t.th["Prompt"], t.th["Agent args"]]],
             t.tbody(slt="character_rows")[
                 t.tr(pat="character_row")[
-                    t.td[t.a(slt="name", attr="href=edit", **{"data-edit": ""})],
+                    t.td[t.a(slt="name", attr="href=edit")],
                     t.td(slt="prompt"),
                     t.td[t.code(slt="agent_args")],
                 ]
@@ -300,7 +284,7 @@ class Editors(Resource):
             t.thead[t.tr[t.th["Name"], t.th["Members"]]],
             t.tbody(slt="party_rows")[
                 t.tr(pat="party_row")[
-                    t.td[t.a(slt="name", attr="href=edit", **{"data-edit": ""})],
+                    t.td[t.a(slt="name", attr="href=edit")],
                     t.td(slt="members"),
                 ]
             ],
@@ -310,7 +294,7 @@ class Editors(Resource):
             t.thead[t.tr[t.th["Name"], t.th["Party"], t.th["Status"]]],
             t.tbody(slt="deploy_rows")[
                 t.tr(pat="deploy_row")[
-                    t.td[t.a(slt="name", attr="href=edit", **{"data-edit": ""})],
+                    t.td[t.a(slt="name", attr="href=edit")],
                     t.td(slt="party"),
                     t.td(slt="status"),
                 ]

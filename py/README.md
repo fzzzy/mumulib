@@ -87,8 +87,8 @@ deleted, on a page that listens to `changes` and shows everyone's at once;
 and `editors.py` (`SERVER=editors`, then `/editors/`) a character, party and
 deploy editor: every page built in Stan, each object a `Resource` whose state
 fills its edit form, each form a plain post its resource checks and answers
-with 303 See Other, and one small script that opens a form in a dialog and
-fetches the tables again when anything changes.
+with 303 See Other, and one small script that fetches the tables again when
+anything changes.
 
 ## Resources
 

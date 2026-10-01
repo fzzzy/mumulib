@@ -170,8 +170,8 @@ Python package). Breaking changes come first under each release.
 - **The editors example**: `py/examples/editors.py`, run with
   `make run SERVER=editors` and found at `/editors/`: a character, party and
   deploy editor built in Stan, with forms posted as forms and handled by each
-  object's resource, and a small script that shows a form in a dialog and
-  fetches the tables again on every change.
+  object's resource, and a small script that fetches the tables again on
+  every change.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when
