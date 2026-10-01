@@ -155,7 +155,9 @@ Python package). Breaking changes come first under each release.
   `DELETE` answered with success puts the URL of what it changed on the
   `EventSource` `events` -- the request's URL, or a 201's `Location`, with
   no extension, `/todos/3` -- for pages listening to fetch it again.
-- **`pat=` in Stan**: `t.tr(pat="row")` is `<tr data-pat="row">`, a pattern.
+- **Short names for the template attributes in Stan**: `pat=` for
+  `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), and `attr=` for
+  `data-attr`, as `"href=url"` or `{"href": "url"}`.
 - **`producers.add_json_form(type, to_json)`**: what a type's things are in
   JSON, wherever one is found; a `Resource` is its state.
 - **`add_consumer(..., own_methods=True)`**: a type whose things answer every

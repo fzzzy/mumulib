@@ -233,10 +233,20 @@ class Stan:
             self = self.copy()
         if "indent" in kwargs:
             self.indent = kwargs.pop("indent")
-        # pat="row" is data-pat="row": the one patterns are found by, and no
-        # attribute of HTML's own, so the short name shadows nothing
+        # Short names for the template attributes, none of them HTML's own, so
+        # they shadow nothing: pat="row" is data-pat="row", slt="name" is
+        # data-slot="name" -- slot itself is HTML's, for shadow DOM -- and
+        # attr="href=url" or attr={"href": "url"} is data-attr="href=url"
         if "pat" in kwargs:
             kwargs["data-pat"] = kwargs.pop("pat")
+        if "slt" in kwargs:
+            kwargs["data-slot"] = kwargs.pop("slt")
+        if "attr" in kwargs:
+            mapping = kwargs.pop("attr")
+            if isinstance(mapping, dict):
+                pairs = cast(dict[str, str], mapping).items()
+                mapping = ",".join(f"{name}={slot}" for name, slot in pairs)
+            kwargs["data-attr"] = mapping
         self.attributes = self.attributes | kwargs
         return self
 

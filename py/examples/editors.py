@@ -92,17 +92,6 @@ def page(title: str, *content: Any) -> Stan:
     ]
 
 
-def slot(name: str, /, **attributes: Any) -> dict[str, Any]:
-    """The attributes that make an element the slot name."""
-    return {"data-slot": name, **attributes}
-
-
-def attr(mapping: str, /, **attributes: Any) -> dict[str, Any]:
-    """The attributes that fill an element's attributes from slots:
-    mapping is "href=edit" or "value=name,title=hint"."""
-    return {"data-attr": mapping, **attributes}
-
-
 def buttons() -> Stan:
     """Save posts the form; Cancel closes the dialog it is in, saving nothing."""
     return t.p[
@@ -135,19 +124,19 @@ class Character(Resource):
 
     template = page(
         "Edit character",
-        t.form(**attr("action=url", method="post"))[
+        t.form(attr="action=url", method="post")[
             t.h2["Edit character"],
             t.label[
                 "Name",
-                t.input(**attr("value=name", type="text", name="name", required="")),
+                t.input(attr="value=name", type="text", name="name", required=""),
             ],
             t.label[
                 "System prompt",
-                t.textarea(**slot("prompt", name="prompt"))["A prompt"],
+                t.textarea(slt="prompt", name="prompt")["A prompt"],
             ],
             t.label[
                 "Agent args",
-                t.input(**attr("value=agent_args", type="text", name="agent_args")),
+                t.input(attr="value=agent_args", type="text", name="agent_args"),
             ],
             buttons(),
         ],
@@ -175,15 +164,15 @@ class Party(Resource):
 
     template = page(
         "Edit party",
-        t.form(**attr("action=url", method="post"))[
+        t.form(attr="action=url", method="post")[
             t.h2["Edit party"],
             t.label[
                 "Name",
-                t.input(**attr("value=name", type="text", name="name", required="")),
+                t.input(attr="value=name", type="text", name="name", required=""),
             ],
             t.label[
                 "Members",
-                t.select(**slot("member_options", name="members[]", multiple="")),
+                t.select(slt="member_options", name="members[]", multiple=""),
             ],
             buttons(),
         ],
@@ -219,14 +208,14 @@ class Deploy(Resource):
 
     template = page(
         "Edit deploy",
-        t.form(**attr("action=url", method="post"))[
+        t.form(attr="action=url", method="post")[
             t.h2["Edit deploy"],
             t.label[
                 "Name",
-                t.input(**attr("value=name", type="text", name="name", required="")),
+                t.input(attr="value=name", type="text", name="name", required=""),
             ],
-            t.label["Party", t.select(**slot("party_options", name="party"))],
-            t.p["Status: ", t.span(**slot("status"))["running"]],
+            t.label["Party", t.select(slt="party_options", name="party")],
+            t.p["Status: ", t.span(slt="status")["running"]],
             buttons(),
         ],
     )
@@ -298,32 +287,32 @@ class Editors(Resource):
         t.table(id="characters")[
             t.caption["Characters"],
             t.thead[t.tr[t.th["Name"], t.th["Prompt"], t.th["Agent args"]]],
-            t.tbody(**slot("character_rows"))[
+            t.tbody(slt="character_rows")[
                 t.tr(pat="character_row")[
-                    t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
-                    t.td(**slot("prompt")),
-                    t.td[t.code(**slot("agent_args"))],
+                    t.td[t.a(slt="name", attr="href=edit", **{"data-edit": ""})],
+                    t.td(slt="prompt"),
+                    t.td[t.code(slt="agent_args")],
                 ]
             ],
         ],
         t.table(id="parties")[
             t.caption["Parties"],
             t.thead[t.tr[t.th["Name"], t.th["Members"]]],
-            t.tbody(**slot("party_rows"))[
+            t.tbody(slt="party_rows")[
                 t.tr(pat="party_row")[
-                    t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
-                    t.td(**slot("members")),
+                    t.td[t.a(slt="name", attr="href=edit", **{"data-edit": ""})],
+                    t.td(slt="members"),
                 ]
             ],
         ],
         t.table(id="deploys")[
             t.caption["Deploys"],
             t.thead[t.tr[t.th["Name"], t.th["Party"], t.th["Status"]]],
-            t.tbody(**slot("deploy_rows"))[
+            t.tbody(slt="deploy_rows")[
                 t.tr(pat="deploy_row")[
-                    t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
-                    t.td(**slot("party")),
-                    t.td(**slot("status")),
+                    t.td[t.a(slt="name", attr="href=edit", **{"data-edit": ""})],
+                    t.td(slt="party"),
+                    t.td(slt="status"),
                 ]
             ],
         ],

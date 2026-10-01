@@ -415,3 +415,23 @@ class TestEscaping(unittest.TestCase):
         copy = table.clone_pat("row")
         assert copy is not None
         self.assertEqual(copy.tagname, "tr")
+
+    def test_slt_is_data_slot_and_attr_is_data_attr(self):
+        link = t.a(slt="label", attr="href=url")["x"]
+        self.assertEqual(
+            link.attributes, {"data-slot": "label", "data-attr": "href=url"}
+        )
+        both = t.input(attr={"value": "name", "title": "hint"})
+        self.assertEqual(both.attributes, {"data-attr": "value=name,title=hint"})
+        # And they are slots as any other: filled, here, in a copy
+        page = t.div[t.a(slt="label", attr={"href": "url"})["x"], both]
+        page.fill_slots("label", "Ada")
+        page.fill_slots("url", "/ada")
+        page.fill_slots("name", "Ada")
+        out = render(page)
+        self.assertIn('href="/ada"', out)
+        self.assertIn('value="Ada"', out)
+        self.assertIn("\nAda\n", out)
+
+    def test_slot_is_left_as_htmls_own(self):
+        self.assertEqual(t.span(slot="title").attributes, {"slot": "title"})

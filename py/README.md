@@ -28,7 +28,10 @@ working; anything else in a module is its own.
   so a slot filled with what a visitor sent shows it rather than running
   it. A tree in a tree is markup, and so is `Markup("<i>mine</i>")`, for HTML
   you wrote yourself; `<script>` and `<style>` are written as they are.
-  `t.tr(pat="row")` is `<tr data-pat="row">`, a pattern.
+  The template attributes have short names in Stan: `t.tr(pat="row")` is a
+  pattern, `data-pat`; `t.td(slt="name")` a slot, `data-slot` -- `slot` is
+  HTML's own, for shadow DOM; and `t.a(attr="href=url")`, or
+  `attr={"href": "url"}`, fills attributes from slots, `data-attr`.
 - `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
   and the HTTP responses, and `content_type_for`.
 
