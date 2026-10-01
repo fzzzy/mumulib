@@ -311,12 +311,6 @@ brackets, so a `<select multiple name="members[]">` with one choice gives
 `{members: ['c1']}`; a name given twice is a list too. The render function may
 fill the dialog in place and return it, and may be async.
 
-[http://127.0.0.1:8000/examples/editors/](http://127.0.0.1:8000/examples/editors/),
-with `make run SERVER=editors`, uses all of it: a character, party and deploy
-editor whose tables are patslot patterns, whose dialogs save each object to
-the Python server, and whose party members are chosen in a single-file
-component that is a form control of its own.
-
 dialog api
 =====
 

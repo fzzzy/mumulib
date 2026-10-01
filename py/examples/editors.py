@@ -1,110 +1,372 @@
-"""Editors: the data behind ts/examples/editors, a character, party and deploy
-editor, each object edited in place.
+"""Editors: characters, parties and deploys, each edited in a plain HTML form.
 
-    make run SERVER=editors      then http://127.0.0.1:8000/examples/editors/
+    make run SERVER=editors      then http://127.0.0.1:8001/editors/
 
-The page is served by Vite with the rest of the TypeScript examples, and
-Vite passes /editors on to this server. Everything is under /editors:
+Every page is built here, in Stan, and each object is a Resource whose state
+is its data -- and so its JSON, and what its edit page's slots are filled
+from. A form posts to the object's own URL, and its handle_POST checks what
+was sent, keeps it, and answers 303 See Other, back to /editors/:
 
-    GET  /editors/characters.json           {"c1": {"name": ..., "prompt": ...,
-                                              "agent_args": ...}, ...}
-    PUT  /editors/characters/c1.json        the whole character, replaced
-    GET  /editors/parties.json              {"p1": {"name": ..., "members":
-                                              ["c1", ...]}, ...}
-    PUT  /editors/parties/p1.json           the whole party, replaced
-    GET  /editors/deploys.json              {"d1": {"name": ..., "party": "p1",
-                                              "status": "running"}, ...}
-    PUT  /editors/deploys/d1.json           {"name": ..., "party": ...} only
+    GET  /editors/                          the three tables
+    GET  /editors/characters/c1.html        a character's edit page
+    POST /editors/characters/c1.html        name=...&prompt=...&agent_args=...
+    GET  /editors/parties/p1.html           a party's, its members a <select>
+    POST /editors/parties/p1.html           name=...&members[]=c1&members[]=c2
+    GET  /editors/deploys/d1.html           a deploy's, its status shown
+    POST /editors/deploys/d1.html           name=...&party=p2
+    GET  /editors/characters.json           {"c1": {"name": ..., ...}, ...}
     GET  /editors/changes.sse               the URL of each change, as it is made
 
-Each object has an id that never changes, so its URL does not either:
-renaming a character is a PUT to the URL it already had, and a party's
-members are ids, so they follow it.
+Each object has an id that never changes, so its URL does not either, and
+renaming is a post to the URL it already had. A party's members and a
+deploy's party are ids, so they follow a rename.
 
-Characters and parties are plain dicts, published for reading and writing
-alike: a PUT replaces an entry, whatever it holds. Deploys are guarded by a
-Resource instead, since a deploy's status is the server's to say: a PUT may
-change its name and its party, and is refused anything else.
+It works with no script at all: an edit link is a link, and a form a form.
+The pages' one script makes it nicer, in the way htmx does: an edit link's
+page is fetched and its <form> taken out and shown in a dialog, and when the
+server says something changed -- anyone's change, from any page -- /editors/
+is fetched and its tables put in place of these.
 """
 
 from typing import Any, cast
 
-from mumulib.mumutypes import HTTPResponse, Send, State
+from mumulib.mumutypes import HTTPResponse, State
 from mumulib.resource import Resource
 from mumulib.server import EventSource, consumers_app
+from mumulib.tags import Stan
+from mumulib.tags import every as t
 
-characters: dict[str, Any] = {
-    "c1": {
-        "name": "Code Reviewer",
-        "prompt": "You review code for correctness first, then clarity.",
-        "agent_args": "--ant --notools",
-    },
-    "c2": {
-        "name": "Researcher",
-        "prompt": "You find sources, and say which claims they support.",
-        "agent_args": "--oai",
-    },
-    "c3": {
-        "name": "Shell Helper",
-        "prompt": "You suggest one shell command at a time, and explain it.",
-        "agent_args": "--ant --shell",
-    },
-}
+STYLE = """
+body { font-family: serif; margin: 2em; }
+table { border-collapse: collapse; margin-bottom: 2em; min-width: 40em; }
+caption { text-align: left; font-weight: bold; padding: 0.5em 0; }
+th, td { border: 1px solid #888; padding: 0.4em 0.6em; text-align: left; }
+label { display: block; margin-bottom: 1em; }
+input[type=text], textarea, select { display: block; width: 28em; font: inherit; }
+textarea { height: 8em; }
+"""
 
-parties: dict[str, Any] = {
-    "p1": {"name": "Reviewers", "members": ["c1", "c2"]},
-    "p2": {"name": "Operators", "members": ["c3"]},
+# The one script: forms in a dialog, and tables kept up to date. A <script>
+# is written as it is, not escaped, so nothing of a visitor's goes in it.
+SCRIPT = """
+const dialog = document.getElementById('editor')
+
+// An edit link: its page fetched, and its form shown in the dialog. The form
+// still posts as a form does, and the page that answers is this one again.
+document.addEventListener('click', async (event) => {
+  const link = event.target.closest('a[data-edit]')
+  if (!link || !dialog) return
+  event.preventDefault()
+  const html = await (await fetch(link.href)).text()
+  const page = new DOMParser().parseFromString(html, 'text/html')
+  dialog.replaceChildren(page.querySelector('form'))
+  dialog.showModal()
+})
+
+// Something changed, here or anywhere: the tables, fetched again
+new EventSource('/editors/changes.sse').onmessage = async () => {
+  const html = await (await fetch('/editors/')).text()
+  const page = new DOMParser().parseFromString(html, 'text/html')
+  for (const table of document.querySelectorAll('table[id]')) {
+    const fresh = page.getElementById(table.id)
+    if (fresh) table.replaceWith(fresh)
+  }
 }
+"""
+
+
+def page(title: str, *content: Any) -> Stan:
+    """A whole page: its title, what it holds, the dialog, and the script."""
+    return t.html[
+        t.head[
+            t.meta(charset="utf-8"),
+            t.title[title],
+            t.style[STYLE],
+        ],
+        t.body[
+            t.p[t.a(href="/editors/")["Editors"]],
+            *content,
+            t.dialog(id="editor"),
+            t.script[SCRIPT],
+        ],
+    ]
+
+
+def slot(name: str, /, **attributes: Any) -> dict[str, Any]:
+    """The attributes that make an element the slot name."""
+    return {"data-slot": name, **attributes}
+
+
+def attr(mapping: str, /, **attributes: Any) -> dict[str, Any]:
+    """The attributes that fill an element's attributes from slots:
+    mapping is "href=edit" or "value=name,title=hint"."""
+    return {"data-attr": mapping, **attributes}
+
+
+def buttons() -> Stan:
+    """Save posts the form; Cancel closes the dialog it is in, saving nothing."""
+    return t.p[
+        t.button["Save"],
+        " ",
+        t.button(formmethod="dialog", formnovalidate="formnovalidate")["Cancel"],
+    ]
+
+
+def option(value: str, label: str, chosen: bool) -> Stan:
+    """An <option>, selected if chosen: selected is so whenever it is there,
+    so it is left out, not set false."""
+    return t.option(value=value, **({"selected": ""} if chosen else {}))[label]
+
+
+def fields(request: State) -> dict[str, Any]:
+    """What a form posted, by name."""
+    body = request.get("parsed_body")
+    return cast(dict[str, Any], body) if isinstance(body, dict) else {}
+
+
+def text(posted: dict[str, Any], name: str) -> str:
+    """One text field, or nothing if it was not sent as one."""
+    value = posted.get(name, "")
+    return value.strip() if isinstance(value, str) else ""
+
+
+class Character(Resource):
+    """A character: state {"name", "prompt", "agent_args"}."""
+
+    template = page(
+        "Edit character",
+        t.form(**attr("action=url", method="post"))[
+            t.h2["Edit character"],
+            t.label[
+                "Name",
+                t.input(**attr("value=name", type="text", name="name", required="")),
+            ],
+            t.label[
+                "System prompt",
+                t.textarea(**slot("prompt", name="prompt"))["A prompt"],
+            ],
+            t.label[
+                "Agent args",
+                t.input(**attr("value=agent_args", type="text", name="agent_args")),
+            ],
+            buttons(),
+        ],
+    )
+
+    def slot_url(self, request: State) -> str:
+        # The form posts to this page's own URL
+        return str(request["url"])
+
+    async def handle_POST(self, request: State) -> Any:
+        posted = fields(request)
+        name = text(posted, "name")
+        if not name:
+            raise HTTPResponse(400, "A character needs a name.\n")
+        self.state.update(
+            name=name,
+            prompt=text(posted, "prompt"),
+            agent_args=text(posted, "agent_args"),
+        )
+        self.see_other("/editors/")
+
+
+class Party(Resource):
+    """A party: state {"name", "members"}, the members character ids."""
+
+    template = page(
+        "Edit party",
+        t.form(**attr("action=url", method="post"))[
+            t.h2["Edit party"],
+            t.label[
+                "Name",
+                t.input(**attr("value=name", type="text", name="name", required="")),
+            ],
+            t.label[
+                "Members",
+                t.select(**slot("member_options", name="members[]", multiple="")),
+            ],
+            buttons(),
+        ],
+    )
+
+    def slot_url(self, request: State) -> str:
+        return str(request["url"])
+
+    def slot_member_options(self, request: State) -> list[Stan]:
+        # One option for each character, chosen if it is a member
+        return [
+            option(cid, character.state["name"], cid in self.state["members"])
+            for cid, character in characters.items()
+        ]
+
+    async def handle_POST(self, request: State) -> Any:
+        posted = fields(request)
+        name = text(posted, "name")
+        # members[] is a list, and absent when none is chosen
+        members = posted.get("members[]", [])
+        if not name:
+            raise HTTPResponse(400, "A party needs a name.\n")
+        unknown = [cid for cid in members if cid not in characters]
+        if unknown:
+            raise HTTPResponse(400, f"No character {unknown[0]!r}.\n")
+        self.state.update(name=name, members=members)
+        self.see_other("/editors/")
 
 
 class Deploy(Resource):
-    """One deploy: read whole, and given a new name or party by PUT."""
+    """A deploy: state {"name", "party", "status"}. Its status is the
+    server's, shown on its page and not taken from any form."""
 
-    def __init__(self, record: dict[str, Any]) -> None:
-        self.record = record
+    template = page(
+        "Edit deploy",
+        t.form(**attr("action=url", method="post"))[
+            t.h2["Edit deploy"],
+            t.label[
+                "Name",
+                t.input(**attr("value=name", type="text", name="name", required="")),
+            ],
+            t.label["Party", t.select(**slot("party_options", name="party"))],
+            t.p["Status: ", t.span(**slot("status"))["running"]],
+            buttons(),
+        ],
+    )
 
-    async def handle_GET(self, state: State) -> Any:
-        return self.record
+    def slot_url(self, request: State) -> str:
+        return str(request["url"])
 
-    async def handle_PUT(self, state: State) -> Any:
-        body = state.get("parsed_body")
-        changes = cast(dict[str, Any], body) if isinstance(body, dict) else {}
-        name, party = changes.get("name"), changes.get("party")
-        if set(changes) - {"name", "party"} or not isinstance(name, str) or not name:
-            raise HTTPResponse(400, 'Send {"name": a string, "party": an id}\n')
+    def slot_party_options(self, request: State) -> list[Stan]:
+        return [
+            option(pid, party.state["name"], pid == self.state["party"])
+            for pid, party in parties.items()
+        ]
+
+    async def handle_POST(self, request: State) -> Any:
+        posted = fields(request)
+        name, party = text(posted, "name"), text(posted, "party")
+        if not name:
+            raise HTTPResponse(400, "A deploy needs a name.\n")
         if party not in parties:
-            raise HTTPResponse(400, f"No party {party!r}\n")
-        self.record["name"], self.record["party"] = name, party
-        return self.record
+            raise HTTPResponse(400, f"No party {party!r}.\n")
+        self.state.update(name=name, party=party)
+        self.see_other("/editors/")
 
 
-class Deploys(Resource):
-    """The deploys: their data whole at /editors/deploys.json, and each one
-    at /editors/deploys/<id>.json, a Deploy over its record."""
+characters: dict[str, Character] = {
+    "c1": Character(
+        {
+            "name": "Code Reviewer",
+            "prompt": "You review code for correctness first, then clarity.",
+            "agent_args": "--ant --notools",
+        }
+    ),
+    "c2": Character(
+        {
+            "name": "Researcher",
+            "prompt": "You find sources, and say which claims they support.",
+            "agent_args": "--oai",
+        }
+    ),
+    "c3": Character(
+        {
+            "name": "Shell Helper",
+            "prompt": "You suggest one shell command at a time, and explain it.",
+            "agent_args": "--ant --shell",
+        }
+    ),
+}
 
-    def __init__(self, records: dict[str, dict[str, Any]]) -> None:
-        self.records = records
+parties: dict[str, Party] = {
+    "p1": Party({"name": "Reviewers", "members": ["c1", "c2"]}),
+    "p2": Party({"name": "Operators", "members": ["c3"]}),
+}
 
-    async def get_child(self, segments: list[str], state: State, send: Send) -> Any:
-        record = self.records.get(segments[0])
-        return Deploy(record) if record is not None else None
-
-    async def handle_GET(self, state: State) -> Any:
-        return self.records
+deploys: dict[str, Deploy] = {
+    "d1": Deploy({"name": "Nightly review", "party": "p1", "status": "running"}),
+    "d2": Deploy({"name": "Ops on call", "party": "p2", "status": "stopped"}),
+}
 
 
-deploys = Deploys(
-    {
-        "d1": {"name": "Nightly review", "party": "p1", "status": "running"},
-        "d2": {"name": "Ops on call", "party": "p2", "status": "stopped"},
-    }
-)
+def edit_link(kind: str, key: str) -> str:
+    return f"/editors/{kind}/{key}.html"
+
+
+class Editors(Resource):
+    """/editors/: a table of each kind, every row a copy of its pattern."""
+
+    template = page(
+        "Editors",
+        t.table(id="characters")[
+            t.caption["Characters"],
+            t.thead[t.tr[t.th["Name"], t.th["Prompt"], t.th["Agent args"]]],
+            t.tbody(**slot("character_rows"))[
+                t.tr(**{"data-pat": "character_row"})[
+                    t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
+                    t.td(**slot("prompt")),
+                    t.td[t.code(**slot("agent_args"))],
+                ]
+            ],
+        ],
+        t.table(id="parties")[
+            t.caption["Parties"],
+            t.thead[t.tr[t.th["Name"], t.th["Members"]]],
+            t.tbody(**slot("party_rows"))[
+                t.tr(**{"data-pat": "party_row"})[
+                    t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
+                    t.td(**slot("members")),
+                ]
+            ],
+        ],
+        t.table(id="deploys")[
+            t.caption["Deploys"],
+            t.thead[t.tr[t.th["Name"], t.th["Party"], t.th["Status"]]],
+            t.tbody(**slot("deploy_rows"))[
+                t.tr(**{"data-pat": "deploy_row"})[
+                    t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
+                    t.td(**slot("party")),
+                    t.td(**slot("status")),
+                ]
+            ],
+        ],
+    )
+
+    def slot_character_rows(self, request: State) -> list[Stan]:
+        return [
+            self.pattern("character_row", edit=edit_link("characters", cid), **c.state)
+            for cid, c in characters.items()
+        ]
+
+    def slot_party_rows(self, request: State) -> list[Stan]:
+        return [
+            self.pattern(
+                "party_row",
+                edit=edit_link("parties", pid),
+                name=p.state["name"],
+                members=", ".join(
+                    characters[m].state["name"] for m in p.state["members"]
+                ),
+            )
+            for pid, p in parties.items()
+        ]
+
+    def slot_deploy_rows(self, request: State) -> list[Stan]:
+        return [
+            self.pattern(
+                "deploy_row",
+                edit=edit_link("deploys", did),
+                name=d.state["name"],
+                party=parties[d.state["party"]].state["name"],
+                status=d.state["status"],
+            )
+            for did, d in deploys.items()
+        ]
+
 
 changes = EventSource()
 
 app = consumers_app(
     {
         "editors": {
+            "index": Editors(),
             "characters": characters,
             "parties": parties,
             "deploys": deploys,

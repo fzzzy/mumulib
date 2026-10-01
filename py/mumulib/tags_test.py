@@ -394,3 +394,14 @@ class TestEscaping(unittest.TestCase):
             with self.subTest(child=child):
                 with self.assertRaisesRegex(TypeError, words):
                     render(t.p[child], accept=("text/html", "*/*"))
+
+    def test_several_children_are_each_a_child(self):
+        out = render(t.p["a ", t.b["b"], " c"])
+        self.assertIn("<b>", out)
+        self.assertNotIn("every.b", out)
+
+    def test_a_page_is_written_with_its_doctype(self):
+        self.assertTrue(
+            render(t.html[t.body["hi"]]).startswith("<!doctype html>\n<html>")
+        )
+        self.assertNotIn("doctype", render(t.div["a fragment"]))

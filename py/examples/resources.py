@@ -4,7 +4,7 @@
 
 A Resource subclass is published like anything else. Its children are its
 child_ attributes, walked into by name, and a request that ends at it is
-answered by its handle_<METHOD>, called with the request's state. GET
+answered by its handle_<METHOD>, called with the request's request. GET
 renders its template unless it says otherwise; any method it has no handler
 for is 405, with Allow naming the ones it has. What a handler returns is
 produced as though it had been published there, of the URL's type.
@@ -63,7 +63,7 @@ and <a href="/todos/items/">each item</a>.</p>
 # back if that fails. The page listens at /changes.sse, where the server
 # says what any request changed, so every page open shows every change. A
 # slot can set an attribute but not leave one out, and checked is on whenever
-# it is there at all, so the box gets its state from data-done instead.
+# it is there at all, so the box gets its request from data-done instead.
 LIST_PAGE = parse_template(
     BytesIO(
         b"""<!doctype html>
@@ -127,15 +127,15 @@ new EventSource("/changes.sse").onmessage = async (event) => {
 assert LIST_PAGE is not None
 
 
-def own_url(state: State) -> str:
+def own_url(request: State) -> str:
     """The URL the request named, without its extension: /todos.json's is
     /todos, below which its items are."""
-    return str(state.get("url", "")).rpartition(".")[0]
+    return str(request.get("url", "")).rpartition(".")[0]
 
 
-def fields(state: State) -> dict[str, Any]:
+def fields(request: State) -> dict[str, Any]:
     """What was sent, a JSON object or a form, as a dict; else empty."""
-    body = state.get("parsed_body")
+    body = request.get("parsed_body")
     return cast(dict[str, Any], body) if isinstance(body, dict) else {}
 
 
@@ -143,24 +143,25 @@ class Todo(Resource):
     """One thing to do: read, and changed with PUT, but never removed."""
 
     def __init__(self, text: str) -> None:
+        super().__init__()
         self.text = text
         self.done = False
 
-    async def handle_GET(self, state: State) -> Any:
-        if state["extension"] == "html":
+    async def handle_GET(self, request: State) -> Any:
+        if request["extension"] == "html":
             # The text is a visitor's: escaped, as anything they send must be
             mark = "done" if self.done else "to do"
             return f"<p>{html.escape(self.text)} ({mark})</p>"
         return {"text": self.text, "done": self.done}
 
-    async def handle_PUT(self, state: State) -> Any:
+    async def handle_PUT(self, request: State) -> Any:
         # Only what a Todo is made of, and only of its own types
-        changes = fields(state)
+        changes = fields(request)
         text, done = changes.get("text", self.text), changes.get("done", self.done)
         if not changes or not isinstance(text, str) or not isinstance(done, bool):
             raise HTTPResponse(400, 'Send {"text": a string, "done": true or false}\n')
         self.text, self.done = text, done
-        return await self.handle_GET(state)
+        return await self.handle_GET(request)
 
 
 class Todos(Resource):
@@ -173,20 +174,21 @@ class Todos(Resource):
     template = LIST_PAGE
 
     def __init__(self, *texts: str) -> None:
+        super().__init__()
         # A child like any other: /todos/items/0.json is child_items[0]
         self.child_items = [Todo(text) for text in texts]
 
-    async def handle_GET(self, state: State) -> Any:
-        if state["extension"] == "html":
-            return await super().handle_GET(state)
-        base = own_url(state)
+    async def handle_GET(self, request: State) -> Any:
+        if request["extension"] == "html":
+            return await super().handle_GET(request)
+        base = own_url(request)
         return [
             {"text": todo.text, "done": todo.done, "url": f"{base}/items/{i}.json"}
             for i, todo in enumerate(self.child_items)
         ]
 
-    def slot_items(self, state: State) -> list[Stan]:
-        base = own_url(state)
+    def slot_items(self, request: State) -> list[Stan]:
+        base = own_url(request)
         return [
             self.pattern(
                 "item",
@@ -199,15 +201,15 @@ class Todos(Resource):
             for i, todo in enumerate(self.child_items)
         ]
 
-    async def handle_POST(self, state: State) -> Any:
-        text = fields(state).get("text")
+    async def handle_POST(self, request: State) -> Any:
+        text = fields(request).get("text")
         if not isinstance(text, str) or not text:
             raise HTTPResponse(400, 'Send {"text": a string}\n')
         self.child_items.append(Todo(text))
-        if state["extension"] == "html":
+        if request["extension"] == "html":
             # A form's answer is the page it asked for: the list, with this
-            return await self.handle_GET(state)
-        return {"url": f"{own_url(state)}/items/{len(self.child_items) - 1}.json"}
+            return await self.handle_GET(request)
+        return {"url": f"{own_url(request)}/items/{len(self.child_items) - 1}.json"}
 
 
 class About(Resource):
@@ -222,6 +224,7 @@ class Site(Resource):
     child_index = INDEX
 
     def __init__(self) -> None:
+        super().__init__()
         self.child_todos = Todos("Write the example", "Test it")
         self.child_about = About()
         # /changes.sse: the URL of whatever a request changes, for every

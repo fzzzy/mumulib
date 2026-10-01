@@ -80,15 +80,18 @@ stylesheet, text and image from a directory, `functions.py`
 `resources.py` (`SERVER=resources`) a to-do list of resources: a list that
 takes `POST`, and items in it that answer their own `PUT` and cannot be
 deleted, on a page that listens to `changes` and shows everyone's at once;
-and `editors.py` (`SERVER=editors`) the data behind `ts/examples/editors`, a
-character, party and deploy editor -- plain dicts for two, and a `Resource`
-that overrides `get_child` guarding the third.
+and `editors.py` (`SERVER=editors`, then `/editors/`) a character, party and
+deploy editor: every page built in Stan, each object a `Resource` whose state
+fills its edit form, each form a plain post its resource checks and answers
+with 303 See Other, and one small script that opens a form in a dialog and
+fetches the tables again when anything changes.
 
 ## Resources
 
 A subclass of `mumulib.resource.Resource` names its children as attributes,
-`child_<name>`, and answers a request that ends at it with `render(state)`,
-which calls `handle_<METHOD>(state)`:
+`child_<name>`, and answers a request that ends at it with `render(request)`,
+which calls `handle_<METHOD>(request)`. Its state is a dict, given to the
+constructor:
 
 ```python
 class Profile(Resource):
@@ -98,17 +101,20 @@ class Profile(Resource):
 
 class Site(Resource):
     child_index = "<h1>Home</h1>"
-    child_profile = Profile()
+    child_profile = Profile({"name": "Ada"})
 
 
-app = consumers_app(Site())  # /, /profile.html, /profile/name.txt
+app = consumers_app(Site())  # /, /profile.html, /profile.json, /profile/name.txt
 ```
 
-`handle_GET` renders `template`; every other method is 405, with `Allow`
-naming `GET` and whatever the subclass handles. Handlers are `async def`, and
-`render` awaits them. What a handler returns is
-produced as though it had been published there, of the URL's type: `state`
-says which, in `"content_type"` and `"extension"`. A resource is not a
+`handle_GET` renders `template`, and at `.json` gives the state; every other
+method is 405, with `Allow` naming `GET` and whatever the subclass handles.
+Handlers are `async def`, and `render` awaits them. What a handler returns is
+produced as though it had been published there, of the URL's type: the
+request says which, in `"content_type"` and `"extension"`. The state is the
+resource's JSON wherever it appears, so a dict of resources is a JSON
+document of their states. A form post is answered with
+`self.see_other(url)`, 303 See Other, as `self.refuse()` answers with 405. A resource is not a
 container -- it is named as a file, `/profile.html` or `/profile.json` -- and
 its children can be anything publishable. Each subclass is registered as it
 is defined, by `__init_subclass__`.
@@ -126,14 +132,15 @@ for itself the same way, registered with
 
 When `template` is a parsed template, `handle_GET` fills a copy of it: each
 slot, `data-slot` or `data-attr`, from the resource's `slot_<name>` -- a
-method called with `state`, async or not, or a plain value:
+method called with the request, async or not, or a plain value -- or, with
+no `slot_`, from its state's entry of that name:
 
 ```python
 class Todos(Resource):
     template = parse_template(open("todos.html", "rb"))
     slot_title = "To do"
 
-    async def slot_items(self, state):
+    async def slot_items(self, request):
         return [self.pattern("item", text=t.text) for t in await load()]
 ```
 
@@ -141,7 +148,8 @@ A slot takes what it is given as text, escaped; a tree, or a list of them,
 as markup -- `self.pattern(name, **slots)` is a filled copy of one of the
 template's `data-pat` patterns; and anything else as the HTML a producer
 makes of it, so a dict is its listing and a resource its page. `None` empties
-a slot, and a slot with no `slot_` keeps what the template has there. A slot
+a slot, and a slot with neither a `slot_` nor a state entry keeps what the
+template has there. A slot
 inside a pattern is the pattern's, filled when it is copied. A value with no
 HTML form is a `TypeError` naming its slot, before anything is sent.
 

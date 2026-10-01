@@ -121,9 +121,9 @@ async def parse_urlencoded(
             if not message.get("more_body", False):
                 break
     result: dict[str, Any] = {}
+    # parse_qsl decodes each name and value once, which is all they are
+    # encoded: decoding again made a literal %41 an A
     for k, v in parse.parse_qsl(body.decode("utf-8")):
-        k = parse.unquote(k)
-        v = parse.unquote(v)
         if k.endswith("]") and "[" in k:
             values_list = result.get(k, [])
             values_list.append(v)
@@ -226,12 +226,12 @@ def _announce_changes(send: Send, changes: "EventSource", url: str) -> Send:
     """send, for a request that may change something: once its response has
     succeeded, the URL of what it changed is put on changes.
 
-    Success is any 2xx. What changed is the request's URL, or for 201
-    Created the new thing's own, in Location: PUT /todos/last.json makes
-    /todos/3.json. Either is put without its extension, as the object's
-    own name rather than one representation's: /todos/3. It is put as the
-    final body is produced, before it is sent: the change is made whether
-    or not this client stays to hear so.
+    Success is any 2xx, or 303 See Other, a form post's. What changed is
+    the request's URL, or for 201 Created the new thing's own, in Location:
+    PUT /todos/last.json makes /todos/3.json. Either is put without its
+    extension, as the object's own name rather than one representation's:
+    /todos/3. It is put as the final body is produced, before it is sent:
+    the change is made whether or not this client stays to hear so.
     """
     status = 0
     location: str | None = None
@@ -246,7 +246,9 @@ def _announce_changes(send: Send, changes: "EventSource", url: str) -> Send:
         elif message["type"] == "http.response.body" and not message.get(
             "more_body", False
         ):
-            if 200 <= status < 300:
+            # A 303 See Other is a form post's success, sending the
+            # browser on: the change is made, as for any 2xx
+            if 200 <= status < 300 or status == 303:
                 changed = location if status == 201 and location else url
                 changes.put(_object_url(changed))
         await send(message)

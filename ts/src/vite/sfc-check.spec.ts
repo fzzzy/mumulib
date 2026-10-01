@@ -28,7 +28,7 @@ test.describe('Mumulib single-file component type checking', () => {
   test('the examples have no type errors', () => {
     const run = check('--project', 'tsconfig.examples.json', 'examples')
     expect(run.stdout).toContain(
-      "3 components and tsconfig.examples.json's files, no type errors."
+      "2 components and tsconfig.examples.json's files, no type errors."
     )
     expect(run.status).toBe(0)
   })

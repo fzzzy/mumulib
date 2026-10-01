@@ -9,6 +9,7 @@ from types import MappingProxyType
 from unittest import mock
 
 from mumulib.mumutypes import SpecialResponse
+from mumulib.resource import Resource
 from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
     EventSource,
@@ -131,6 +132,16 @@ class TestParseUrlencoded(unittest.TestCase):
     def test_parse_urlencoded_array_syntax(self):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_parse_urlencoded_array_syntax())
+
+    def test_each_value_is_decoded_once(self):
+        # %2541 is a literal %41, which decoding twice made an A
+        body_bytes = b"text=100%25+off+%2541&item%5B%5D=a%26b"
+
+        async def receive():
+            return {"type": "http.request", "body": body_bytes, "more_body": False}
+
+        result = asyncio.run(parse_urlencoded(receive))
+        self.assertEqual(result, {"text": "100% off %41", "item[]": ["a&b"]})
 
     async def async_test_parse_urlencoded_empty_body(self):
         """Test parsing empty URL-encoded body"""
@@ -1629,6 +1640,15 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
         # Each object's own URL, with no extension: the appended element's
         # from Location, and the slash as itself
         self.assertEqual(urls, ["/todos/0", "/todos/1", "/todos/0", "/", "/greet"])
+
+    async def test_a_303_is_a_form_posts_success_and_is_announced(self):
+        class Form(Resource):
+            async def handle_POST(self, request):
+                self.see_other("/")
+
+        self.root["form"] = Form()
+        statuses, urls = await self.heard(("POST", "/form.html", "x"))
+        self.assertEqual((statuses, urls), ([303], ["/form"]))
 
     async def test_one_object_has_one_url_whatever_type_it_was_written_as(self):
         _, urls = await self.heard(

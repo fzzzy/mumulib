@@ -5,6 +5,7 @@ import json
 import unittest
 from typing import Any
 from unittest import mock
+from urllib.parse import urlencode
 
 from examples import editors
 from mumulib.mumutypes import Message
@@ -12,27 +13,22 @@ from mumulib.mumutypes import Message
 
 class TestEditors(unittest.TestCase):
     def setUp(self):
-        # Each test's own copy of the data, so its writes do not leak
-        self.saved = (
-            copy.deepcopy(editors.characters),
-            copy.deepcopy(editors.parties),
-            copy.deepcopy(editors.deploys.records),
-        )
+        # Each test's writes undone after it: the states as they were
+        self.saved = [
+            (thing, copy.deepcopy(thing.state))
+            for kind in (editors.characters, editors.parties, editors.deploys)
+            for thing in kind.values()
+        ]
 
     def tearDown(self):
-        characters, parties, records = self.saved
-        for live, kept in (
-            (editors.characters, characters),
-            (editors.parties, parties),
-            (editors.deploys.records, records),
-        ):
-            live.clear()
-            live.update(kept)
+        for thing, state in self.saved:
+            thing.state.clear()
+            thing.state.update(state)
 
-    def request(self, path: str, method: str = "GET", body: object = None):
-        """The status and body of one request to the example's app."""
+    def request(self, path: str, method: str = "GET", form: Any = None):
+        """The status, headers and body of one request, a form posted if given."""
         sent: list[Message] = []
-        data = json.dumps(body).encode() if body is not None else b""
+        data = urlencode(form, doseq=True).encode() if form is not None else b""
 
         async def send(message: Message) -> None:
             sent.append(message)
@@ -40,75 +36,114 @@ class TestEditors(unittest.TestCase):
         async def receive() -> Message:
             return {"type": "http.request", "body": data, "more_body": False}
 
-        headers = [(b"content-type", b"application/json")] if body is not None else []
+        headers = (
+            [(b"content-type", b"application/x-www-form-urlencoded")]
+            if form is not None
+            else []
+        )
 
         async def go() -> None:
             scope = {"type": "http", "method": method, "path": path, "headers": headers}
             await editors.app({**scope, "state": {}}, receive, send)
 
         asyncio.run(go())
-        content = b"".join(m.get("body", b"") for m in sent[1:]).strip()
-        return sent[0]["status"], content
+        content = b"".join(m.get("body", b"") for m in sent[1:]).decode()
+        return sent[0]["status"], dict(sent[0]["headers"]), content
 
-    def json(self, path: str) -> Any:
-        status, content = self.request(path)
+    def page(self, path: str) -> str:
+        status, _, content = self.request(path)
         self.assertEqual(status, 200, content)
-        return json.loads(content)
+        return content
 
-    def test_each_kind_is_its_records_by_id(self):
-        self.assertEqual(set(self.json("/editors/characters.json")), {"c1", "c2", "c3"})
-        self.assertEqual(
-            self.json("/editors/parties.json")["p1"]["members"], ["c1", "c2"]
-        )
-        deploys = self.json("/editors/deploys.json")
-        self.assertEqual(deploys["d1"]["status"], "running")
-        self.assertEqual(self.json("/editors/deploys/d2.json"), deploys["d2"])
+    def post(self, path: str, form: Any) -> int:
+        status, headers, _ = self.request(path, "POST", form)
+        if status == 303:
+            self.assertEqual(headers[b"location"], b"/editors/")
+        return status
 
-    def test_a_character_or_party_is_replaced_whole(self):
-        character = {"name": "Renamed", "prompt": "p", "agent_args": ""}
-        self.assertEqual(
-            self.request("/editors/characters/c1.json", "PUT", character)[0], 204
-        )
-        self.assertEqual(self.json("/editors/characters/c1.json"), character)
-        party = {"name": "Solo", "members": ["c3"]}
-        self.assertEqual(self.request("/editors/parties/p1.json", "PUT", party)[0], 204)
-        self.assertEqual(self.json("/editors/parties/p1.json"), party)
-
-    def test_a_deploy_takes_a_name_and_a_party_and_its_status_stays(self):
-        status, content = self.request(
-            "/editors/deploys/d1.json", "PUT", {"name": "Weekly", "party": "p2"}
-        )
-        self.assertEqual(status, 200)
-        self.assertEqual(
-            json.loads(content), {"name": "Weekly", "party": "p2", "status": "running"}
-        )
-        self.assertEqual(self.json("/editors/deploys/d1.json")["party"], "p2")
-
-    def test_a_deploy_refuses_anything_else(self):
-        for body in (
-            {"name": "x", "party": "p1", "status": "stopped"},
-            {"name": "", "party": "p1"},
-            {"name": "x", "party": "nowhere"},
-            "replaced",
+    def test_the_index_is_a_table_of_each_kind(self):
+        index = self.page("/editors/")
+        self.assertTrue(index.startswith("<!doctype html>"))
+        for path in (
+            "/editors/characters/c1.html",
+            "/editors/parties/p2.html",
+            "/editors/deploys/d1.html",
         ):
-            with self.subTest(body=body):
-                status, _ = self.request("/editors/deploys/d1.json", "PUT", body)
-                self.assertEqual(status, 400)
+            self.assertIn(f'href="{path}"', index)
+        # Ids shown by name: a party's members, a deploy's party
+        self.assertIn("Code Reviewer, Researcher", index)
+        self.assertIn("Operators", index)
+
+    def test_each_kind_is_its_states_as_json(self):
+        _, _, body = self.request("/editors/parties.json")
+        self.assertEqual(json.loads(body)["p1"]["members"], ["c1", "c2"])
+        _, _, body = self.request("/editors/deploys/d1.json")
+        self.assertEqual(json.loads(body)["status"], "running")
+
+    def test_an_edit_page_is_a_form_filled_from_the_state(self):
+        form = self.page("/editors/characters/c2.html")
+        self.assertIn('action="/editors/characters/c2.html"', form)
+        self.assertIn('value="Researcher"', form)
+        self.assertIn("You find sources", form)
+        party = self.page("/editors/parties/p1.html")
+        self.assertIn('<option value="c1" selected="">', party)
+        self.assertIn('<option value="c3">', party)
+        deploy = self.page("/editors/deploys/d2.html")
+        self.assertIn('<option value="p2" selected="">', deploy)
+        self.assertIn("stopped", deploy)
+
+    def test_a_character_is_posted_and_kept(self):
+        status = self.post(
+            "/editors/characters/c1.html",
+            {"name": "<Renamed>", "prompt": "p", "agent_args": "--x"},
+        )
+        self.assertEqual(status, 303)
         self.assertEqual(
-            self.json("/editors/deploys/d1.json")["name"], "Nightly review"
+            editors.characters["c1"].state,
+            {"name": "<Renamed>", "prompt": "p", "agent_args": "--x"},
+        )
+        # Escaped on every page it is shown on
+        self.assertIn("&lt;Renamed&gt;", self.page("/editors/"))
+
+    def test_a_partys_members_are_a_list_and_may_be_none(self):
+        self.post("/editors/parties/p1.html", {"name": "R", "members[]": ["c1", "c3"]})
+        self.assertEqual(editors.parties["p1"].state["members"], ["c1", "c3"])
+        self.post("/editors/parties/p1.html", {"name": "R"})
+        self.assertEqual(editors.parties["p1"].state["members"], [])
+
+    def test_a_deploy_takes_a_name_and_a_party_and_never_a_status(self):
+        status = self.post(
+            "/editors/deploys/d1.html",
+            {"name": "Weekly", "party": "p2", "status": "stopped"},
+        )
+        self.assertEqual(status, 303)
+        self.assertEqual(
+            editors.deploys["d1"].state,
+            {"name": "Weekly", "party": "p2", "status": "running"},
         )
 
-    def test_an_unknown_deploy_is_not_found(self):
-        self.assertEqual(self.request("/editors/deploys/d9.json")[0], 404)
-        self.assertEqual(self.request("/editors/deploys/d9.json", "PUT", {})[0], 404)
+    def test_what_does_not_make_sense_is_refused_and_nothing_kept(self):
+        for path, form in [
+            ("/editors/characters/c1.html", {"name": " "}),
+            ("/editors/parties/p1.html", {"name": "x", "members[]": ["c9"]}),
+            ("/editors/parties/p1.html", {"members[]": ["c1"]}),
+            ("/editors/deploys/d1.html", {"name": "x", "party": "nowhere"}),
+            ("/editors/deploys/d1.html", {"party": "p1"}),
+        ]:
+            with self.subTest(path=path, form=form):
+                self.assertEqual(self.post(path, form), 400)
+        self.assertEqual(editors.characters["c1"].state["name"], "Code Reviewer")
+        self.assertEqual(editors.deploys["d1"].state["name"], "Nightly review")
 
-    def test_each_change_is_announced_by_the_url_of_what_changed(self):
+    def test_nothing_else_is_answered(self):
+        self.assertEqual(self.request("/editors/characters/c9.html")[0], 404)
+        self.assertEqual(self.request("/editors/characters/c1.html", "PUT")[0], 405)
+
+    def test_each_post_that_changes_something_is_announced(self):
         with mock.patch.object(editors.changes, "put") as put:
-            self.request("/editors/characters/c2.json", "PUT", {"name": "x"})
-            self.request(
-                "/editors/deploys/d2.json", "PUT", {"name": "y", "party": "p1"}
-            )
-            self.request("/editors/deploys/d2.json", "PUT", {"status": "z"})
+            self.post("/editors/characters/c2.html", {"name": "x"})
+            self.post("/editors/deploys/d2.html", {"name": "y", "party": "p1"})
+            self.post("/editors/deploys/d2.html", {"name": "z", "party": "p9"})
         self.assertEqual(
             [call.args[0] for call in put.call_args_list],
             ["/editors/characters/c2", "/editors/deploys/d2"],

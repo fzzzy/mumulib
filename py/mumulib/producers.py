@@ -27,7 +27,7 @@ THE SOFTWARE.
 import html
 import inspect
 import json
-from collections.abc import AsyncGenerator, Iterable
+from collections.abc import AsyncGenerator, Callable, Iterable
 from io import BufferedReader, TextIOWrapper
 from pathlib import Path, PurePath
 from types import (
@@ -51,10 +51,26 @@ from mumulib.mumutypes import Chunk, Producer, State
 __all__ = [
     "produce",
     "add_producer",
+    "add_json_form",
 ]
 
 
-def custom_serializer(obj: object) -> dict[str, Any]:
+# What a type's things are as JSON, for those that are not JSON themselves:
+# found by exact type, as producers and consumers are
+_json_forms: dict[type[Any], Callable[[Any], Any]] = {}
+
+
+def add_json_form(adapter_for_type: type[Any], to_json: Callable[[Any], Any]) -> None:
+    """Say what a type's things are in JSON: to_json(thing), something JSON
+    can hold -- a Resource is its state. It is used wherever one is found,
+    at the top or deep in a dict or a list."""
+    _json_forms[adapter_for_type] = to_json
+
+
+def custom_serializer(obj: object) -> Any:
+    to_json = _json_forms.get(type(obj))
+    if to_json is not None:
+        return to_json(obj)
     if isinstance(obj, MappingProxyType):
         # isinstance cannot recover the proxy's type parameters.
         return dict(cast(MappingProxyType[str, Any], obj))

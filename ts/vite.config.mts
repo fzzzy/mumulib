@@ -67,12 +67,6 @@ export default defineConfig(({ mode }) => ({
       unhandledErrors: true,
       logLevels: ['error', 'warn', 'info', 'log', 'debug'],
     },
-    // The editors example's data is the Python server's, py/examples/editors.py:
-    // make run SERVER=editors runs it on 8001, and the tests on a port of
-    // their own, named by EDITORS_API
-    proxy: {
-      '/editors': process.env.EDITORS_API || 'http://127.0.0.1:8001',
-    },
   },
   build:
     mode === 'node'

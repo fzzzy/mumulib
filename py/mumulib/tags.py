@@ -239,8 +239,9 @@ class Stan:
     def __getitem__(self, item: Any) -> "Stan":
         if self.clone:
             self = self.copy()
-        if isinstance(item, list):
-            items = cast(list[Any], item)
+        # t.p["a", t.b["b"]] is two children, as t.p[["a", t.b["b"]]] is
+        if isinstance(item, (list, tuple)):
+            items = list(cast(list[Any] | tuple[Any, ...], item))
             for child in items:
                 if isinstance(child, Stan):
                     child.indent = self.indent + 1
@@ -542,6 +543,10 @@ async def produce_child(child: Any, state: State) -> AsyncIterator[str]:
 
 
 async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
+    # A whole page says it is HTML: without the doctype, a browser renders it
+    # in quirks mode. parse_template drops a template's own, as lxml reads it.
+    if thing.tagname == "html":
+        yield "<!doctype html>\n"
     indent = "    " * thing.indent
     yield f"{indent}<{thing.tagname}"
     if thing.attributes:

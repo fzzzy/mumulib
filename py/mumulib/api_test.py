@@ -32,7 +32,7 @@ PUBLIC = {
     },
     "server": {"consumers_app", "EventSource"},
     "consumers": {"consume", "add_consumer", "GetOnly", "RefuseIndex"},
-    "producers": {"produce", "add_producer"},
+    "producers": {"add_json_form", "produce", "add_producer"},
     "shaped": {
         "is_shaped",
         "make_shape",

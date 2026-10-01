@@ -144,14 +144,19 @@ Python package). Breaking changes come first under each release.
   `template`, and anything else is 405 unless the subclass handles it. Every
   subclass is registered as it is defined. Handlers are `async def`. A parsed
   template is filled from `slot_<name>` methods and values, with
-  `pattern(name, **slots)` for copies of its patterns. A resource answers
-  every method
+  `pattern(name, **slots)` for copies of its patterns. Its state is a dict
+  given to the constructor: its JSON, at its own `.json` URL and inside any
+  other JSON, and what slots with no `slot_` are filled from. Handlers are
+  given the request. `see_other(url)` answers a form post with 303 See Other.
+  A resource answers every method
   at its own URL: a dict, list, tuple or `MappingProxyType` it is in hands it
   the request instead of replacing, removing or refusing it.
 - **`consumers_app(root, changes=events)`**: every `POST`, `PUT`, `PATCH` or
   `DELETE` answered with success puts the URL of what it changed on the
   `EventSource` `events` -- the request's URL, or a 201's `Location`, with
   no extension, `/todos/3` -- for pages listening to fetch it again.
+- **`producers.add_json_form(type, to_json)`**: what a type's things are in
+  JSON, wherever one is found; a `Resource` is its state.
 - **`add_consumer(..., own_methods=True)`**: a type whose things answer every
   method at their URL themselves, as `Resource` is registered.
 - **Python examples**, in `py/examples`, run with `make run` or `make server`
@@ -159,10 +164,11 @@ Python package). Breaking changes come first under each release.
   from an open file with its assets from a directory, both read-only in
   `GetOnly`; `functions.py` a function answering `GET` and `POST`, in a
   `MappingProxyType`; and `resources.py` a to-do list of `Resource`s.
-- **The editors example**: `ts/examples/editors` with `py/examples/editors.py`
-  (`make run SERVER=editors`), a character, party and deploy editor that uses
-  state, patslot, dialog and a single-file component together, against the
-  Python server. Vite passes `/editors` on to it.
+- **The editors example**: `py/examples/editors.py`, run with
+  `make run SERVER=editors` and found at `/editors/`: a character, party and
+  deploy editor built in Stan, with forms posted as forms and handled by each
+  object's resource, and a small script that shows a form in a dialog and
+  fetches the tables again on every change.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when
@@ -170,6 +176,13 @@ Python package). Breaking changes come first under each release.
   come back as JSON.
 
 ### Fixed
+
+- A form post's values are decoded once: `parse_qsl` had decoded them, and
+  they were decoded again, so a literal `%41` arrived as `A`.
+- `tags`: `t.p["a", t.b["b"]]` is two children, as a list is; it had been one
+  tuple. A page, an `<html>` tree, is written with its `<!doctype html>`.
+- `consumers_app(..., changes=)` announces a form post answered with 303 See
+  Other, as it does any 2xx.
 
 - A dialog's method is called with every control's value: `<textarea>`,
   `<select>` and form-associated custom elements as well as `<input>`, which

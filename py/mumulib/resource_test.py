@@ -45,25 +45,26 @@ class Site(Resource):
 
 
 class Typed(Resource):
-    """Answers each type in its own way, from state."""
+    """Answers each type in its own way, from request."""
 
-    async def handle_GET(self, state):
-        if state["extension"] == "json":
-            return {"type": state["content_type"]}
-        return f"as {state['extension']}"
+    async def handle_GET(self, request):
+        if request["extension"] == "json":
+            return {"type": request["content_type"]}
+        return f"as {request['extension']}"
 
 
 class Guestbook(Resource):
     """Takes POSTs, and nothing else but GET."""
 
     def __init__(self):
+        super().__init__()
         self.entries = []
 
-    async def handle_GET(self, state):
+    async def handle_GET(self, request):
         return self.entries
 
-    async def handle_POST(self, state):
-        self.entries.append(state["parsed_body"])
+    async def handle_POST(self, request):
+        self.entries.append(request["parsed_body"])
         return {"count": len(self.entries)}
 
 
@@ -89,8 +90,9 @@ class TestRender(unittest.TestCase):
         status, headers, body = call(root, "GET", "/profile.html")
         self.assertEqual((status, body), (200, b"<h1>A profile</h1>"))
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+        # As data, it is its state: none, given none
         _, _, body = call(root, "GET", "/profile.json")
-        self.assertEqual(json.loads(body), "<h1>A profile</h1>")
+        self.assertEqual(json.loads(body), {})
 
     def test_render_sees_the_type_in_state(self):
         root = {"typed": Typed()}
@@ -130,29 +132,30 @@ class Box(Resource):
     """Holds one value, and answers every write to it itself."""
 
     def __init__(self):
+        super().__init__()
         self.value = "empty"
         self.seen = []
 
-    async def handle_GET(self, state):
+    async def handle_GET(self, request):
         return self.value
 
-    async def handle_PUT(self, state):
+    async def handle_PUT(self, request):
         self.seen.append("PUT")
-        self.value = state["parsed_body"]
+        self.value = request["parsed_body"]
         return {"now": self.value}
 
-    async def handle_DELETE(self, state):
+    async def handle_DELETE(self, request):
         self.seen.append("DELETE")
         self.value = "empty"
         return {"now": self.value}
 
-    async def handle_POST(self, state):
+    async def handle_POST(self, request):
         self.seen.append("POST")
-        return {"posted": state["parsed_body"]}
+        return {"posted": request["parsed_body"]}
 
-    async def handle_PATCH(self, state):
+    async def handle_PATCH(self, request):
         self.seen.append("PATCH")
-        return {"patched": state["parsed_body"]}
+        return {"patched": request["parsed_body"]}
 
 
 class TestInContainers(unittest.TestCase):
@@ -264,35 +267,36 @@ class Filled(Resource):
     slot_title = "Slots"
 
     def __init__(self, names):
+        super().__init__()
         self.names = names
         self.called = []
 
-    def slot_greeting(self, state):
+    def slot_greeting(self, request):
         self.called.append("greeting")
-        return f"Hello, {state.get('parsed_body') or 'you'}"
+        return f"Hello, {request.get('parsed_body') or 'you'}"
 
-    async def slot_label(self, state):
+    async def slot_label(self, request):
         await asyncio.sleep(0)
         return "<go>"
 
-    def slot_link(self, state):
+    def slot_link(self, request):
         return "/elsewhere?a=1&b=2"
 
-    def slot_gone(self, state):
+    def slot_gone(self, request):
         return None
 
-    def slot_items(self, state):
+    def slot_items(self, request):
         return [self.pattern("item", name=name) for name in self.names]
 
-    def slot_name(self, state):
+    def slot_name(self, request):
         # Inside the pattern: the pattern's, never the page's
         self.called.append("name")
         return "never"
 
-    def slot_listing(self, state):
+    def slot_listing(self, request):
         return {"a": 1}
 
-    def slot_inner(self, state):
+    def slot_inner(self, request):
         return Card()
 
 
@@ -359,7 +363,7 @@ class TestSlots(unittest.TestCase):
         class Broken(Resource):
             template = PAGE
 
-            def slot_title(self, state):
+            def slot_title(self, request):
                 return object()
 
         status, _, _ = call({"b": Broken()}, "GET", "/b.html")
@@ -375,9 +379,84 @@ class TestSlots(unittest.TestCase):
 class TestAsyncHandlers(unittest.TestCase):
     def test_a_handler_may_be_async(self):
         class Later(Resource):
-            async def handle_GET(self, state):
+            async def handle_GET(self, request):
                 await asyncio.sleep(0)
                 return {"later": True}
 
         _, _, body = call({"l": Later()}, "GET", "/l.json")
         self.assertEqual(json.loads(body), {"later": True})
+
+
+STATE_PAGE = parse_template(
+    io.BytesIO(
+        b"""<html><body>
+<h1 data-slot="name">A name</h1>
+<p data-slot="mood">A mood</p>
+<a data-attr="href=link">a link</a>
+</body></html>"""
+    )
+)
+
+
+class Person(Resource):
+    """Filled from its state, but for what a slot_ says instead."""
+
+    template = STATE_PAGE
+
+    def slot_mood(self, request):
+        return f"{self.state['name']} is {self.state['mood']}"
+
+    async def handle_POST(self, request):
+        self.state.update(request["parsed_body"])
+        self.see_other("/people/")
+
+
+class TestState(unittest.TestCase):
+    def setUp(self):
+        self.ada = Person({"name": "Ada", "mood": "busy", "link": "/ada?a=1&b=2"})
+        self.root = {"people": {"ada": self.ada}}
+
+    def test_a_resource_is_its_state_as_json(self):
+        _, _, body = call(self.root, "GET", "/people/ada.json")
+        self.assertEqual(json.loads(body)["name"], "Ada")
+        # And inside other JSON too
+        _, _, body = call(self.root, "GET", "/people.json")
+        self.assertEqual(json.loads(body), {"ada": self.ada.state})
+
+    def test_a_slot_is_filled_from_the_state_unless_a_slot_method_says(self):
+        _, _, body = call(self.root, "GET", "/people/ada.html")
+        self.assertIn(b"Ada", body)
+        self.assertIn(b"Ada is busy", body)
+        self.assertIn(b'href="/ada?a=1&amp;b=2"', body)
+
+    def test_with_no_state_the_template_keeps_its_own(self):
+        class Bare(Resource):
+            template = STATE_PAGE
+
+        _, _, body = call({"p": Bare()}, "GET", "/p.html")
+        self.assertIn(b"A name", body)
+
+    def test_see_other_answers_a_post_with_where_to_go(self):
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return {"type": "http.request", "body": b"mood=done", "more_body": False}
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/people/ada.html",
+            "headers": [(b"content-type", b"application/x-www-form-urlencoded")],
+            "state": {},
+        }
+
+        async def go():
+            await consumers_app(self.root)(scope, receive, send)
+
+        asyncio.run(go())
+        self.assertEqual(sent[0]["status"], 303)
+        self.assertEqual(dict(sent[0]["headers"])[b"location"], b"/people/")
+        self.assertEqual(self.ada.state["mood"], "done")

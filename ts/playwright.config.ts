@@ -11,7 +11,8 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-// The Python server the editors example's tests use
+// The Python editors example, py/examples/editors.py, for its browser tests:
+// a server of their own, not whatever make run is serving on 8001
 const EDITORS_PORT = process.env.PLAYWRIGHT_EDITORS_PORT || '8124'
 
 export default defineConfig({
@@ -91,9 +92,6 @@ export default defineConfig({
       env: {
         PORT: process.env.PLAYWRIGHT_PORT || '8123',
         VITE_COVERAGE: 'true',
-        // The editors example's data, from the server below rather than
-        // whatever make run is serving on 8001
-        EDITORS_API: `http://127.0.0.1:${EDITORS_PORT}`,
       },
     },
     {
