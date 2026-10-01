@@ -64,6 +64,10 @@ Python package). Breaking changes come first under each release.
   `max_backlog` items behind. A stream ends when its client goes, with one
   `receive` for the whole stream, where each event left another waiting. It
   is found at `.sse` and nothing else.
+- **Each event's data is the item's JSON,** encoded once in `put`, which
+  raises `TypeError` for an item with no JSON form. Items had been sent as
+  their `str()`: a dict as its Python repr, and a string with a newline in
+  it broke the stream's framing.
 - **A server stops at once with event streams open.** At lifespan startup,
   `consumers_app` chains a SIGINT and SIGTERM handler before the server's:
   it ends every open stream, then hands the signal on. uvicorn had waited

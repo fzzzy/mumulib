@@ -5,6 +5,7 @@ import os
 import signal
 import threading
 import unittest
+from types import MappingProxyType
 from unittest import mock
 
 from mumulib.mumutypes import SpecialResponse
@@ -1440,7 +1441,7 @@ class TestEventSource(unittest.IsolatedAsyncioTestCase):
         self.events.put("b")
         await settle()
         for client in (first, second):
-            self.assertTrue(client.body.endswith(b"data: a\n\ndata: b\n\n"))
+            self.assertTrue(client.body.endswith(b'data: "a"\n\ndata: "b"\n\n'))
         await first.go()
         await second.go()
 
@@ -1451,7 +1452,38 @@ class TestEventSource(unittest.IsolatedAsyncioTestCase):
         self.events.put("after")
         await settle()
         self.assertNotIn(b"before anyone", client.body)
-        self.assertIn(b"data: after", client.body)
+        self.assertIn(b'data: "after"', client.body)
+        await client.go()
+
+    async def test_each_item_is_its_json(self):
+        client = Client(self.app)
+        await settle()
+        self.events.put({"text": "Milk", "done": False})
+        self.events.put(MappingProxyType({"read": "only"}))
+        self.events.put([1, None, True])
+        await settle()
+        lines = client.body.split(b"\n\n")[1:-1]
+        self.assertEqual(
+            [json.loads(line.removeprefix(b"data: ")) for line in lines],
+            [{"text": "Milk", "done": False}, {"read": "only"}, [1, None, True]],
+        )
+        await client.go()
+
+    async def test_a_string_with_newlines_is_still_one_event(self):
+        client = Client(self.app)
+        await settle()
+        self.events.put("one\n\ntwo")
+        await settle()
+        self.assertTrue(client.body.endswith(b'data: "one\\n\\ntwo"\n\n'))
+        await client.go()
+
+    async def test_what_has_no_json_is_refused_where_it_is_put(self):
+        client = Client(self.app)
+        await settle()
+        with self.assertRaises(TypeError):
+            self.events.put(object())
+        await settle()
+        self.assertEqual(client.body, b"event: ping\ndata: {}\n\n")
         await client.go()
 
     async def test_a_client_that_goes_is_forgotten_and_its_response_ends(self):

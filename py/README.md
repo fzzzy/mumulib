@@ -173,6 +173,17 @@ app = consumers_app({"events": events})
 events.put("hello")  # to every browser at /events.sse right now
 ```
 
+Each item is sent as JSON, encoded as a `.json` URL's answer is, so a client
+reads every event's data the same way, whatever was put:
+
+```js
+new EventSource("/events.sse").onmessage = (e) => show(JSON.parse(e.data))
+```
+
+A string arrives as a string, and a dict as an object; JSON has no raw
+newline, so an item is always one event. Something with no JSON form raises
+`TypeError` from `put`, and goes to no one.
+
 Each stream has a buffer of its own, from when its client connects until it
 goes, so a client hears what is put after it connects and nothing from
 before. A client that falls `max_backlog` items behind (1000 unless given)

@@ -18,7 +18,7 @@ from mumulib.mumutypes import (
     State,
     content_type_for,
 )
-from mumulib.producers import add_producer, produce
+from mumulib.producers import add_producer, custom_serializer, produce
 
 # The public API: Publishing an object, and streaming events from it. The body
 # parsers and path helpers are the app's own.
@@ -459,7 +459,8 @@ def _close_streams_on_signal(loop: asyncio.AbstractEventLoop) -> Callable[[], No
 
 class EventSource:
     """Server-sent events, to every client listening: publish it at a .sse
-    URL, and each item put on it goes to each stream open at that moment.
+    URL, and each item put on it goes, as JSON, to each stream open at that
+    moment.
 
     Each stream has its own buffer, made when its client connects and dropped
     when it goes, so a client hears what is put after it connects and nothing
@@ -483,10 +484,18 @@ class EventSource:
         return len(self._streams)
 
     def put(self, item: Any) -> None:
-        """Send item to every stream open now."""
+        """Send item to every stream open now, as JSON.
+
+        A client reads each event's data with JSON.parse, whatever was put:
+        a string arrives as a string, quotes and all, and a dict as an
+        object. JSON has no raw newline, so an event is always one data:
+        line. It is encoded once, here, however many are listening, and
+        what has no JSON form raises TypeError here, as at a .json URL.
+        """
+        data = json.dumps(item, default=custom_serializer)
         for stream in list(self._streams):
             try:
-                stream.put_nowait(item)
+                stream.put_nowait(data)
             except asyncio.QueueFull:
                 # Too far behind to catch up: it is told to close
                 self._streams.discard(stream)
