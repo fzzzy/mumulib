@@ -25,7 +25,7 @@ function check(...paths: string[]) {
 test.describe('Mumulib single-file component type checking', () => {
   test('the examples have no type errors', () => {
     const run = check('examples')
-    expect(run.stdout).toContain('2 components, no type errors.')
+    expect(run.stdout).toContain('3 components, no type errors.')
     expect(run.status).toBe(0)
   })
 

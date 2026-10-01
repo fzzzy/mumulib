@@ -304,10 +304,25 @@ state.onstate(async (new_state) => {
 
 [http://127.0.0.1:8000/examples/use_dialog/](http://127.0.0.1:8000/examples/use_dialog/)
 
+The method is called with every value the form has, by name: a `<textarea>`
+and a `<select>` as well as each `<input>`, and a form-associated custom
+element as any control. A name ending in `[]` is always a list, without the
+brackets, so a `<select multiple name="members[]">` with one choice gives
+`{members: ['c1']}`; a name given twice is a list too. The render function may
+fill the dialog in place and return it, and may be async.
+
+[http://127.0.0.1:8000/examples/editors/](http://127.0.0.1:8000/examples/editors/),
+with `make run SERVER=editors`, uses all of it: a character, party and deploy
+editor whose tables are patslot patterns, whose dialogs save each object to
+the Python server, and whose party members are chosen in a single-file
+component that is a form control of its own.
+
 dialog api
 =====
 
 type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
+
+type FormArgs = { [key: string]: string | string[] };
 
 do_dialog(dialog_id: string, path: string, render: RenderFunc) => HTMLElement: Fetch the state at path, call the render function, set the contents of the &lt;dialog&gt; element with the id dialog_id to the result of the render function, and display the dialog.
 

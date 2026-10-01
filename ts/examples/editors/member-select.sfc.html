@@ -1,0 +1,66 @@
+<template>
+  <style>
+    :host {
+      display: block;
+    }
+    select {
+      min-width: 16em;
+      min-height: 6em;
+      font: inherit;
+    }
+  </style>
+  <select multiple></select>
+</template>
+
+<script>
+  // A form control of its own: its form sees it as it would a <select
+  // multiple>, one value under its name for each choice, so FormData -- and
+  // so a dialog's method -- has them, and form.reset() clears it.
+  export default class MemberSelect extends HTMLElement {
+    static formAssociated = true
+
+    private internals = this.attachInternals()
+    private select: HTMLSelectElement
+
+    constructor() {
+      super()
+      const root = this.attachShadow({ mode: 'open' })
+      root.appendChild(template.content.cloneNode(true))
+      this.select = root.querySelector('select') as HTMLSelectElement
+      this.select.addEventListener('change', () => this.update())
+    }
+
+    // The choices, each a value and the label it is shown as
+    set options(options: { value: string; label: string }[]) {
+      this.select.replaceChildren(
+        ...options.map(({ value, label }) => new Option(label, value))
+      )
+      this.update()
+    }
+
+    // The values chosen
+    get value(): string[] {
+      return Array.from(this.select.selectedOptions, (option) => option.value)
+    }
+
+    set value(values: string[]) {
+      for (const option of Array.from(this.select.options)) {
+        option.selected = values.includes(option.value)
+      }
+      this.update()
+    }
+
+    formResetCallback() {
+      this.value = []
+    }
+
+    private update() {
+      const data = new FormData()
+      const name = this.getAttribute('name') ?? ''
+      for (const value of this.value) {
+        data.append(name, value)
+      }
+      this.internals.setFormValue(data)
+    }
+  }
+</script>

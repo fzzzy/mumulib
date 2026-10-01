@@ -29,7 +29,15 @@ const TEMPLATE = document.body.cloneNode(true) as HTMLElement
 
 type SyncPattern =
   | HTMLElement
-  | (HTMLElement | Generator<Pattern> | AsyncGenerator<Pattern> | string)[]
+  // An array's elements may be promises too, as clone_pat's are: each is
+  // awaited as the slot is filled
+  | (
+      | HTMLElement
+      | Promise<HTMLElement | string>
+      | Generator<Pattern>
+      | AsyncGenerator<Pattern>
+      | string
+    )[]
   | Generator<Pattern>
   | AsyncGenerator<Pattern>
   | string

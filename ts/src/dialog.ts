@@ -20,7 +20,38 @@ import { set, get } from 'object-path'
 import morphdom from 'morphdom'
 import { set_state, state } from './state.js'
 
-type RenderFunc = (el: HTMLElement, state: object) => HTMLElement
+// May fill the dialog in place and return it, and may be async: it is awaited
+type RenderFunc = (
+  el: HTMLElement,
+  state: object
+) => HTMLElement | Promise<HTMLElement>
+
+// What a form's method is called with: each control's value by its name. A
+// name ending in [] is always a list, without the brackets -- a multiple
+// select with one choice is still a list -- and a name given twice is too.
+type FormArgs = { [key: string]: string | string[] }
+
+function form_args(form: HTMLFormElement): FormArgs {
+  const args: FormArgs = {}
+  // FormData, not the form's <input>s: a <textarea>, a <select> and a
+  // form-associated custom element are values too
+  for (const [key, value] of new FormData(form)) {
+    if (typeof value !== 'string') {
+      continue
+    }
+    const listed = key.endsWith('[]')
+    const name = listed ? key.slice(0, -2) : key
+    const before = args[name]
+    if (Array.isArray(before)) {
+      before.push(value)
+    } else if (before !== undefined) {
+      args[name] = [before, value]
+    } else {
+      args[name] = listed ? [value] : value
+    }
+  }
+  return args
+}
 
 async function do_dialog(
   dialog_name: string,
@@ -53,20 +84,23 @@ async function do_dialog(
         }
       }
     }
-    ;(dialog as HTMLDialogElement).showModal()
+    // A dialog keeps its returnValue from one showing to the next: a Cancel
+    // last time would make this one's Save a cancel too
+    dialog.returnValue = ''
+    dialog.showModal()
     dialog.onclose = async (ev) => {
       console.log('closing', ev.target)
       if (!ev.target) {
         return
       }
-      let form
+      let form: HTMLFormElement | null
       const returnValue = (ev.target as HTMLDialogElement).returnValue
       if (returnValue) {
         if (returnValue === 'cancel') {
           set_state({ selected: undefined })
           return
         }
-        form = (ev.target as HTMLElement).querySelector(
+        form = (ev.target as HTMLElement).querySelector<HTMLFormElement>(
           `form[name=${returnValue}]`
         )
         if (!form) {
@@ -78,14 +112,11 @@ async function do_dialog(
       if (form) {
         const method = form.querySelector(
           'input[name="method"]'
-        ) as HTMLFormElement
+        ) as HTMLInputElement
         if (method) {
-          const args: { [key: string]: string } = {}
-          for (const inp of Array.from(form.querySelectorAll('input'))) {
-            args[inp.name] = inp.value
-          }
+          const args = form_args(form)
           console.log('calling method', method.value, args)
-          const got = get(state, args['path'].substring(5))
+          const got = get(state, String(args['path']).substring(5))
           console.log('got', got)
           delete args['method']
           delete args['path']
@@ -111,4 +142,4 @@ async function do_dialog(
 }
 
 export { do_dialog }
-export type { RenderFunc }
+export type { RenderFunc, FormArgs }

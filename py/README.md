@@ -79,7 +79,10 @@ stylesheet, text and image from a directory, `functions.py`
 (`SERVER=functions`) a function that answers `GET` and `POST`, and
 `resources.py` (`SERVER=resources`) a to-do list of resources: a list that
 takes `POST`, and items in it that answer their own `PUT` and cannot be
-deleted, on a page that listens to `changes` and shows everyone's at once.
+deleted, on a page that listens to `changes` and shows everyone's at once;
+and `editors.py` (`SERVER=editors`) the data behind `ts/examples/editors`, a
+character, party and deploy editor -- plain dicts for two, and a `Resource`
+that overrides `get_child` guarding the third.
 
 ## Resources
 

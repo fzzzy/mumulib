@@ -154,6 +154,10 @@ Python package). Breaking changes come first under each release.
   from an open file with its assets from a directory, both read-only in
   `GetOnly`; `functions.py` a function answering `GET` and `POST`, in a
   `MappingProxyType`; and `resources.py` a to-do list of `Resource`s.
+- **The editors example**: `ts/examples/editors` with `py/examples/editors.py`
+  (`make run SERVER=editors`), a character, party and deploy editor that uses
+  state, patslot, dialog and a single-file component together, against the
+  Python server. Vite passes `/editors` on to it.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when
@@ -161,6 +165,15 @@ Python package). Breaking changes come first under each release.
   come back as JSON.
 
 ### Fixed
+
+- A dialog's method is called with every control's value: `<textarea>`,
+  `<select>` and form-associated custom elements as well as `<input>`, which
+  had been the only ones read. A name ending in `[]` is always a list
+  (`FormArgs`, now exported). After a dialog was cancelled, its next submit
+  was taken for a cancel too: its `returnValue` is now cleared each time it
+  is shown. A `RenderFunc` may be async, as `do_dialog` already awaited it.
+- `patslot`'s `Pattern` type allows an array of promises, such as
+  `items.map(clone_pat)`, which it had always filled.
 
 - **patslot works in Node.** It read `element.dataset`, which domino -- the DOM
   mumulib brings to Node -- does not have, so every fill threw there; it reads

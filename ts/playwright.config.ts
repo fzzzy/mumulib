@@ -11,6 +11,9 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
+// The Python server the editors example's tests use
+const EDITORS_PORT = process.env.PLAYWRIGHT_EDITORS_PORT || '8124'
+
 export default defineConfig({
   // Each spec sits beside the module it tests
   testDir: './src',
@@ -79,11 +82,25 @@ export default defineConfig({
     // },
   ],
 
-  webServer: {
-    command: 'npx vite',
-    url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: { PORT: process.env.PLAYWRIGHT_PORT || '8123', VITE_COVERAGE: 'true' },
-  },
+  webServer: [
+    {
+      command: 'npx vite',
+      url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        PORT: process.env.PLAYWRIGHT_PORT || '8123',
+        VITE_COVERAGE: 'true',
+        // The editors example's data, from the server below rather than
+        // whatever make run is serving on 8001
+        EDITORS_API: `http://127.0.0.1:${EDITORS_PORT}`,
+      },
+    },
+    {
+      command: `uv run --directory ../py --extra dev --locked uvicorn examples.editors:app --host 127.0.0.1 --port ${EDITORS_PORT}`,
+      url: `http://127.0.0.1:${EDITORS_PORT}/editors/characters.json`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 })
