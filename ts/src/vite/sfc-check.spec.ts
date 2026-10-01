@@ -24,8 +24,10 @@ function check(...paths: string[]) {
 // Node alone; no page, so no browser and no coverage to keep
 test.describe('Mumulib single-file component type checking', () => {
   test('the examples have no type errors', () => {
-    const run = check('examples')
-    expect(run.stdout).toContain('3 components, no type errors.')
+    const run = check('--project', 'tsconfig.examples.json', 'examples')
+    expect(run.stdout).toContain(
+      "3 components and tsconfig.examples.json's files, no type errors."
+    )
     expect(run.status).toBe(0)
   })
 
@@ -45,5 +47,14 @@ test.describe('Mumulib single-file component type checking', () => {
     const run = check(path.join(FIXTURES, 'inline.sfc.html'))
     // <script>const label: string = 42
     expect(run.errors).toEqual([{ line: 2, column: 15, code: 2322 }])
+  })
+
+  test("an importer sees a component's own class", () => {
+    // tally.count = 'many', where count is the component's number
+    const typed = path.join(FIXTURES, 'typed')
+    const run = check('--project', path.join(typed, 'tsconfig.json'), typed)
+    expect(run.errors).toEqual([{ line: 5, column: 1, code: 2322 }])
+    expect(run.stdout).toContain('src/vite/test_fixtures/typed/use.ts:5:1')
+    expect(run.status).toBe(1)
   })
 })

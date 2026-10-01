@@ -1,0 +1,19 @@
+{
+  // The examples, type-checked as Vite builds them -- Bundler resolution,
+  // mumulib from src rather than dist, nothing emitted -- by
+  // mumulib-sfc-check, which also sees into their .sfc.html components
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "rootDir": ".",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": { "mumulib": ["./src/index.ts"] }
+  },
+  "include": ["examples/**/*", "src/vite/sfc-client.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

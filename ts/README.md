@@ -365,4 +365,14 @@ directory; `--project` names a tsconfig. It needs `typescript` installed.
 npx mumulib-sfc-check src
 ```
 
+Given a tsconfig with `--project`, it checks the files that tsconfig names
+too, in the same program, and an import of a `.sfc.html` in any of them is
+the component's own class: `InstanceType<typeof Counter>` has the counter's
+properties, where tsc alone knows only `sfc-client`'s "some custom element".
+Run it so in place of tsc, as `make check` does over the examples:
+
+```sh
+npx mumulib-sfc-check --project tsconfig.examples.json examples
+```
+
 [http://127.0.0.1:8000/examples/use_sfc/](http://127.0.0.1:8000/examples/use_sfc/)

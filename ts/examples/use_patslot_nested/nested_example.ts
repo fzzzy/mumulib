@@ -1,6 +1,9 @@
 import { patslot } from 'mumulib'
 
-const dataset = {
+type Person = { name: string; age: number }
+type Town = { name: string; people: Person[] }
+
+const dataset: { towns: Town[] } = {
   towns: [
     {
       name: 'Los Angeles',
@@ -19,11 +22,11 @@ const dataset = {
   ],
 }
 
-function render_people(people) {
+function render_people(people: Person[]) {
   return people.map((person) => patslot.clone_pat('person', person))
 }
 
-function* render_towns(towns) {
+function* render_towns(towns: Town[]) {
   for (const town of towns) {
     yield patslot.clone_pat('town', {
       town_name: town.name,

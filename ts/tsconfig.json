@@ -18,6 +18,7 @@
     "node_modules",
     "dist",
     "src/**/*.spec.ts",
-    "src/coverage.fixture.ts"
+    "src/coverage.fixture.ts",
+    "src/vite/test_fixtures"
   ]
 }

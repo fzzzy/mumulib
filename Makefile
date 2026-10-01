@@ -37,7 +37,7 @@ fix: node_modules python-sync
 
 typecheck: node_modules python-sync
 	$(NPM) run test:unit
-	cd ts && node src/vite/sfc-check.mjs examples
+	cd ts && node src/vite/sfc-check.mjs --project tsconfig.examples.json examples
 	$(UV) pyright
 
 

@@ -13,12 +13,8 @@ import MemberSelect from './member-select.sfc.html'
 
 customElements.define('member-select', MemberSelect)
 
-// What the component is, as this page uses it: a .sfc.html import is typed
-// only as some custom element's class
-type MemberSelectElement = HTMLElement & {
-  options: { value: string; label: string }[]
-  value: string[]
-}
+// The component's own class, which the checker gives the import
+type MemberSelectElement = InstanceType<typeof MemberSelect>
 
 const API = '/editors'
 

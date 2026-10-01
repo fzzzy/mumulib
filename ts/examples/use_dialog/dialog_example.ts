@@ -1,7 +1,8 @@
 import { state, dialog } from 'mumulib'
+import type { FormArgs } from 'mumulib'
 
 class MyObject {
-  my_method(args) {
+  my_method(args: FormArgs) {
     const node = document.createElement('div')
     node.className = 'output'
     node.textContent = 'my_method was called ' + args.name + ' ' + args.age

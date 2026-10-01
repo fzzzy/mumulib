@@ -22,7 +22,8 @@ window.onload = async () => {
     console.error('Error:', error)
     const result = document.getElementById('result')
     if (result) {
-      result.innerHTML = `<p>❌ Error: ${error.message}</p>`
+      const message = error instanceof Error ? error.message : String(error)
+      result.innerHTML = `<p>❌ Error: ${message}</p>`
     }
   }
 }

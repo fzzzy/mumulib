@@ -108,6 +108,9 @@ Python package). Breaking changes come first under each release.
   checking for `.sfc.html` scripts with the project's tsconfig, each error at
   its line and column in the component. TypeScript is an optional peer
   dependency.
+  Given `--project`, it checks the files that tsconfig names as well, and an
+  import of a `.sfc.html` in them resolves to the component's own class, with
+  its own properties, rather than `sfc-client`'s wildcard declaration.
 - **`mumulib/sfc-client`**: the declaration of what importing a `.sfc.html`
   gives, referenced as `vite/client` is.
 - **`consumers.GetOnly(obj)`**: an object published read-only. A consumer
