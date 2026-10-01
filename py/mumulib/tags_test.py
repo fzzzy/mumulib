@@ -340,3 +340,43 @@ class TestEvery(unittest.TestCase):
     def test_there_is_no_tags_all(self):
         # Renamed to every in 2.0: all shadowed the builtin under import *
         self.assertFalse(hasattr(tags, "all"))
+
+
+class TestEscaping(unittest.TestCase):
+    """What a tree holds as text is written out as text, never as markup."""
+
+    def test_text_is_escaped(self):
+        out = render(t.p["<script>alert(1)</script> & more"])
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt; &amp; more", out)
+        self.assertNotIn("<script>", out)
+
+    def test_a_slot_filled_with_text_is_escaped(self):
+        page = parse_template(io.BytesIO(b'<p data-slot="name">placeholder</p>'))
+        assert page is not None
+        page.fill_slots("name", '<img src=x onerror="steal()">')
+        out = render(page)
+        self.assertIn('&lt;img src=x onerror="steal()"&gt;', out)
+        self.assertNotIn("<img", out)
+
+    def test_attributes_are_escaped_whole(self):
+        out = render(t.a(href="/x?a=1&b=2", title='<it\'s "quoted">'))
+        self.assertIn('href="/x?a=1&amp;b=2"', out)
+        self.assertIn('title="&lt;it&#x27;s &quot;quoted&quot;&gt;"', out)
+
+    def test_numbers_are_text(self):
+        self.assertIn("\n3\n", render(t.p[3]))
+
+    def test_trees_and_markup_are_markup(self):
+        out = render(t.div[[t.b["bold"], tags.Markup("<i>mine</i>")]])
+        self.assertIn("<b>", out)
+        self.assertIn("<i>mine</i>", out)
+
+    def test_script_and_style_are_raw_text(self):
+        out = render(t.div[[t.script["if (a < b && c) go()"], t.style["a > b {}"]]])
+        self.assertIn("if (a < b && c) go()", out)
+        self.assertIn("a > b {}", out)
+
+    def test_an_entity_in_a_template_comes_back_an_entity(self):
+        # lxml reads &amp; as &; written out, it is &amp; again
+        page = parse_template(io.BytesIO(b"<p>Fish &amp; chips &lt;3</p>"))
+        self.assertIn("Fish &amp; chips &lt;3", render(page))

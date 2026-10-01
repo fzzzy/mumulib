@@ -23,7 +23,11 @@ working; anything else in a module is its own.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
   `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
 - `mumulib.tags`: `Stan`, `Template`, `parse_template`, the slot functions,
-  `produce_html`, and the tag groups -- `tags.every.<element>` for any element.
+  `produce_html`, `Markup`, and the tag groups -- `tags.every.<element>` for
+  any element. Written out, a tree's text is escaped and its attributes too,
+  so a slot filled with what a visitor sent shows it rather than running
+  it. A tree in a tree is markup, and so is `Markup("<i>mine</i>")`, for HTML
+  you wrote yourself; `<script>` and `<style>` are written as they are.
 - `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
   and the HTTP responses, and `content_type_for`.
 

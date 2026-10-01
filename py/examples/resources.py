@@ -181,9 +181,8 @@ class Todos(Resource):
         items = [
             LIST_PAGE.clone_pat(
                 "item",
-                # Slots are written out as they are given: the text is a
-                # visitor's, so escaped here
-                text=html.escape(todo.text),
+                # A visitor's text, escaped as the page is written out
+                text=todo.text,
                 url=f"{base}/items/{i}.html",
                 json_url=f"{base}/items/{i}.json",
                 done="true" if todo.done else "false",

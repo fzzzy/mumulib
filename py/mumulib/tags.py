@@ -1,3 +1,4 @@
+import html
 from collections.abc import AsyncIterator
 from typing import IO, TYPE_CHECKING, Any, cast
 
@@ -17,6 +18,7 @@ __all__ = [
     "clear_slots",
     "append_slots",
     "produce_html",
+    "Markup",
     "main_root",
     "document_metadata",
     "sectioning_root",
@@ -502,6 +504,26 @@ def append_slots(node: Stan, slotname: str, value: Any) -> None:
     return node.append_slots(slotname, value)
 
 
+class Markup(str):
+    """Text that is HTML already, written out as it is rather than escaped:
+    for markup you wrote, never for anything a visitor sent."""
+
+
+# Elements whose content a browser reads as raw text, not as HTML: escaping
+# it would put a literal &amp; in a script. Nothing here escapes it, so what
+# goes in one must be safe there already.
+RAW_TEXT_ELEMENTS = frozenset({"script", "style"})
+
+
+def escape_text(child: Any, tagname: str) -> str:
+    """A text child as HTML: escaped, unless it is Markup or in a script or
+    style, which are written as they are."""
+    text = str(child)
+    if isinstance(child, Markup) or tagname in RAW_TEXT_ELEMENTS:
+        return text
+    return html.escape(text, quote=False)
+
+
 async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
     indent = "    " * thing.indent
     yield f"{indent}<{thing.tagname}"
@@ -516,7 +538,8 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
                         f"attribute {k!r} produced {type(chunk).__name__}, not str"
                     )
                 attrpartchunks.append(chunk)
-            attrpartval = "".join(attrpartchunks).replace('"', "&quot;")
+            # Escaped whole, quotes and all: an attribute is never markup
+            attrpartval = html.escape("".join(attrpartchunks), quote=True)
             attrpart = f' {k}="{attrpartval}"'
             yield attrpart
     if thing.tagname in VOID_ELEMENTS_SET:
@@ -529,7 +552,8 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
                 async for chunk in produce_html(child, state):
                     yield chunk
             else:
-                yield child
+                # Text is text: a visitor's < is shown, not obeyed
+                yield escape_text(child, thing.tagname)
     yield f"\n{indent}</{thing.tagname}>\n"
 
 

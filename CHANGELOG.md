@@ -78,6 +78,12 @@ Python package). Breaking changes come first under each release.
   the function itself was the first argument, which nothing used.
 - **Python types are inline.** The `.pyi` stub files are gone; the package is
   annotated throughout, passes pyright in strict mode, and ships `py.typed`.
+- **`tags.produce_html` escapes text.** A string in a tree -- a filled slot,
+  a child -- had been written out as it was, so a visitor's `<script>` in one
+  ran; it is now escaped, and so is every attribute value, where only `"` had
+  been. A string meant as HTML is wrapped in `tags.Markup`; a tree in a tree
+  is markup as before, and `<script>` and `<style>` are left as they are.
+  Text a template held as an entity, `&amp;`, comes out as one again.
 - **`tags.produce_html` refuses an attribute that is not text.** An attribute
   whose value produces bytes or a `SpecialResponse` raises `TypeError` naming
   the attribute.

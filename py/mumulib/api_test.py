@@ -49,6 +49,7 @@ PUBLIC = {
     },
     "resource": {"Resource"},
     "tags": {
+        "Markup",
         "Stan",
         "Template",
         "parse_template",
