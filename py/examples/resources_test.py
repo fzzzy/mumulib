@@ -3,6 +3,7 @@ import asyncio
 import json
 import unittest
 from typing import Any
+from unittest import mock
 
 from examples import resources
 from mumulib.mumutypes import Message
@@ -11,7 +12,8 @@ from mumulib.mumutypes import Message
 class TestResources(unittest.TestCase):
     def setUp(self):
         # A site of its own for each test, so writes do not leak between them
-        self.app = resources.consumers_app(resources.Site())
+        self.site = resources.Site()
+        self.app = resources.consumers_app(self.site, changes=self.site.child_changes)
 
     def request(
         self, path: str, method: str = "GET", body: object = None, form: bytes = b""
@@ -156,3 +158,20 @@ class TestResources(unittest.TestCase):
             with self.subTest(body=body):
                 self.assertEqual(self.request("/todos.json", "POST", body)[0], 400)
         self.assertEqual(len(self.json("/todos.json")), 2)
+
+    def test_every_change_is_put_on_the_sites_changes(self):
+        with mock.patch.object(self.site.child_changes, "put") as put:
+            self.request("/todos/items/1.json", "PUT", {"done": True})
+            self.request("/todos.json", "POST", {"text": "Milk"})
+            self.request("/todos.html", "POST", form=b"text=Eggs")
+            # And nothing for what changed nothing
+            self.request("/todos/items/0.json", "DELETE")
+            self.request("/todos/items/0.json", "PUT", "replaced")
+            self.request("/todos.json")
+        heard = [call.args[0] for call in put.call_args_list]
+        self.assertEqual(heard, ["/todos/items/1", "/todos", "/todos"])
+
+    def test_the_changes_are_published_as_an_event_stream(self):
+        self.assertIsInstance(self.site.child_changes, resources.EventSource)
+        _, _, body = self.request("/todos.html")
+        self.assertIn(b'new EventSource("/changes.sse")', body)

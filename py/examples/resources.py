@@ -20,6 +20,12 @@ produced as though it had been published there, of the URL's type.
     GET    /todos/items/                      a listing of links to each item
     PUT    /todos/items/0.json  {"done": true}    the item, done
     DELETE /todos/items/0.json                405, Allow: GET, PUT
+    GET    /changes.sse                       "/todos/items/0", "/todos", ...
+
+Every page open is kept up to date with everyone's changes: the app is
+given the site's EventSource as changes, and puts on it the URL of whatever
+each POST, PUT or DELETE changed. The list page listens, and fetches again
+what it hears.
 
 Each item is a Todo in a plain list. A list would replace an element on
 PUT and tombstone it on DELETE, but a resource answers every method at its
@@ -34,7 +40,7 @@ from typing import Any, cast
 
 from mumulib.mumutypes import HTTPResponse, State
 from mumulib.resource import Resource
-from mumulib.server import consumers_app
+from mumulib.server import EventSource, consumers_app
 from mumulib.tags import Stan, parse_template
 
 INDEX = """<!doctype html>
@@ -54,9 +60,10 @@ and <a href="/todos/items/">each item</a>.</p>
 # takes the place of the pattern that was there.
 #
 # Each item's checkbox PUTs {"done": ...} to the item's own URL, and is put
-# back if that fails. A slot can set an attribute but not leave one out, and
-# checked is on whenever it is there at all, so the box gets its state from
-# data-done instead.
+# back if that fails. The page listens at /changes.sse, where the server
+# says what any request changed, so every page open shows every change. A
+# slot can set an attribute but not leave one out, and checked is on whenever
+# it is there at all, so the box gets its state from data-done instead.
 LIST_PAGE = parse_template(
     BytesIO(
         b"""<!doctype html>
@@ -72,17 +79,45 @@ LIST_PAGE = parse_template(
 </ul>
 <p><a href="/">Add another</a></p>
 <script>
-for (const box of document.querySelectorAll("input[data-url]")) {
-  box.checked = box.dataset.done === "true";
-  box.addEventListener("change", async () => {
-    const response = await fetch(box.dataset.url, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ done: box.checked }),
-    });
-    if (!response.ok) box.checked = !box.checked;
+// Each box from its data-done, here and in any list swapped in later
+const sync = () => {
+  for (const box of document.querySelectorAll("input[data-url]")) {
+    box.checked = box.dataset.done === "true";
+  }
+};
+sync();
+
+// A box changed here: PUT it to its item, and put it back if that fails.
+// One listener for the page, so it hears boxes in a list swapped in too.
+document.addEventListener("change", async (event) => {
+  const box = event.target;
+  if (!box.dataset.url) return;
+  const response = await fetch(box.dataset.url, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ done: box.checked }),
   });
-}
+  if (!response.ok) box.checked = !box.checked;
+});
+
+// Something changed, here or in anyone else's page: the server says what.
+// A changed item is fetched again and shown; anything else of the list's,
+// a POST adding to it, is the whole list again.
+new EventSource("/changes.sse").onmessage = async (event) => {
+  const url = JSON.parse(event.data);
+  const box = document.querySelector(`input[data-url="${url}.json"]`);
+  if (box) {
+    const todo = await (await fetch(`${url}.json`)).json();
+    box.dataset.done = String(todo.done);
+    box.checked = todo.done;
+    box.nextElementSibling.textContent = todo.text;
+  } else if (url === "/todos" || url.startsWith("/todos/")) {
+    const page = await (await fetch("/todos.html")).text();
+    const fresh = new DOMParser().parseFromString(page, "text/html");
+    document.querySelector("ul").replaceWith(fresh.querySelector("ul"));
+    sync();
+  }
+};
 </script>
 </body>
 </html>
@@ -186,6 +221,10 @@ class Site(Resource):
     def __init__(self) -> None:
         self.child_todos = Todos("Write the example", "Test it")
         self.child_about = About()
+        # /changes.sse: the URL of whatever a request changes, for every
+        # page open to fetch again
+        self.child_changes = EventSource()
 
 
-app = consumers_app(Site())
+site = Site()
+app = consumers_app(site, changes=site.child_changes)

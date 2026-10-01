@@ -75,7 +75,7 @@ stylesheet, text and image from a directory, `functions.py`
 (`SERVER=functions`) a function that answers `GET` and `POST`, and
 `resources.py` (`SERVER=resources`) a to-do list of resources: a list that
 takes `POST`, and items in it that answer their own `PUT` and cannot be
-deleted.
+deleted, on a page that listens to `changes` and shows everyone's at once.
 
 ## Resources
 
