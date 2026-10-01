@@ -74,6 +74,22 @@ class TestEditors(unittest.TestCase):
         self.assertIn("Code Reviewer, Researcher", index)
         self.assertIn("Operators", index)
 
+    def test_every_page_links_the_stylesheet_and_script_it_is_served(self):
+        for page in ("/editors/", "/editors/deploys/d1.html"):
+            content = self.page(page)
+            self.assertIn(
+                '<link rel="stylesheet" href="/editors/style.css" />', content
+            )
+            self.assertIn('<script src="/editors/script.js" defer="">', content)
+        status, headers, css = self.request("/editors/style.css")
+        self.assertEqual(
+            (status, headers[b"content-type"]), (200, b"text/css; charset=UTF-8")
+        )
+        self.assertIn("border-collapse", css)
+        status, _, js = self.request("/editors/script.js")
+        self.assertEqual(status, 200)
+        self.assertIn("new EventSource('/editors/changes.sse')", js)
+
     def test_each_kind_is_its_states_as_json(self):
         _, _, body = self.request("/editors/parties.json")
         self.assertEqual(json.loads(body)["p1"]["members"], ["c1", "c2"])

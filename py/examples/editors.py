@@ -16,6 +16,7 @@ was sent, keeps it, and answers 303 See Other, back to /editors/:
     POST /editors/deploys/d1.html           name=...&party=p2
     GET  /editors/characters.json           {"c1": {"name": ..., ...}, ...}
     GET  /editors/changes.sse               the URL of each change, as it is made
+    GET  /editors/style.css, script.js      editors/style.css and script.js
 
 Each object has an id that never changes, so its URL does not either, and
 renaming is a post to the URL it already had. A party's members and a
@@ -27,6 +28,7 @@ changed -- anyone's change, from any page -- /editors/ is fetched again and
 its tables put in place of these.
 """
 
+from pathlib import Path
 from typing import Any, cast
 
 from mumulib.mumutypes import HTTPResponse, State
@@ -35,43 +37,20 @@ from mumulib.server import EventSource, consumers_app
 from mumulib.tags import Stan
 from mumulib.tags import every as t
 
-STYLE = """
-body { font-family: serif; margin: 2em; }
-table { border-collapse: collapse; margin-bottom: 2em; min-width: 40em; }
-caption { text-align: left; font-weight: bold; padding: 0.5em 0; }
-th, td { border: 1px solid #888; padding: 0.4em 0.6em; text-align: left; }
-label { display: block; margin-bottom: 1em; }
-input[type=text], textarea, select { display: block; width: 28em; font: inherit; }
-textarea { height: 8em; }
-"""
-
-# The one script: the tables kept up to date. A <script> is written as it
-# is, not escaped, so nothing of a visitor's goes in it.
-SCRIPT = """
-// Something changed, here or anywhere: the tables, fetched again
-new EventSource('/editors/changes.sse').onmessage = async () => {
-  const html = await (await fetch('/editors/')).text()
-  const page = new DOMParser().parseFromString(html, 'text/html')
-  for (const table of document.querySelectorAll('table[id]')) {
-    const fresh = page.getElementById(table.id)
-    if (fresh) table.replaceWith(fresh)
-  }
-}
-"""
-
 
 def page(title: str, *content: Any) -> Stan:
-    """A whole page: its title, what it holds, and the script."""
+    """A whole page: its title, what it holds, and the site's stylesheet and
+    script, which are files, Site's child_style and child_script."""
     return t.html[
         t.head[
             t.meta(charset="utf-8"),
             t.title[title],
-            t.style[STYLE],
+            t.link(rel="stylesheet", href="/editors/style.css"),
+            t.script(src="/editors/script.js", defer=""),
         ],
         t.body[
             t.p[t.a(href="/editors/")["Editors"]],
             *content,
-            t.script[SCRIPT],
         ],
     ]
 
@@ -336,15 +315,22 @@ class Editors(Resource):
 
 changes = EventSource()
 
-app = consumers_app(
-    {
-        "editors": {
-            "index": Editors(),
-            "characters": characters,
-            "parties": parties,
-            "deploys": deploys,
-            "changes": changes,
-        }
-    },
-    changes=changes,
-)
+# The stylesheet and script, files beside this one
+HERE = Path(__file__).parent / "editors"
+
+
+class Site(Resource):
+    """/editors: every child a class attribute, child_<name> being found as
+    any attribute is. Its slash is child_index, the tables; the rest are
+    the three kinds, the change stream, and two files, served as they are."""
+
+    child_index = Editors()
+    child_characters = characters
+    child_parties = parties
+    child_deploys = deploys
+    child_changes = changes
+    child_style = HERE / "style.css"
+    child_script = HERE / "script.js"
+
+
+app = consumers_app({"editors": Site()}, changes=changes)
