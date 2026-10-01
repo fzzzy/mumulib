@@ -133,8 +133,8 @@ Python package). Breaking changes come first under each release.
   the request instead of replacing, removing or refusing it.
 - **`consumers_app(root, changes=events)`**: every `POST`, `PUT`, `PATCH` or
   `DELETE` answered with success puts the URL of what it changed on the
-  `EventSource` `events` -- the request's URL, or a 201's `Location` -- for
-  pages listening to fetch it again.
+  `EventSource` `events` -- the request's URL, or a 201's `Location`, with
+  no extension, `/todos/3` -- for pages listening to fetch it again.
 - **`add_consumer(..., own_methods=True)`**: a type whose things answer every
   method at their URL themselves, as `Resource` is registered.
 - **Python examples**, in `py/examples`, run with `make run` or `make server`

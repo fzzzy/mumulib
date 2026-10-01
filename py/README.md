@@ -218,12 +218,17 @@ app = consumers_app({"todos": [], "changes": changes}, changes=changes)
 ```
 
 ```js
-new EventSource("/changes.sse").onmessage = (e) => refetch(JSON.parse(e.data))
+new EventSource("/changes.sse").onmessage = (e) => {
+  const url = JSON.parse(e.data)  // "/todos/3"
+  refetch(url + ".json")
+}
 ```
 
-The URL is the request's own -- `/todos/0.json`, or `/` for the slash -- or,
-for 201 Created, the new thing's, from `Location`: `PUT /todos/last.json`
-puts `/todos/3.json`. It is put as the response's final body is produced,
+The URL names the object, not a representation of it, so it has no
+extension: a `PUT` to `/todos/0.json` and one to `/todos/0.txt` both put
+`/todos/0`, and a listener adds the extension it wants. A slash, `/` or
+`/todos/`, is put as itself. It is the request's URL, or for 201 Created the
+new thing's, from `Location`: `PUT /todos/last.json` puts `/todos/3`. It is put as the response's final body is produced,
 so a change is heard even if the client that made it has gone. A request
 that fails -- 404, 405, 500 -- puts nothing.
 

@@ -210,14 +210,28 @@ def with_content_type(message: dict[str, Any], content_type: str) -> dict[str, A
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
+def _object_url(url: str) -> str:
+    """The URL of the object itself, whatever representation was asked for:
+    the extension off the last segment, as split_path takes it off.
+    /todos/0.json and /todos/0.txt are both /todos/0; a slash, / or /todos/,
+    has none to take."""
+    if url.endswith("/"):
+        return url
+    head, slash, last = url.rpartition("/")
+    key, dot, _ = last.rpartition(".")
+    return f"{head}{slash}{key}" if dot and key else url
+
+
 def _announce_changes(send: Send, changes: "EventSource", url: str) -> Send:
     """send, for a request that may change something: once its response has
     succeeded, the URL of what it changed is put on changes.
 
     Success is any 2xx. What changed is the request's URL, or for 201
     Created the new thing's own, in Location: PUT /todos/last.json makes
-    /todos/3.json. It is put as the final body is produced, before it is
-    sent: the change is made whether or not this client stays to hear so.
+    /todos/3.json. Either is put without its extension, as the object's
+    own name rather than one representation's: /todos/3. It is put as the
+    final body is produced, before it is sent: the change is made whether
+    or not this client stays to hear so.
     """
     status = 0
     location: str | None = None
@@ -233,7 +247,8 @@ def _announce_changes(send: Send, changes: "EventSource", url: str) -> Send:
             "more_body", False
         ):
             if 200 <= status < 300:
-                changes.put(location if status == 201 and location else url)
+                changed = location if status == 201 and location else url
+                changes.put(_object_url(changed))
         await send(message)
 
     return announcing_send
@@ -244,8 +259,8 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
 
     Given changes, an EventSource, every request that changes something --
     a POST, PUT, PATCH or DELETE answered with success -- puts the URL of
-    what it changed on it. Publish it too, and a page can listen at its
-    .sse URL for what to fetch again.
+    what it changed on it, without an extension: /todos/3. Publish it too,
+    and a page can listen at its .sse URL for what to fetch again.
     """
 
     async def app(scope: Scope, receive: Receive, send: Send) -> None:

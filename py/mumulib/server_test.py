@@ -13,6 +13,7 @@ from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
     EventSource,
     _close_streams_on_signal,
+    _object_url,
     consumers_app,
     parse_json,
     parse_multipart,
@@ -1602,6 +1603,7 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
             "greet": greet,
             "broken": broken,
             "changes": self.changes,
+            "sub": {},
         }
         self.app = consumers_app(self.root, changes=self.changes)
 
@@ -1624,11 +1626,30 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
             ("POST", "/greet.json", "Ada"),
         )
         self.assertEqual(statuses, [204, 201, 204, 204, 200])
-        # The appended element's own URL, from Location; the slash as itself
-        self.assertEqual(
-            urls,
-            ["/todos/0.json", "/todos/1.json", "/todos/0.json", "/", "/greet.json"],
+        # Each object's own URL, with no extension: the appended element's
+        # from Location, and the slash as itself
+        self.assertEqual(urls, ["/todos/0", "/todos/1", "/todos/0", "/", "/greet"])
+
+    async def test_one_object_has_one_url_whatever_type_it_was_written_as(self):
+        _, urls = await self.heard(
+            ("PUT", "/todos/0.json", "b"),
+            ("PUT", "/todos/0.txt", "c"),
+            ("PUT", "/todos.json", ["whole"]),
+            ("PUT", "/sub/", "page"),
         )
+        self.assertEqual(urls, ["/todos/0", "/todos/0", "/todos", "/sub/"])
+
+    def test_the_object_url_keeps_every_dot_but_the_extensions(self):
+        for url, expected in [
+            ("/a.b/c.json", "/a.b/c"),
+            ("/app.min.js", "/app.min"),
+            ("/", "/"),
+            ("/todos/", "/todos/"),
+            ("/.json", "/.json"),
+            ("/plain", "/plain"),
+        ]:
+            with self.subTest(url=url):
+                self.assertEqual(_object_url(url), expected)
 
     async def test_what_changed_nothing_puts_nothing(self):
         statuses, urls = await self.heard(
