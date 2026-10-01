@@ -2,9 +2,9 @@
 
 A subclass of Resource names its children as attributes, child_<name>, and
 answers a request that ends at it with render(request), which calls
-handle_<METHOD>(request): handle_GET renders its template, or at .json gives
-its state, and every other method is refused unless the subclass says how to
-answer it. Its state is a dict given to the constructor.
+handle_<METHOD>(request): handle_GET renders its template, and every other
+method is refused unless the subclass says how to answer it. Its state is a
+dict given to the constructor, and read at its child state.json.
 
     class Profile(Resource):
         template = "<h1>Ada</h1>"
@@ -26,7 +26,7 @@ import inspect
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, NoReturn, cast
 
-from mumulib.consumers import add_consumer, consume
+from mumulib.consumers import GetOnly, add_consumer, consume, refuse
 from mumulib.mumutypes import Chunk, Send, SpecialResponse, State
 from mumulib.producers import add_json_form, add_producer, can_produce, produce
 from mumulib.tags import Stan
@@ -46,10 +46,11 @@ class Resource:
     registered would not reach a subclass. Resource is registered too.
 
     Its state is a dict, given to the constructor: Resource({"name": "Ada"}).
-    It is the resource's JSON, at its own .json URL and inside any other
-    JSON, and what a template's slots are filled from when there is no
-    slot_ for them. The request a handler is given is another thing, and is
-    called request here to keep the two apart.
+    It is published read-only as the child state -- /<resource>/state.json
+    -- and is the resource's JSON inside any other JSON, and what a
+    template's slots are filled from when there is no slot_ for them. The
+    request a handler is given is another thing, and is called request here
+    to keep the two apart.
     """
 
     template: Any = ""
@@ -62,12 +63,23 @@ class Resource:
         _register(cls)
 
     async def get_child(self, segments: list[str], request: State, send: Send) -> Any:
-        """The child the next segment names, or None: its child_ attribute.
+        """The child the next segment names, or None: its child_ attribute,
+        or for state, with no child_state, the resource's state, read-only.
 
         The prefix keeps what can be reached to what was meant to be:
-        /__class__.html is child___class__, which is nothing.
+        /__class__.html is child___class__, which is nothing. The state is
+        read at /<resource>/state.json, and below it, /state/name.txt; it is
+        written only by the resource's own handlers, which say what may be.
         """
-        return getattr(self, f"child_{segments[0]}", None)
+        name = segments[0]
+        child = getattr(self, f"child_{name}", None)
+        if child is None and name == "state":
+            if len(segments) == 1 and request.get("method", "GET").upper() != "GET":
+                # The state itself is not replaced: GetOnly guards below it,
+                # and here, its own name in this resource, is refused too
+                return refuse("GET")
+            return GetOnly(self.state)
+        return child
 
     async def render(self, request: State) -> Any:
         """The answer to a request that ends here: its method's handler's.
@@ -83,10 +95,8 @@ class Resource:
         return await _settled(handler(request))
 
     async def handle_GET(self, request: State) -> Any:
-        """The state at .json; else the template, as it is, or a parsed one
-        filled from slot_ names and the state."""
-        if request.get("extension") == "json":
-            return self.state
+        """The template: as it is, or a parsed one filled from slot_ names and
+        the state. The state as data is a child of its own, state.json."""
         if isinstance(self.template, Stan):
             return await self.fill(self.template, request)
         return self.template

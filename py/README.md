@@ -108,16 +108,17 @@ class Site(Resource):
     child_profile = Profile({"name": "Ada"})
 
 
-app = consumers_app(Site())  # /, /profile.html, /profile.json, /profile/name.txt
+app = consumers_app(Site())  # /, /profile.html, /profile/state.json, /profile/name.txt
 ```
 
-`handle_GET` renders `template`, and at `.json` gives the state; every other
-method is 405, with `Allow` naming `GET` and whatever the subclass handles.
+`handle_GET` renders `template`; every other method is 405, with `Allow` naming `GET` and whatever the subclass handles.
 Handlers are `async def`, and `render` awaits them. What a handler returns is
 produced as though it had been published there, of the URL's type: the
-request says which, in `"content_type"` and `"extension"`. The state is the
-resource's JSON wherever it appears, so a dict of resources is a JSON
-document of their states. A form post is answered with
+request says which, in `"content_type"` and `"extension"`. The state is
+published as a child of its own, read-only: `/profile/state.json`, and
+`/profile/state/name.txt` below it; only the resource's handlers change it,
+and a `child_state` of its own takes its place. Inside any other JSON a
+resource is its state, so a dict of resources is a JSON document of theirs. A form post is answered with
 `self.see_other(url)`, 303 See Other, as `self.refuse()` answers with 405. A resource is not a
 container -- it is named as a file, `/profile.html` or `/profile.json` -- and
 its children can be anything publishable. Each subclass is registered as it

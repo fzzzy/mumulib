@@ -145,8 +145,8 @@ Python package). Breaking changes come first under each release.
   subclass is registered as it is defined. Handlers are `async def`. A parsed
   template is filled from `slot_<name>` methods and values, with
   `pattern(name, **slots)` for copies of its patterns. Its state is a dict
-  given to the constructor: its JSON, at its own `.json` URL and inside any
-  other JSON, and what slots with no `slot_` are filled from. Handlers are
+  given to the constructor: read-only at its child `state.json`, its JSON
+  inside any other JSON, and what slots with no `slot_` are filled from. Handlers are
   given the request. `see_other(url)` answers a form post with 303 See Other.
   A resource answers every method
   at its own URL: a dict, list, tuple or `MappingProxyType` it is in hands it

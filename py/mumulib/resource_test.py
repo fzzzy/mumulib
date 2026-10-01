@@ -90,8 +90,10 @@ class TestRender(unittest.TestCase):
         status, headers, body = call(root, "GET", "/profile.html")
         self.assertEqual((status, body), (200, b"<h1>A profile</h1>"))
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
-        # As data, it is its state: none, given none
         _, _, body = call(root, "GET", "/profile.json")
+        self.assertEqual(json.loads(body), "<h1>A profile</h1>")
+        # Its state is a child of its own: none, given none
+        _, _, body = call(root, "GET", "/profile/state.json")
         self.assertEqual(json.loads(body), {})
 
     def test_render_sees_the_type_in_state(self):
@@ -417,11 +419,33 @@ class TestState(unittest.TestCase):
         self.root = {"people": {"ada": self.ada}}
 
     def test_a_resource_is_its_state_as_json(self):
-        _, _, body = call(self.root, "GET", "/people/ada.json")
+        _, _, body = call(self.root, "GET", "/people/ada/state.json")
         self.assertEqual(json.loads(body)["name"], "Ada")
+        self.assertEqual(
+            call(self.root, "GET", "/people/ada/state/name.txt")[2], b"Ada"
+        )
         # And inside other JSON too
         _, _, body = call(self.root, "GET", "/people.json")
         self.assertEqual(json.loads(body), {"ada": self.ada.state})
+
+    def test_the_state_is_read_only_at_every_depth(self):
+        for method, path in [
+            ("PUT", "/people/ada/state.json"),
+            ("DELETE", "/people/ada/state.json"),
+            ("PUT", "/people/ada/state/name.json"),
+            ("POST", "/people/ada/state/name.json"),
+        ]:
+            with self.subTest(method=method, path=path):
+                status, headers, _ = call(self.root, method, path, "Eve")
+                self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+        self.assertEqual(self.ada.state["name"], "Ada")
+
+    def test_a_child_state_of_its_own_is_a_childs(self):
+        class Own(Resource):
+            child_state = "mine"
+
+        _, _, body = call({"o": Own({"a": 1})}, "GET", "/o/state.txt")
+        self.assertEqual(body, b"mine")
 
     def test_a_slot_is_filled_from_the_state_unless_a_slot_method_says(self):
         _, _, body = call(self.root, "GET", "/people/ada.html")

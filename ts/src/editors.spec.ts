@@ -89,7 +89,7 @@ test.describe('The editors example', () => {
   }, info) => {
     const { d } = OWN[info.project.name]
     const before = await (
-      await page.request.get(`${EDITORS}/editors/deploys/${d}.json`)
+      await page.request.get(`${EDITORS}/editors/deploys/${d}/state.json`)
     ).json()
     await page.goto(INDEX)
     const form = await edit(page, 'deploys', d)
@@ -103,7 +103,7 @@ test.describe('The editors example', () => {
     })
     await expect(row).toContainText(party === 'p1' ? 'Reviewers' : 'Operators')
     const after = await (
-      await page.request.get(`${EDITORS}/editors/deploys/${d}.json`)
+      await page.request.get(`${EDITORS}/editors/deploys/${d}/state.json`)
     ).json()
     expect(after).toEqual({ ...before, party })
   })
@@ -116,7 +116,7 @@ test.describe('The editors example', () => {
     await page.getByRole('link', { name: 'Cancel' }).click()
     await page.waitForURL(INDEX)
     const kept = await (
-      await page.request.get(`${EDITORS}/editors/characters/${c}.json`)
+      await page.request.get(`${EDITORS}/editors/characters/${c}/state.json`)
     ).json()
     expect(kept.agent_args).not.toBe('--cancelled')
   })
