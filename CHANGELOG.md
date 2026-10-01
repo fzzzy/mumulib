@@ -131,6 +131,10 @@ Python package). Breaking changes come first under each release.
   subclass is registered as it is defined. A resource answers every method
   at its own URL: a dict, list, tuple or `MappingProxyType` it is in hands it
   the request instead of replacing, removing or refusing it.
+- **`consumers_app(root, changes=events)`**: every `POST`, `PUT`, `PATCH` or
+  `DELETE` answered with success puts the URL of what it changed on the
+  `EventSource` `events` -- the request's URL, or a 201's `Location` -- for
+  pages listening to fetch it again.
 - **`add_consumer(..., own_methods=True)`**: a type whose things answer every
   method at their URL themselves, as `Resource` is registered.
 - **Python examples**, in `py/examples`, run with `make run` or `make server`

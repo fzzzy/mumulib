@@ -1566,6 +1566,92 @@ class Lifespan:
         await self.task
 
 
+async def write(app, method, path, body=None):
+    """The status of one request to app, with body as JSON if given."""
+    sent = []
+    data = json.dumps(body).encode() if body is not None else b""
+
+    async def receive():
+        return {"type": "http.request", "body": data, "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    headers = [(b"content-type", b"application/json")] if body is not None else []
+    scope = {"type": "http", "method": method, "path": path, "headers": headers}
+    await app({**scope, "state": {}}, receive, send)
+    return sent[0]["status"]
+
+
+class TestChanges(unittest.IsolatedAsyncioTestCase):
+    """Given changes, each request that changed something puts its URL there."""
+
+    def setUp(self):
+        self.changes = EventSource()
+
+        def greet(state):
+            return {"hello": state.get("parsed_body")}
+
+        def broken(state):
+            raise RuntimeError("broken on purpose")
+
+        self.root = {
+            "index": "home",
+            "todos": ["a"],
+            "fixed": ("a",),
+            "greet": greet,
+            "broken": broken,
+            "changes": self.changes,
+        }
+        self.app = consumers_app(self.root, changes=self.changes)
+
+    async def heard(self, *requests):
+        """The URLs a listener hears while requests are made."""
+        listener = Client(self.app, "/changes.sse")
+        await settle()
+        statuses = [await write(self.app, *request) for request in requests]
+        await settle()
+        await listener.go()
+        events = listener.body.split(b"\n\n")[1:-1]
+        return statuses, [json.loads(e.removeprefix(b"data: ")) for e in events]
+
+    async def test_each_write_puts_the_url_of_what_it_changed(self):
+        statuses, urls = await self.heard(
+            ("PUT", "/todos/0.json", "b"),
+            ("PUT", "/todos/last.json", "c"),
+            ("DELETE", "/todos/0.json"),
+            ("PUT", "/", "new home"),
+            ("POST", "/greet.json", "Ada"),
+        )
+        self.assertEqual(statuses, [204, 201, 204, 204, 200])
+        # The appended element's own URL, from Location; the slash as itself
+        self.assertEqual(
+            urls,
+            ["/todos/0.json", "/todos/1.json", "/todos/0.json", "/", "/greet.json"],
+        )
+
+    async def test_what_changed_nothing_puts_nothing(self):
+        statuses, urls = await self.heard(
+            ("GET", "/todos/0.json"),
+            ("DELETE", "/missing.json"),
+            ("PUT", "/fixed/0.json", "x"),
+            ("PUT", "/todos/9.json", "x"),
+            ("POST", "/broken.json", "x"),
+        )
+        self.assertEqual(statuses, [200, 404, 405, 403, 500])
+        self.assertEqual(urls, [])
+
+    async def test_without_changes_nothing_is_put(self):
+        app = consumers_app(self.root)
+        listener = Client(app, "/changes.sse")
+        await settle()
+        self.assertEqual(await write(app, "PUT", "/todos/0.json", "b"), 204)
+        await settle()
+        await listener.go()
+        # The ping, and no event after it
+        self.assertEqual(listener.body.count(b"data: "), 1)
+
+
 class TestStreamsEndOnSignal(unittest.IsolatedAsyncioTestCase):
     """SIGINT or SIGTERM ends every event stream, then reaches the server's
     own handler, so the server's wait for open responses ends at once."""

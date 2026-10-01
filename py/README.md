@@ -205,6 +205,28 @@ key = secrets.token_urlsafe()
 streams[key] = EventSource()  # /events/<key>.sse is theirs alone
 ```
 
+### Changes
+
+Given an `EventSource` as `changes`, `consumers_app` puts on it the URL of
+everything a request changes: each `POST`, `PUT`, `PATCH` or `DELETE`
+answered with success, any 2xx. Publish it as well, and a page can listen
+for what to fetch again:
+
+```python
+changes = EventSource()
+app = consumers_app({"todos": [], "changes": changes}, changes=changes)
+```
+
+```js
+new EventSource("/changes.sse").onmessage = (e) => refetch(JSON.parse(e.data))
+```
+
+The URL is the request's own -- `/todos/0.json`, or `/` for the slash -- or,
+for 201 Created, the new thing's, from `Location`: `PUT /todos/last.json`
+puts `/todos/3.json`. It is put as the response's final body is produced,
+so a change is heard even if the client that made it has gone. A request
+that fails -- 404, 405, 500 -- puts nothing.
+
 An event stream never ends by itself, and a server stopping waits for open
 responses to finish. So when `consumers_app` starts -- at the ASGI lifespan
 startup, which uvicorn sends -- it puts a SIGINT and SIGTERM handler in front

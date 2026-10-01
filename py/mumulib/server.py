@@ -11,6 +11,7 @@ from urllib import parse
 from mumulib.consumers import consume, is_container
 from mumulib.mumutypes import (
     ASGIApp,
+    Message,
     Receive,
     Scope,
     Send,
@@ -205,7 +206,48 @@ def with_content_type(message: dict[str, Any], content_type: str) -> dict[str, A
     return {**message, "headers": headers}
 
 
-def consumers_app(root: Any) -> ASGIApp:
+# The methods that change what is published
+MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def _announce_changes(send: Send, changes: "EventSource", url: str) -> Send:
+    """send, for a request that may change something: once its response has
+    succeeded, the URL of what it changed is put on changes.
+
+    Success is any 2xx. What changed is the request's URL, or for 201
+    Created the new thing's own, in Location: PUT /todos/last.json makes
+    /todos/3.json. It is put as the final body is produced, before it is
+    sent: the change is made whether or not this client stays to hear so.
+    """
+    status = 0
+    location: str | None = None
+
+    async def announcing_send(message: Message) -> None:
+        nonlocal status, location
+        if message["type"] == "http.response.start":
+            status = message["status"]
+            for key, value in message.get("headers", []):
+                if key.lower() == b"location":
+                    location = value.decode("latin-1")
+        elif message["type"] == "http.response.body" and not message.get(
+            "more_body", False
+        ):
+            if 200 <= status < 300:
+                changes.put(location if status == 201 and location else url)
+        await send(message)
+
+    return announcing_send
+
+
+def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
+    """The ASGI app publishing root.
+
+    Given changes, an EventSource, every request that changes something --
+    a POST, PUT, PATCH or DELETE answered with success -- puts the URL of
+    what it changed on it. Publish it too, and a page can listen at its
+    .sse URL for what to fetch again.
+    """
+
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
             restore: Callable[[], None] | None = None
@@ -221,6 +263,8 @@ def consumers_app(root: Any) -> ASGIApp:
                     return
 
         assert scope["type"] == "http"
+        if changes is not None and scope["method"] in MUTATING:
+            send = _announce_changes(send, changes, scope["path"])
 
         state = scope["state"]
         state["url"] = scope["path"]
