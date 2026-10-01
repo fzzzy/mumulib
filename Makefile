@@ -11,7 +11,8 @@ LOG := $(CURDIR)/var/log
 SERVER ?= hello
 SERVER_PORT ?= 8001
 # Reloading as the code changes; and on stop, waiting at most two seconds
-# for open connections to close -- an event stream never closes by itself
+# for open responses. Event streams end themselves on a signal; this is for
+# anything else that would keep a stop waiting.
 UVICORN_FLAGS := --reload --timeout-graceful-shutdown 2
 
 # The TypeScript library is in ts/ and the Python one in py/. Every Python tool

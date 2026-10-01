@@ -1,12 +1,17 @@
 # pyright: standard
 import asyncio
 import json
+import os
+import signal
+import threading
 import unittest
+from unittest import mock
 
 from mumulib.mumutypes import SpecialResponse
 from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
     EventSource,
+    _close_streams_on_signal,
     consumers_app,
     parse_json,
     parse_multipart,
@@ -1504,6 +1509,121 @@ class TestEventSource(unittest.IsolatedAsyncioTestCase):
                 await client.go()
                 self.assertEqual(client.status, 404)
         self.assertEqual(self.events.listeners, 0)
+
+
+class Lifespan:
+    """An app's lifespan, as a server runs it: started, and later shut down."""
+
+    def __init__(self, app):
+        self.incoming = asyncio.Queue()
+        self.sent = []
+
+        async def send(message):
+            self.sent.append(message)
+
+        self.task = asyncio.ensure_future(
+            app({"type": "lifespan"}, self.incoming.get, send)
+        )
+
+    async def start(self):
+        await self.incoming.put({"type": "lifespan.startup"})
+        await settle()
+
+    async def shut_down(self):
+        await self.incoming.put({"type": "lifespan.shutdown"})
+        await self.task
+
+
+class TestStreamsEndOnSignal(unittest.IsolatedAsyncioTestCase):
+    """SIGINT or SIGTERM ends every event stream, then reaches the server's
+    own handler, so the server's wait for open responses ends at once."""
+
+    def setUp(self):
+        # Whatever these tests set, the process's own handlers come back
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            self.addCleanup(signal.signal, signum, signal.getsignal(signum))
+        self.heard = []
+        # The server's handler, as uvicorn's is set before the app starts
+        signal.signal(signal.SIGTERM, lambda signum, frame: self.heard.append(signum))
+        self.events, self.others = EventSource(), EventSource()
+        self.app = consumers_app({"events": self.events, "others": self.others})
+
+    async def test_a_signal_ends_every_stream_then_reaches_the_server(self):
+        lifespan = Lifespan(self.app)
+        await lifespan.start()
+        clients = [
+            Client(self.app),
+            Client(self.app),
+            Client(self.app, "/others.sse"),
+        ]
+        await settle()
+        self.assertEqual((self.events.listeners, self.others.listeners), (2, 1))
+        os.kill(os.getpid(), signal.SIGTERM)
+        for client in clients:
+            await client.task
+            self.assertFalse(client.sent[-1]["more_body"])
+        self.assertEqual((self.events.listeners, self.others.listeners), (0, 0))
+        self.assertEqual(self.heard, [signal.SIGTERM])
+        await lifespan.shut_down()
+
+    async def test_shutting_down_puts_the_servers_handler_back(self):
+        server_handler = signal.getsignal(signal.SIGTERM)
+        lifespan = Lifespan(self.app)
+        await lifespan.start()
+        self.assertIsNot(signal.getsignal(signal.SIGTERM), server_handler)
+        await lifespan.shut_down()
+        self.assertIs(signal.getsignal(signal.SIGTERM), server_handler)
+
+    async def test_a_shutdown_with_no_startup_undoes_nothing(self):
+        before = signal.getsignal(signal.SIGTERM)
+        lifespan = Lifespan(self.app)
+        await lifespan.shut_down()
+        self.assertEqual(lifespan.sent, [{"type": "lifespan.shutdown.complete"}])
+        self.assertIs(signal.getsignal(signal.SIGTERM), before)
+
+    async def test_a_handler_set_since_is_left_alone(self):
+        lifespan = Lifespan(self.app)
+        await lifespan.start()
+        later = lambda signum, frame: None  # noqa: E731
+        signal.signal(signal.SIGTERM, later)
+        await lifespan.shut_down()
+        self.assertIs(signal.getsignal(signal.SIGTERM), later)
+
+    async def test_an_ignored_signal_still_ends_the_streams(self):
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        lifespan = Lifespan(self.app)
+        await lifespan.start()
+        client = Client(self.app)
+        await settle()
+        os.kill(os.getpid(), signal.SIGTERM)
+        await client.task
+        self.assertEqual(self.events.listeners, 0)
+        await lifespan.shut_down()
+
+    async def test_the_default_is_still_the_default(self):
+        # SIG_DFL for SIGTERM ends the process; raise_signal is that, here
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        lifespan = Lifespan(self.app)
+        await lifespan.start()
+        with mock.patch("mumulib.server.signal.raise_signal") as raised:
+            os.kill(os.getpid(), signal.SIGTERM)
+            await settle()
+        raised.assert_called_once_with(signal.SIGTERM)
+        self.assertEqual(signal.getsignal(signal.SIGTERM), signal.SIG_DFL)
+        await lifespan.shut_down()
+
+    async def test_from_another_thread_nothing_is_chained(self):
+        before = signal.getsignal(signal.SIGTERM)
+        loop = asyncio.get_running_loop()
+        restores = []
+        thread = threading.Thread(
+            target=lambda: restores.append(_close_streams_on_signal(loop))
+        )
+        thread.start()
+        thread.join()
+        self.assertIs(signal.getsignal(signal.SIGTERM), before)
+        restores[0]()
+        self.assertIs(signal.getsignal(signal.SIGTERM), before)
 
 
 class TestUrlNamesTheType(unittest.TestCase):

@@ -1,7 +1,10 @@
 import asyncio
 import json
+import signal
+import threading
 import traceback
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from types import FrameType
 from typing import Any
 from urllib import parse
 
@@ -205,11 +208,15 @@ def with_content_type(message: dict[str, Any], content_type: str) -> dict[str, A
 def consumers_app(root: Any) -> ASGIApp:
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
+            restore: Callable[[], None] | None = None
             while True:
                 message = await receive()
                 if message["type"] == "lifespan.startup":
+                    restore = _close_streams_on_signal(asyncio.get_running_loop())
                     await send({"type": "lifespan.startup.complete"})
                 if message["type"] == "lifespan.shutdown":
+                    if restore is not None:
+                        restore()
                     await send({"type": "lifespan.shutdown.complete"})
                     return
 
@@ -389,9 +396,65 @@ def consumers_app(root: Any) -> ASGIApp:
     return app
 
 
-# Stands in a stream's buffer for "this stream is over": put by EventSource
-# when its client has fallen too far behind to catch up
+# Stands in a stream's buffer for "this stream is over": put when its
+# client has fallen too far behind to catch up, or the server is stopping
 _CLOSE = object()
+
+# Every event stream open in the process, of every EventSource
+_open_streams: set[asyncio.Queue[Any]] = set()
+
+
+def _close(stream: asyncio.Queue[Any]) -> None:
+    """Tell a stream to end: what it has not sent is dropped."""
+    while not stream.empty():
+        stream.get_nowait()
+    stream.put_nowait(_CLOSE)
+
+
+def _close_streams() -> None:
+    """End every open event stream, as the server stops: an event stream
+    never ends by itself, and a server waits for open responses to finish."""
+    for stream in list(_open_streams):
+        _open_streams.discard(stream)
+        _close(stream)
+
+
+def _close_streams_on_signal(loop: asyncio.AbstractEventLoop) -> Callable[[], None]:
+    """Chain a SIGINT and SIGTERM handler before the server's own: it ends
+    every event stream, then hands the signal on. Returns how to undo it.
+
+    The server's handler -- uvicorn's, set just before the app starts --
+    starts its shutdown, which waits for open responses to finish. Streams
+    told to end first finish, and the wait is over at once. A signal only
+    reaches the main thread, so from any other this does nothing.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        return lambda: None
+    previous: dict[int, Any] = {}
+
+    def handler(signum: int, frame: FrameType | None) -> None:
+        # A signal handler runs between any two bytecodes, the loop's own
+        # included: the streams are ended from the loop, not from here
+        loop.call_soon_threadsafe(_close_streams)
+        prior = previous[signum]
+        if callable(prior):
+            prior(signum, frame)
+        elif prior != signal.SIG_IGN:
+            # The default -- or a handler not set from Python, which is the
+            # default's to answer -- for this signal as though we were not here
+            signal.signal(signum, signal.SIG_DFL)
+            signal.raise_signal(signum)
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        previous[signum] = signal.signal(signum, handler)
+
+    def restore() -> None:
+        for signum, prior in previous.items():
+            # Only ours to undo: not if something has since set its own
+            if signal.getsignal(signum) is handler:
+                signal.signal(signum, prior)
+
+    return restore
 
 
 class EventSource:
@@ -425,17 +488,16 @@ class EventSource:
             try:
                 stream.put_nowait(item)
             except asyncio.QueueFull:
-                # Too far behind to catch up: what it has not sent is dropped,
-                # and it is told to close
+                # Too far behind to catch up: it is told to close
                 self._streams.discard(stream)
-                while not stream.empty():
-                    stream.get_nowait()
-                stream.put_nowait(_CLOSE)
+                _open_streams.discard(stream)
+                _close(stream)
 
     async def stream(self, send: Send, receive: Receive) -> None:
         """One client's stream: its buffer, sent until it goes."""
         buffer: asyncio.Queue[Any] = asyncio.Queue(maxsize=self.max_backlog)
         self._streams.add(buffer)
+        _open_streams.add(buffer)
         # One receive for the whole stream, waiting for the client to go.
         # ASGI only promises an awaitable, so ensure_future.
         gone = asyncio.ensure_future(_disconnected(receive))
@@ -462,6 +524,7 @@ class EventSource:
             # Gone, closed, or cancelled -- the server shutting down -- and
             # nothing of this stream's is left waiting
             self._streams.discard(buffer)
+            _open_streams.discard(buffer)
             gone.cancel()
             if item is not None:
                 item.cancel()

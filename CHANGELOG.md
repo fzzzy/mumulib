@@ -64,6 +64,10 @@ Python package). Breaking changes come first under each release.
   `max_backlog` items behind. A stream ends when its client goes, with one
   `receive` for the whole stream, where each event left another waiting. It
   is found at `.sse` and nothing else.
+- **A server stops at once with event streams open.** At lifespan startup,
+  `consumers_app` chains a SIGINT and SIGTERM handler before the server's:
+  it ends every open stream, then hands the signal on. uvicorn had waited
+  for them for ever, "Waiting for connections to close".
 - **In JSON, a value with no JSON form is an error,** a 500 naming its type,
   where it had quietly been `null`.
 - **A function in the tree is called as `f(state)`,** not `f(f, state)`:

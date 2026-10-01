@@ -194,9 +194,13 @@ key = secrets.token_urlsafe()
 streams[key] = EventSource()  # /events/<key>.sse is theirs alone
 ```
 
-An event stream never ends by itself, and uvicorn waits for open
-connections before it exits: run it with `--timeout-graceful-shutdown`, as
-`make run` does, or a stop waits until every browser has gone.
+An event stream never ends by itself, and a server stopping waits for open
+responses to finish. So when `consumers_app` starts -- at the ASGI lifespan
+startup, which uvicorn sends -- it puts a SIGINT and SIGTERM handler in front
+of the server's own: one that ends every open stream and then hands the
+signal on, so the server's wait is over at once. It is undone at lifespan
+shutdown. A server run with lifespan off, or the app started off the main
+thread, gets no handler, and its streams keep a stop waiting.
 
 ## Guards
 
