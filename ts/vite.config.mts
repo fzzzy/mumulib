@@ -39,8 +39,9 @@ export default defineConfig(({ mode }) => ({
     sfcPlugin(),
     // Counters in src/ for the Playwright tests to collect, when the dev
     // server is started with VITE_COVERAGE=true -- as the tests start it.
-    // The fork is the one s2smde, ltui and agent_daedalus use. The sfc
-    // example is counted too, as proof that a component's script can be.
+    // vite-plugin-istanbul from npm: its synthetic map is for Vue alone, and
+    // a .sfc.html takes the ordinary path. The sfc example is counted too, as
+    // proof that a component's script can be.
     istanbul({
       include: ['src/**', 'examples/use_sfc/**'],
       extension: ['.ts', '.html'],
