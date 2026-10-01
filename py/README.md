@@ -28,6 +28,7 @@ working; anything else in a module is its own.
   so a slot filled with what a visitor sent shows it rather than running
   it. A tree in a tree is markup, and so is `Markup("<i>mine</i>")`, for HTML
   you wrote yourself; `<script>` and `<style>` are written as they are.
+  `t.tr(pat="row")` is `<tr data-pat="row">`, a pattern.
 - `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
   and the HTTP responses, and `content_type_for`.
 

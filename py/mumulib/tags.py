@@ -233,6 +233,10 @@ class Stan:
             self = self.copy()
         if "indent" in kwargs:
             self.indent = kwargs.pop("indent")
+        # pat="row" is data-pat="row": the one patterns are found by, and no
+        # attribute of HTML's own, so the short name shadows nothing
+        if "pat" in kwargs:
+            kwargs["data-pat"] = kwargs.pop("pat")
         self.attributes = self.attributes | kwargs
         return self
 

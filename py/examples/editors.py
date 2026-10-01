@@ -299,7 +299,7 @@ class Editors(Resource):
             t.caption["Characters"],
             t.thead[t.tr[t.th["Name"], t.th["Prompt"], t.th["Agent args"]]],
             t.tbody(**slot("character_rows"))[
-                t.tr(**{"data-pat": "character_row"})[
+                t.tr(pat="character_row")[
                     t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
                     t.td(**slot("prompt")),
                     t.td[t.code(**slot("agent_args"))],
@@ -310,7 +310,7 @@ class Editors(Resource):
             t.caption["Parties"],
             t.thead[t.tr[t.th["Name"], t.th["Members"]]],
             t.tbody(**slot("party_rows"))[
-                t.tr(**{"data-pat": "party_row"})[
+                t.tr(pat="party_row")[
                     t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
                     t.td(**slot("members")),
                 ]
@@ -320,7 +320,7 @@ class Editors(Resource):
             t.caption["Deploys"],
             t.thead[t.tr[t.th["Name"], t.th["Party"], t.th["Status"]]],
             t.tbody(**slot("deploy_rows"))[
-                t.tr(**{"data-pat": "deploy_row"})[
+                t.tr(pat="deploy_row")[
                     t.td[t.a(**slot("name", **attr("href=edit", **{"data-edit": ""})))],
                     t.td(**slot("party")),
                     t.td(**slot("status")),

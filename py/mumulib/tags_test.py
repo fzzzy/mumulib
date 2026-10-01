@@ -405,3 +405,13 @@ class TestEscaping(unittest.TestCase):
             render(t.html[t.body["hi"]]).startswith("<!doctype html>\n<html>")
         )
         self.assertNotIn("doctype", render(t.div["a fragment"]))
+
+    def test_pat_is_data_pat(self):
+        row = t.tr(pat="row")[t.td["x"]]
+        self.assertEqual(row.attributes, {"data-pat": "row"})
+        self.assertIn('<tr data-pat="row">', render(row))
+        # And a pattern so made is found as one
+        table = t.table[t.tbody(**{"data-slot": "rows"})[row]]
+        copy = table.clone_pat("row")
+        assert copy is not None
+        self.assertEqual(copy.tagname, "tr")
