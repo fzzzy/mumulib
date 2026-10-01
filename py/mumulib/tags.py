@@ -19,6 +19,7 @@ __all__ = [
     "append_slots",
     "produce_html",
     "Markup",
+    "page",
     "main_root",
     "document_metadata",
     "sectioning_root",
@@ -233,14 +234,18 @@ class Stan:
             self = self.copy()
         if "indent" in kwargs:
             self.indent = kwargs.pop("indent")
-        # Short names for the template attributes, none of them HTML's own, so
+        # Short names for mumulib's own attributes, none of them HTML's, so
         # they shadow nothing: pat="row" is data-pat="row", slt="name" is
-        # data-slot="name" -- slot itself is HTML's, for shadow DOM -- and
-        # attr="href=url" or attr={"href": "url"} is data-attr="href=url"
+        # data-slot="name" -- slot itself is HTML's, for shadow DOM --
+        # attr="href=url" or attr={"href": "url"} is data-attr="href=url",
+        # and live=True is data-live
         if "pat" in kwargs:
             kwargs["data-pat"] = kwargs.pop("pat")
         if "slt" in kwargs:
             kwargs["data-slot"] = kwargs.pop("slt")
+        # live=True is data-live: an element mumulib's live.js keeps up to date
+        if "live" in kwargs:
+            kwargs["data-live"] = kwargs.pop("live")
         if "attr" in kwargs:
             mapping = kwargs.pop("attr")
             if isinstance(mapping, dict):
@@ -519,6 +524,35 @@ def append_slots(node: Stan, slotname: str, value: Any) -> None:
     return node.append_slots(slotname, value)
 
 
+# Where consumers_app, given changes=, serves the change stream and the
+# script that keeps a page's data-live elements up to date by it
+LIVE_SCRIPT_URL = "/mumulib/live.js"
+
+
+def page(
+    title: str,
+    *content: Any,
+    stylesheets: tuple[str, ...] | list[str] = (),
+    scripts: tuple[str, ...] | list[str] = (),
+    live: bool = False,
+) -> Stan:
+    """A whole page: the doctype, a UTF-8 charset and a viewport, its title,
+    a <link> for each stylesheet and a deferred <script> for each script in
+    its <head>, and content as its <body>. With live, mumulib's live.js too,
+    which keeps the page's data-live elements up to date (consumers_app,
+    given changes=, serves it).
+    """
+    sources = [*scripts, *([LIVE_SCRIPT_URL] if live else [])]
+    head: list[Any] = [
+        every.meta(charset="utf-8"),
+        every.meta(name="viewport", content="width=device-width, initial-scale=1"),
+        every.title[title],
+        *(every.link(rel="stylesheet", href=href) for href in stylesheets),
+        *(every.script(src=src, defer=True) for src in sources),
+    ]
+    return every.html[every.head[head], every.body[list(content)]]
+
+
 class Markup(str):
     """Text that is HTML already, written out as it is rather than escaped:
     for markup you wrote, never for anything a visitor sent."""
@@ -565,6 +599,13 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
     yield f"{indent}<{thing.tagname}"
     if thing.attributes:
         for k, v in thing.attributes.items():
+            # A boolean attribute is so by being there at all: True writes
+            # its name, and False or None leaves it out
+            if v is True:
+                yield f" {k}"
+                continue
+            if v is False or v is None:
+                continue
             attrpartchunks: list[str] = []
             async for chunk in producers.produce(v, state):
                 # An attribute is text: bytes or a SpecialResponse here is a

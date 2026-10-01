@@ -73,3 +73,8 @@ precision = 1
 # branches left are defensive ones in tags.parse_template that lxml's
 # iterparse never takes.
 fail_under = 99.8
+
+# Files in the package beside its modules, shipped with them: the script
+# consumers_app serves at /mumulib/live.js, and the marker for type checkers
+[tool.setuptools.package-data]
+mumulib = ["live.js", "py.typed"]

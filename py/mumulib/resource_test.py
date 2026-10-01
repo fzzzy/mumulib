@@ -484,3 +484,54 @@ class TestState(unittest.TestCase):
         self.assertEqual(sent[0]["status"], 303)
         self.assertEqual(dict(sent[0]["headers"])[b"location"], b"/people/")
         self.assertEqual(self.ada.state["mood"], "done")
+
+
+class Signup(Resource):
+    """A form posting to its own page, read with form()."""
+
+    template = parse_template(
+        io.BytesIO(
+            b"""<html><body><form data-attr="action=url" method="post">
+<input name="name"></form></body></html>"""
+        )
+    )
+
+    async def handle_POST(self, request):
+        form = self.form(request)
+        self.state.update(name=form.text("name"), tags=form.texts("tags"))
+        self.see_other("/done")
+
+
+class TestForms(unittest.TestCase):
+    def test_a_form_posts_to_its_own_page_by_the_url_slot(self):
+        _, _, body = call({"signup": Signup()}, "GET", "/signup.html")
+        self.assertIn(b'action="/signup.html"', body)
+
+    def test_a_subclass_url_slot_is_its_own(self):
+        class Elsewhere(Signup):
+            def slot_url(self, request):
+                return "/other"
+
+        _, _, body = call({"s": Elsewhere()}, "GET", "/s.html")
+        self.assertIn(b'action="/other"', body)
+
+    def test_form_reads_text_and_lists_by_name(self):
+        form = Resource().form(
+            {
+                "parsed_body": {
+                    "name": "  Ada ",
+                    "tags[]": ["a", "b"],
+                    "one": "x",
+                    "n": 3,
+                }
+            }
+        )
+        self.assertEqual(form.text("name"), "Ada")
+        self.assertEqual(form.text("missing"), "")
+        self.assertEqual(form.text("n"), "")
+        self.assertEqual(form.texts("tags"), ["a", "b"])
+        self.assertEqual(form.texts("one"), ["x"])
+        self.assertEqual(form.texts("none"), [])
+        # Nothing posted, or not an object, is an empty form
+        self.assertEqual(Resource().form({}).text("name"), "")
+        self.assertEqual(Resource().form({"parsed_body": [1]}).texts("x"), [])

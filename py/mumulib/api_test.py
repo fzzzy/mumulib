@@ -47,9 +47,10 @@ PUBLIC = {
         "AmbiguousShape",
         "HeterogenousList",
     },
-    "resource": {"Resource"},
+    "resource": {"Resource", "Form"},
     "tags": {
         "Markup",
+        "page",
         "Stan",
         "Template",
         "parse_template",

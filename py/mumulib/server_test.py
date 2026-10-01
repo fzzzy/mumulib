@@ -1650,6 +1650,35 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
         statuses, urls = await self.heard(("POST", "/form.html", "x"))
         self.assertEqual((statuses, urls), ([303], ["/form"]))
 
+    async def test_the_app_serves_the_stream_and_live_js_under_mumulib(self):
+        listener = Client(self.app, "/mumulib/changes.sse")
+        await settle()
+        await write(self.app, "PUT", "/todos/0.json", "b")
+        await settle()
+        await listener.go()
+        self.assertIn(b'data: "/todos/0"', listener.body)
+        status, headers, body = await get(self.root, "/mumulib/live.js")
+        self.assertEqual(status, 404)  # get() builds an app without changes
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/mumulib/live.js",
+            "headers": [],
+        }
+        await self.app({**scope, "state": {}}, receive, send)
+        self.assertEqual(sent[0]["status"], 200)
+        self.assertIn(b"data-live", b"".join(m.get("body", b"") for m in sent[1:]))
+        # Read-only, and nothing of root's is shadowed but its own mumulib
+        self.assertEqual(await write(self.app, "PUT", "/mumulib/live.js", "x"), 405)
+
     async def test_one_object_has_one_url_whatever_type_it_was_written_as(self):
         _, urls = await self.heard(
             ("PUT", "/todos/0.json", "b"),

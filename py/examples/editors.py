@@ -2,10 +2,11 @@
 
     make run SERVER=editors      then http://127.0.0.1:8001/editors/
 
-Every page is built here, in Stan, and each object is a Resource whose state
-is its data -- and so its JSON, and what its edit page's slots are filled
-from. A form posts to the object's own URL, and its handle_POST checks what
-was sent, keeps it, and answers 303 See Other, back to /editors/:
+Every page is built here, in Stan, with tags.page, and each object is a
+Resource whose state is its data -- the JSON of it, and what its edit page's
+slots are filled from. A form posts to the object's own URL, Resource's url
+slot, and its handle_POST reads it with self.form, checks it, keeps it, and
+answers 303 See Other, back to /editors/:
 
     GET  /editors/                          the three tables
     GET  /editors/characters/c1.html        a character's edit page
@@ -16,109 +17,75 @@ was sent, keeps it, and answers 303 See Other, back to /editors/:
     POST /editors/deploys/d1.html           name=...&party=p2
     GET  /editors/characters.json           {"c1": {"name": ..., ...}, ...}
     GET  /editors/characters/c1/state.json  {"name": ..., ...}, read-only
-    GET  /editors/changes.sse               the URL of each change, as it is made
-    GET  /editors/style.css, script.js      editors/style.css and script.js
+    GET  /editors/style.css                 editors/style.css
+    GET  /mumulib/changes.sse               the URL of each change, as it is made
+    GET  /mumulib/live.js                   the script that follows them
 
 Each object has an id that never changes, so its URL does not either, and
 renaming is a post to the URL it already had. A party's members and a
 deploy's party are ids, so they follow a rename.
 
-An edit link is a link, and a form a form. The pages' one script keeps
-/editors/ up to date in the way htmx does: when the server says something
-changed -- anyone's change, from any page -- /editors/ is fetched again and
-its tables put in place of these.
+An edit link is a link, and a form a form. The tables are live=True, and
+the index page links mumulib's live.js, which consumers_app serves, given
+changes: whenever anything changes -- anyone's change, from any page -- the
+page is fetched again and its tables put in place of these.
 """
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from mumulib.mumutypes import HTTPResponse, State
 from mumulib.resource import Resource
 from mumulib.server import EventSource, consumers_app
-from mumulib.tags import Stan
+from mumulib.tags import Stan, page
 from mumulib.tags import every as t
 
-
-def page(title: str, *content: Any) -> Stan:
-    """A whole page: its title, what it holds, and the site's stylesheet and
-    script, which are files, Site's child_style and child_script."""
-    return t.html[
-        t.head[
-            t.meta(charset="utf-8"),
-            t.title[title],
-            t.link(rel="stylesheet", href="/editors/style.css"),
-            t.script(src="/editors/script.js", defer=""),
-        ],
-        t.body[
-            t.p[t.a(href="/editors/")["Editors"]],
-            *content,
-        ],
-    ]
+STYLESHEET = "/editors/style.css"
+NAV = t.p[t.a(href="/editors/")["Editors"]]
 
 
 def buttons() -> Stan:
     """Save posts the form; Cancel goes back, saving nothing."""
-    return t.p[
-        t.button["Save"],
-        " ",
-        t.a(href="/editors/")["Cancel"],
+    return t.p[t.button["Save"], " ", t.a(href="/editors/")["Cancel"]]
+
+
+def edit_page(title: str, *fields: Any) -> Stan:
+    """An edit page: a form posting to its own URL, Resource's url slot."""
+    return page(
+        title,
+        NAV,
+        t.form(attr="action=url", method="post")[t.h2[title], *fields, buttons()],
+        stylesheets=[STYLESHEET],
+    )
+
+
+def name_field() -> Stan:
+    return t.label[
+        "Name", t.input(attr="value=name", type="text", name="name", required=True)
     ]
-
-
-def option(value: str, label: str, chosen: bool) -> Stan:
-    """An <option>, selected if chosen: selected is so whenever it is there,
-    so it is left out, not set false."""
-    return t.option(value=value, **({"selected": ""} if chosen else {}))[label]
-
-
-def fields(request: State) -> dict[str, Any]:
-    """What a form posted, by name."""
-    body = request.get("parsed_body")
-    return cast(dict[str, Any], body) if isinstance(body, dict) else {}
-
-
-def text(posted: dict[str, Any], name: str) -> str:
-    """One text field, or nothing if it was not sent as one."""
-    value = posted.get(name, "")
-    return value.strip() if isinstance(value, str) else ""
 
 
 class Character(Resource):
     """A character: state {"name", "prompt", "agent_args"}."""
 
-    template = page(
+    template = edit_page(
         "Edit character",
-        t.form(attr="action=url", method="post")[
-            t.h2["Edit character"],
-            t.label[
-                "Name",
-                t.input(attr="value=name", type="text", name="name", required=""),
-            ],
-            t.label[
-                "System prompt",
-                t.textarea(slt="prompt", name="prompt")["A prompt"],
-            ],
-            t.label[
-                "Agent args",
-                t.input(attr="value=agent_args", type="text", name="agent_args"),
-            ],
-            buttons(),
+        name_field(),
+        t.label["System prompt", t.textarea(slt="prompt", name="prompt")["A prompt"]],
+        t.label[
+            "Agent args",
+            t.input(attr="value=agent_args", type="text", name="agent_args"),
         ],
     )
 
-    def slot_url(self, request: State) -> str:
-        # The form posts to this page's own URL
-        return str(request["url"])
-
     async def handle_POST(self, request: State) -> Any:
-        posted = fields(request)
-        name = text(posted, "name")
-        if not name:
+        form = self.form(request)
+        if not form.text("name"):
             raise HTTPResponse(400, "A character needs a name.\n")
         self.state.update(
-            name=name,
-            prompt=text(posted, "prompt"),
-            agent_args=text(posted, "agent_args"),
+            name=form.text("name"),
+            prompt=form.text("prompt"),
+            agent_args=form.text("agent_args"),
         )
         self.see_other("/editors/")
 
@@ -126,43 +93,32 @@ class Character(Resource):
 class Party(Resource):
     """A party: state {"name", "members"}, the members character ids."""
 
-    template = page(
+    template = edit_page(
         "Edit party",
-        t.form(attr="action=url", method="post")[
-            t.h2["Edit party"],
-            t.label[
-                "Name",
-                t.input(attr="value=name", type="text", name="name", required=""),
-            ],
-            t.label[
-                "Members",
-                t.select(slt="member_options", name="members[]", multiple=""),
-            ],
-            buttons(),
+        name_field(),
+        t.label[
+            "Members",
+            t.select(slt="member_options", name="members[]", multiple=True),
         ],
     )
-
-    def slot_url(self, request: State) -> str:
-        return str(request["url"])
 
     def slot_member_options(self, request: State) -> list[Stan]:
         # One option for each character, chosen if it is a member
         return [
-            option(cid, character.state["name"], cid in self.state["members"])
-            for cid, character in characters.items()
+            t.option(value=cid, selected=cid in self.state["members"])[c.state["name"]]
+            for cid, c in characters.items()
         ]
 
     async def handle_POST(self, request: State) -> Any:
-        posted = fields(request)
-        name = text(posted, "name")
-        # members[] is a list, and absent when none is chosen
-        members = posted.get("members[]", [])
-        if not name:
+        form = self.form(request)
+        # members[] is a list, and none chosen sends none: []
+        members = form.texts("members")
+        if not form.text("name"):
             raise HTTPResponse(400, "A party needs a name.\n")
         unknown = [cid for cid in members if cid not in characters]
         if unknown:
             raise HTTPResponse(400, f"No character {unknown[0]!r}.\n")
-        self.state.update(name=name, members=members)
+        self.state.update(name=form.text("name"), members=members)
         self.see_other("/editors/")
 
 
@@ -170,32 +126,22 @@ class Deploy(Resource):
     """A deploy: state {"name", "party", "status"}. Its status is the
     server's, shown on its page and not taken from any form."""
 
-    template = page(
+    template = edit_page(
         "Edit deploy",
-        t.form(attr="action=url", method="post")[
-            t.h2["Edit deploy"],
-            t.label[
-                "Name",
-                t.input(attr="value=name", type="text", name="name", required=""),
-            ],
-            t.label["Party", t.select(slt="party_options", name="party")],
-            t.p["Status: ", t.span(slt="status")["running"]],
-            buttons(),
-        ],
+        name_field(),
+        t.label["Party", t.select(slt="party_options", name="party")],
+        t.p["Status: ", t.span(slt="status")["running"]],
     )
-
-    def slot_url(self, request: State) -> str:
-        return str(request["url"])
 
     def slot_party_options(self, request: State) -> list[Stan]:
         return [
-            option(pid, party.state["name"], pid == self.state["party"])
-            for pid, party in parties.items()
+            t.option(value=pid, selected=pid == self.state["party"])[p.state["name"]]
+            for pid, p in parties.items()
         ]
 
     async def handle_POST(self, request: State) -> Any:
-        posted = fields(request)
-        name, party = text(posted, "name"), text(posted, "party")
+        form = self.form(request)
+        name, party = form.text("name"), form.text("party")
         if not name:
             raise HTTPResponse(400, "A deploy needs a name.\n")
         if party not in parties:
@@ -244,11 +190,13 @@ def edit_link(kind: str, key: str) -> str:
 
 
 class Editors(Resource):
-    """/editors/: a table of each kind, every row a copy of its pattern."""
+    """/editors/: a table of each kind, every row a copy of its pattern. The
+    tables are live, kept up to date by mumulib's live.js."""
 
     template = page(
         "Editors",
-        t.table(id="characters")[
+        NAV,
+        t.table(id="characters", live=True)[
             t.caption["Characters"],
             t.thead[t.tr[t.th["Name"], t.th["Prompt"], t.th["Agent args"]]],
             t.tbody(slt="character_rows")[
@@ -259,7 +207,7 @@ class Editors(Resource):
                 ]
             ],
         ],
-        t.table(id="parties")[
+        t.table(id="parties", live=True)[
             t.caption["Parties"],
             t.thead[t.tr[t.th["Name"], t.th["Members"]]],
             t.tbody(slt="party_rows")[
@@ -269,7 +217,7 @@ class Editors(Resource):
                 ]
             ],
         ],
-        t.table(id="deploys")[
+        t.table(id="deploys", live=True)[
             t.caption["Deploys"],
             t.thead[t.tr[t.th["Name"], t.th["Party"], t.th["Status"]]],
             t.tbody(slt="deploy_rows")[
@@ -280,6 +228,8 @@ class Editors(Resource):
                 ]
             ],
         ],
+        stylesheets=[STYLESHEET],
+        live=True,
     )
 
     def slot_character_rows(self, request: State) -> list[Stan]:
@@ -314,24 +264,19 @@ class Editors(Resource):
         ]
 
 
-changes = EventSource()
-
-# The stylesheet and script, files beside this one
-HERE = Path(__file__).parent / "editors"
-
-
 class Site(Resource):
     """/editors: every child a class attribute, child_<name> being found as
     any attribute is. Its slash is child_index, the tables; the rest are
-    the three kinds, the change stream, and two files, served as they are."""
+    the three kinds, and the stylesheet, a file served as it is."""
 
     child_index = Editors()
     child_characters = characters
     child_parties = parties
     child_deploys = deploys
-    child_changes = changes
-    child_style = HERE / "style.css"
-    child_script = HERE / "script.js"
+    child_style = Path(__file__).parent / "editors" / "style.css"
 
+
+# Every change announced on it; consumers_app serves it, and live.js
+changes = EventSource()
 
 app = consumers_app({"editors": Site()}, changes=changes)

@@ -147,7 +147,9 @@ Python package). Breaking changes come first under each release.
   `pattern(name, **slots)` for copies of its patterns. Its state is a dict
   given to the constructor: read-only at its child `state.json`, its JSON
   inside any other JSON, and what slots with no `slot_` are filled from. Handlers are
-  given the request. `see_other(url)` answers a form post with 303 See Other.
+  given the request. `see_other(url)` answers a form post with 303 See Other;
+  `form(request)` reads one, with `text(name)` and `texts(name)`; and the
+  `url` slot is the request's own URL, for a form that posts back.
   A resource answers every method
   at its own URL: a dict, list, tuple or `MappingProxyType` it is in hands it
   the request instead of replacing, removing or refusing it.
@@ -156,8 +158,16 @@ Python package). Breaking changes come first under each release.
   `EventSource` `events` -- the request's URL, or a 201's `Location`, with
   no extension, `/todos/3` -- for pages listening to fetch it again.
 - **Short names for the template attributes in Stan**: `pat=` for
-  `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), and `attr=` for
-  `data-attr`, as `"href=url"` or `{"href": "url"}`.
+  `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), `attr=` for
+  `data-attr`, as `"href=url"` or `{"href": "url"}`, and `live=` for
+  `data-live`. An attribute that is `True` is written by its name, and one
+  that is `False` or `None` is left out.
+- **`tags.page(title, *content, stylesheets=, scripts=, live=)`**: a whole
+  page, doctype, charset, viewport and all.
+- **Live pages**: `consumers_app(root, changes=events)` serves the change
+  stream at `/mumulib/changes.sse` and `/mumulib/live.js`, which fetches a
+  page again on every change and puts its fresh `data-live` elements in place
+  of those shown. The Python package ships `live.js`.
 - **`producers.add_json_form(type, to_json)`**: what a type's things are in
   JSON, wherever one is found; a `Resource` is its state.
 - **`add_consumer(..., own_methods=True)`**: a type whose things answer every

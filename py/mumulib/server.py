@@ -4,11 +4,12 @@ import signal
 import threading
 import traceback
 from collections.abc import AsyncIterator, Callable
+from pathlib import Path
 from types import FrameType
 from typing import Any
 from urllib import parse
 
-from mumulib.consumers import consume, is_container
+from mumulib.consumers import GetOnly, consume, is_container
 from mumulib.mumutypes import (
     ASGIApp,
     Message,
@@ -206,6 +207,10 @@ def with_content_type(message: dict[str, Any], content_type: str) -> dict[str, A
     return {**message, "headers": headers}
 
 
+# The script that keeps a page's data-live elements up to date, which the
+# app serves at /mumulib/live.js when it is given changes
+LIVE_SCRIPT = Path(__file__).parent / "live.js"
+
 # The methods that change what is published
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
@@ -261,9 +266,16 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
 
     Given changes, an EventSource, every request that changes something --
     a POST, PUT, PATCH or DELETE answered with success -- puts the URL of
-    what it changed on it, without an extension: /todos/3. Publish it too,
-    and a page can listen at its .sse URL for what to fetch again.
+    what it changed on it, without an extension: /todos/3. The app serves it
+    itself, read-only, at /mumulib/changes.sse, with /mumulib/live.js, the
+    script that keeps a page's data-live elements up to date by it -- a page
+    made with tags.page(..., live=True) links it.
     """
+    mumulib = (
+        GetOnly({"changes": changes, "live": LIVE_SCRIPT})
+        if changes is not None
+        else None
+    )
 
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
@@ -331,7 +343,12 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
             return
 
         try:
-            result = await consume(root, segments, state, send)
+            # Given changes, /mumulib/ is the app's own: the change stream
+            # and the script that follows it, ahead of anything in root
+            if mumulib is not None and segments[0] == "mumulib":
+                result = await consume(mumulib, segments[1:], state, send)
+            else:
+                result = await consume(root, segments, state, send)
         except Exception as exc:
             # Handle errors during request consumption/routing
             traceback.print_exc()

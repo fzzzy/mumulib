@@ -74,21 +74,30 @@ class TestEditors(unittest.TestCase):
         self.assertIn("Code Reviewer, Researcher", index)
         self.assertIn("Operators", index)
 
-    def test_every_page_links_the_stylesheet_and_script_it_is_served(self):
+    def test_every_page_links_the_stylesheet_it_is_served(self):
         for page in ("/editors/", "/editors/deploys/d1.html"):
             content = self.page(page)
             self.assertIn(
                 '<link rel="stylesheet" href="/editors/style.css" />', content
             )
-            self.assertIn('<script src="/editors/script.js" defer="">', content)
         status, headers, css = self.request("/editors/style.css")
         self.assertEqual(
             (status, headers[b"content-type"]), (200, b"text/css; charset=UTF-8")
         )
         self.assertIn("border-collapse", css)
-        status, _, js = self.request("/editors/script.js")
+
+    def test_the_index_is_live_by_mumulibs_script(self):
+        index = self.page("/editors/")
+        self.assertIn('<script src="/mumulib/live.js" defer>', index)
+        for table in ("characters", "parties", "deploys"):
+            self.assertIn(f'<table id="{table}" data-live>', index)
+        # An edit page has nothing live, so no script
+        self.assertNotIn("live.js", self.page("/editors/characters/c1.html"))
+        # consumers_app serves both, being given changes
+        status, headers, js = self.request("/mumulib/live.js")
         self.assertEqual(status, 200)
-        self.assertIn("new EventSource('/editors/changes.sse')", js)
+        self.assertEqual(headers[b"content-type"], b"text/javascript; charset=UTF-8")
+        self.assertIn("new EventSource('/mumulib/changes.sse')", js)
 
     def test_each_kind_is_its_states_as_json(self):
         _, _, body = self.request("/editors/parties.json")
@@ -102,10 +111,10 @@ class TestEditors(unittest.TestCase):
         self.assertIn('value="Researcher"', form)
         self.assertIn("You find sources", form)
         party = self.page("/editors/parties/p1.html")
-        self.assertIn('<option value="c1" selected="">', party)
+        self.assertIn('<option value="c1" selected>', party)
         self.assertIn('<option value="c3">', party)
         deploy = self.page("/editors/deploys/d2.html")
-        self.assertIn('<option value="p2" selected="">', deploy)
+        self.assertIn('<option value="p2" selected>', deploy)
         self.assertIn("stopped", deploy)
 
     def test_a_character_is_posted_and_kept(self):

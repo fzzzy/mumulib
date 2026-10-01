@@ -435,3 +435,37 @@ class TestEscaping(unittest.TestCase):
 
     def test_slot_is_left_as_htmls_own(self):
         self.assertEqual(t.span(slot="title").attributes, {"slot": "title"})
+
+    def test_a_boolean_attribute_is_there_or_not(self):
+        out = render(t.input(required=True, disabled=False, hidden=None, name="n"))
+        self.assertIn('<input required name="n" />', out)
+        # And so when a slot fills it
+        box = t.input(attr="checked=done")
+        box.fill_slots("done", False)
+        self.assertIn("<input data-attr", render(t.div[box]))
+        self.assertNotIn("checked", render(t.div[box]).replace("checked=done", ""))
+
+    def test_live_is_data_live(self):
+        self.assertEqual(t.table(live=True).attributes, {"data-live": True})
+        self.assertIn("<table data-live>", render(t.table(live=True)))
+
+    def test_page_is_a_whole_page(self):
+        out = render(
+            tags.page(
+                "A <title>",
+                t.h1["Hi"],
+                t.p["there"],
+                stylesheets=["/a.css"],
+                scripts=["/b.js"],
+                live=True,
+            )
+        )
+        self.assertTrue(out.startswith("<!doctype html>\n<html>"))
+        self.assertIn("A &lt;title&gt;", out)
+        self.assertIn('<meta charset="utf-8" />', out)
+        self.assertIn('<link rel="stylesheet" href="/a.css" />', out)
+        self.assertIn('<script src="/b.js" defer>', out)
+        self.assertIn('<script src="/mumulib/live.js" defer>', out)
+        self.assertLess(out.index("<h1>"), out.index("<p>"))
+        # Without live, no live.js
+        self.assertNotIn("live.js", render(tags.page("t")))

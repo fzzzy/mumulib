@@ -31,7 +31,13 @@ working; anything else in a module is its own.
   The template attributes have short names in Stan: `t.tr(pat="row")` is a
   pattern, `data-pat`; `t.td(slt="name")` a slot, `data-slot` -- `slot` is
   HTML's own, for shadow DOM; and `t.a(attr="href=url")`, or
-  `attr={"href": "url"}`, fills attributes from slots, `data-attr`.
+  `attr={"href": "url"}`, fills attributes from slots, `data-attr`; and
+  `live=True` marks an element live.js keeps up to date. An attribute that is
+  `True` is written by its name, `required`, and one that is `False` or
+  `None` is left out, as boolean attributes must be. `page(title, *content,
+  stylesheets=, scripts=, live=)` is a whole page: the doctype, a UTF-8
+  charset and a viewport, the title, the stylesheets and scripts, and the
+  content as its body.
 - `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
   and the HTTP responses, and `content_type_for`.
 
@@ -118,8 +124,11 @@ request says which, in `"content_type"` and `"extension"`. The state is
 published as a child of its own, read-only: `/profile/state.json`, and
 `/profile/state/name.txt` below it; only the resource's handlers change it,
 and a `child_state` of its own takes its place. Inside any other JSON a
-resource is its state, so a dict of resources is a JSON document of theirs. A form post is answered with
-`self.see_other(url)`, 303 See Other, as `self.refuse()` answers with 405. A resource is not a
+resource is its state, so a dict of resources is a JSON document of theirs. A form is read with `self.form(request)`: `form.text("name")`, stripped, and
+`form.texts("tags")`, every value sent as `tags[]` or `tags`. A form with
+`attr="action=url"` posts back to its own page, the `url` slot every
+resource has, and its post is answered with `self.see_other(url)`, 303 See
+Other, as `self.refuse()` answers with 405. A resource is not a
 container -- it is named as a file, `/profile.html` or `/profile.json` -- and
 its children can be anything publishable. Each subclass is registered as it
 is defined, by `__init_subclass__`.
@@ -253,27 +262,28 @@ streams[key] = EventSource()  # /events/<key>.sse is theirs alone
 
 Given an `EventSource` as `changes`, `consumers_app` puts on it the URL of
 everything a request changes: each `POST`, `PUT`, `PATCH` or `DELETE`
-answered with success, any 2xx. Publish it as well, and a page can listen
-for what to fetch again:
+answered with success, any 2xx, or a form post's 303 See Other. The app
+serves it itself, read-only, at `/mumulib/changes.sse`, and beside it
+`/mumulib/live.js`, which keeps a page's live elements up to date:
 
 ```python
 changes = EventSource()
-app = consumers_app({"todos": [], "changes": changes}, changes=changes)
+app = consumers_app(Site(), changes=changes)
+
+# In a page made with tags.page(..., live=True), each element with live=True
+# and an id is fetched again, from the page's own URL, whenever anything
+# changes, and put in place of the one shown.
+t.table(id="todos", live=True)[...]
 ```
 
-```js
-new EventSource("/changes.sse").onmessage = (e) => {
-  const url = JSON.parse(e.data)  // "/todos/3"
-  refetch(url + ".json")
-}
-```
+A page of your own can listen too: `new EventSource("/mumulib/changes.sse")`,
+each event's data the JSON of a URL.
 
 The URL names the object, not a representation of it, so it has no
 extension: a `PUT` to `/todos/0.json` and one to `/todos/0.txt` both put
 `/todos/0`, and a listener adds the extension it wants. A slash, `/` or
 `/todos/`, is put as itself. It is the request's URL, or for 201 Created the
-new thing's, from `Location`: `PUT /todos/last.json` puts `/todos/3`. It is put as the response's final body is produced,
-so a change is heard even if the client that made it has gone. A request
+new thing's, from `Location`: `PUT /todos/last.json` puts `/todos/3`. It is put as the response's final body is produced, so a change is heard even if the client that made it has gone. A request
 that fails -- 404, 405, 500 -- puts nothing.
 
 An event stream never ends by itself, and a server stopping waits for open

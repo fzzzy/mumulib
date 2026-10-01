@@ -32,10 +32,29 @@ from mumulib.producers import add_json_form, add_producer, can_produce, produce
 from mumulib.tags import Stan
 
 # The public API: the class to subclass.
-__all__ = ["Resource"]
+__all__ = ["Resource", "Form"]
 
 # The methods a Resource has a handler for, and refuses unless one is given
 METHODS = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
+
+
+class Form:
+    """What a form posted, by name: Resource.form(request) makes one."""
+
+    def __init__(self, fields: dict[str, Any]) -> None:
+        self.fields = fields
+
+    def text(self, name: str) -> str:
+        """One field, stripped: "" if it was not sent, or not as text."""
+        value = self.fields.get(name, "")
+        return value.strip() if isinstance(value, str) else ""
+
+    def texts(self, name: str) -> list[str]:
+        """Every value sent by that name, as a <select multiple> or several
+        checkboxes send them: name[] or name, and none at all is []."""
+        value = self.fields.get(f"{name}[]", self.fields.get(name, []))
+        values = cast(list[Any], value) if isinstance(value, list) else [value]
+        return [v for v in values if isinstance(v, str)]
 
 
 class Resource:
@@ -128,6 +147,19 @@ class Resource:
             else:
                 page.fill_slots(name, value)
         return page
+
+    def slot_url(self, request: State) -> str:
+        """The url slot: this request's own URL. A form with
+        attr="action=url" posts back to the page it is on, its resource's
+        handle_POST; a subclass's slot_url, or nothing using url, and this
+        is not used."""
+        return str(request.get("url", ""))
+
+    def form(self, request: State) -> Form:
+        """What the request's form posted -- or its JSON body sent, if an
+        object -- by name; empty if neither."""
+        body = request.get("parsed_body")
+        return Form(cast(dict[str, Any], body) if isinstance(body, dict) else {})
 
     def pattern(self, name: str, /, **slots: Any) -> Stan:
         """A copy of the template's pattern name, data-pat, with slots
