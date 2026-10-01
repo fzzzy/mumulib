@@ -1,5 +1,6 @@
 # pyright: standard
 import asyncio
+import io
 import json
 import unittest
 from types import MappingProxyType
@@ -7,6 +8,7 @@ from types import MappingProxyType
 from mumulib.consumers import GetOnly, RefuseIndex
 from mumulib.resource import Resource
 from mumulib.server import consumers_app
+from mumulib.tags import parse_template
 
 
 def call(root, method, path, body=None):
@@ -45,7 +47,7 @@ class Site(Resource):
 class Typed(Resource):
     """Answers each type in its own way, from state."""
 
-    def handle_GET(self, state):
+    async def handle_GET(self, state):
         if state["extension"] == "json":
             return {"type": state["content_type"]}
         return f"as {state['extension']}"
@@ -57,10 +59,10 @@ class Guestbook(Resource):
     def __init__(self):
         self.entries = []
 
-    def handle_GET(self, state):
+    async def handle_GET(self, state):
         return self.entries
 
-    def handle_POST(self, state):
+    async def handle_POST(self, state):
         self.entries.append(state["parsed_body"])
         return {"count": len(self.entries)}
 
@@ -131,24 +133,24 @@ class Box(Resource):
         self.value = "empty"
         self.seen = []
 
-    def handle_GET(self, state):
+    async def handle_GET(self, state):
         return self.value
 
-    def handle_PUT(self, state):
+    async def handle_PUT(self, state):
         self.seen.append("PUT")
         self.value = state["parsed_body"]
         return {"now": self.value}
 
-    def handle_DELETE(self, state):
+    async def handle_DELETE(self, state):
         self.seen.append("DELETE")
         self.value = "empty"
         return {"now": self.value}
 
-    def handle_POST(self, state):
+    async def handle_POST(self, state):
         self.seen.append("POST")
         return {"posted": state["parsed_body"]}
 
-    def handle_PATCH(self, state):
+    async def handle_PATCH(self, state):
         self.seen.append("PATCH")
         return {"patched": state["parsed_body"]}
 
@@ -233,3 +235,149 @@ class TestRegistration(unittest.TestCase):
     def test_resource_itself_is_registered(self):
         status, _, body = call({"r": Resource()}, "GET", "/r.txt")
         self.assertEqual((status, body), (200, b""))
+
+
+PAGE = parse_template(
+    io.BytesIO(
+        b"""<html><body>
+<h1 data-slot="title">A title</h1>
+<p data-slot="greeting">Hello</p>
+<p data-slot="kept">The template's own</p>
+<p data-slot="gone">Emptied</p>
+<a data-attr="href=link" data-slot="label">a link</a>
+<ul data-slot="items"><li data-pat="item"><span data-slot="name">x</span></li></ul>
+<div data-slot="listing"></div>
+<div data-slot="inner"></div>
+</body></html>"""
+    )
+)
+
+
+class Card(Resource):
+    template = "<b>a card</b>"
+
+
+class Filled(Resource):
+    """A template filled from slot_ methods and values, every kind."""
+
+    template = PAGE
+    slot_title = "Slots"
+
+    def __init__(self, names):
+        self.names = names
+        self.called = []
+
+    def slot_greeting(self, state):
+        self.called.append("greeting")
+        return f"Hello, {state.get('parsed_body') or 'you'}"
+
+    async def slot_label(self, state):
+        await asyncio.sleep(0)
+        return "<go>"
+
+    def slot_link(self, state):
+        return "/elsewhere?a=1&b=2"
+
+    def slot_gone(self, state):
+        return None
+
+    def slot_items(self, state):
+        return [self.pattern("item", name=name) for name in self.names]
+
+    def slot_name(self, state):
+        # Inside the pattern: the pattern's, never the page's
+        self.called.append("name")
+        return "never"
+
+    def slot_listing(self, state):
+        return {"a": 1}
+
+    def slot_inner(self, state):
+        return Card()
+
+
+class TestSlots(unittest.TestCase):
+    def setUp(self):
+        self.page = Filled(["Ada", "<Bob>"])
+        self.root = {"page": self.page}
+
+    def body(self):
+        status, _, body = call(self.root, "GET", "/page.html")
+        self.assertEqual(status, 200)
+        return body.decode()
+
+    def test_each_slot_is_filled_from_its_slot_method_or_value(self):
+        body = self.body()
+        self.assertIn("Slots", body)
+        self.assertIn("Hello, you", body)
+        self.assertNotIn("A title", body)
+
+    def test_an_async_slot_is_awaited_and_its_text_escaped(self):
+        self.assertIn("&lt;go&gt;", self.body())
+
+    def test_an_attribute_slot_is_filled_and_escaped(self):
+        self.assertIn('href="/elsewhere?a=1&amp;b=2"', self.body())
+
+    def test_a_slot_with_no_slot_method_keeps_the_templates(self):
+        self.assertIn("The template's own", self.body())
+
+    def test_none_empties_a_slot(self):
+        self.assertNotIn("Emptied", self.body())
+
+    def test_a_list_of_pattern_copies_fills_a_slot(self):
+        body = self.body()
+        self.assertEqual(body.count('data-pat="item"'), 2)
+        self.assertIn("Ada", body)
+        self.assertIn("&lt;Bob&gt;", body)
+        self.assertNotIn("never", body)
+        self.assertNotIn("name", self.page.called)
+
+    def test_anything_else_is_the_html_a_producer_makes_of_it(self):
+        body = self.body()
+        # A dict as its listing, a resource as its own page
+        self.assertIn('<a href="/page/a.html">a</a>', body)
+        self.assertIn("<b>a card</b>", body)
+
+    def test_a_slot_sees_the_request(self):
+        root = {"page": Filled([])}
+        Filled.handle_POST = Resource.handle_GET  # type: ignore[method-assign]
+        try:
+            _, _, body = call(root, "POST", "/page.html", "Ada")
+        finally:
+            del Filled.handle_POST
+        self.assertIn(b"Hello, Ada", body)
+
+    def test_the_template_itself_is_left_as_it_was(self):
+        self.body()
+        self.body()
+        self.assertEqual(self.page.called, ["greeting", "greeting"])
+        assert PAGE is not None
+        self.assertIn("A title", repr(PAGE))
+        self.assertNotIn("Slots", repr(PAGE))
+
+    def test_a_slot_with_no_html_form_is_an_error(self):
+        class Broken(Resource):
+            template = PAGE
+
+            def slot_title(self, state):
+                return object()
+
+        status, _, _ = call({"b": Broken()}, "GET", "/b.html")
+        self.assertEqual(status, 500)
+
+    def test_a_pattern_must_be_in_a_parsed_template(self):
+        with self.assertRaises(TypeError):
+            Card().pattern("item")
+        with self.assertRaises(ValueError):
+            self.page.pattern("missing")
+
+
+class TestAsyncHandlers(unittest.TestCase):
+    def test_a_handler_may_be_async(self):
+        class Later(Resource):
+            async def handle_GET(self, state):
+                await asyncio.sleep(0)
+                return {"later": True}
+
+        _, _, body = call({"l": Later()}, "GET", "/l.json")
+        self.assertEqual(json.loads(body), {"later": True})

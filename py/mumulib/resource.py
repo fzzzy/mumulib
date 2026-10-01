@@ -21,12 +21,14 @@ which, in "content_type" and "extension". Its children are walked into like
 anything else, and each can be anything publishable, a Resource included.
 """
 
-from collections.abc import AsyncIterator
-from typing import Any, NoReturn
+import inspect
+from collections.abc import AsyncIterator, Iterator
+from typing import Any, NoReturn, cast
 
 from mumulib.consumers import add_consumer, consume
 from mumulib.mumutypes import Chunk, Send, SpecialResponse, State
-from mumulib.producers import add_producer, produce
+from mumulib.producers import add_producer, can_produce, produce
+from mumulib.tags import Stan
 
 # The public API: the class to subclass.
 __all__ = ["Resource"]
@@ -57,34 +59,72 @@ class Resource:
         """
         return getattr(self, f"child_{segments[0]}", None)
 
-    def render(self, state: State) -> Any:
+    async def render(self, state: State) -> Any:
         """The answer to a request that ends here: its method's handler's.
 
         What it returns is produced as though it had been published there,
-        of the URL's type: a string as it is, a dict as JSON at .json.
+        of the URL's type: a string as it is, a dict as JSON at .json. A
+        handler may be async or not; what it returns is awaited if it can be.
         """
         method = str(state.get("method", "GET")).upper()
         handler = getattr(self, f"handle_{method}", None)
         if handler is None:
             self.refuse()
-        return handler(state)
+        return await _settled(handler(state))
 
-    def handle_GET(self, state: State) -> Any:
+    async def handle_GET(self, state: State) -> Any:
+        """The template: as it is, or a parsed one filled from slot_ names."""
+        if isinstance(self.template, Stan):
+            return await self.fill(self.template, state)
         return self.template
 
-    def handle_HEAD(self, state: State) -> Any:
+    async def fill(self, template: Stan, state: State) -> Stan:
+        """A copy of template, each slot in it filled from this resource's
+        slot_<name>: a method called with the request's state, async or
+        not, or a plain value. A slot with no slot_ keeps what the template
+        has there; one whose slot_ gives None is emptied. A slot inside a
+        pattern is the pattern's, filled when it is copied, not here.
+
+        A slot takes what it is given as fill_slots does: text escaped as
+        it is written out, a tree or a list of them as markup, and anything
+        else as the HTML a producer makes of it.
+        """
+        page = template.copy()
+        for name in slot_names(page):
+            filler = getattr(self, f"slot_{name}", _MISSING)
+            if filler is _MISSING:
+                continue
+            value = await _settled(filler(state) if callable(filler) else filler)
+            _check_html(name, value)
+            if value is None:
+                page.clear_slots(name)
+            else:
+                page.fill_slots(name, value)
+        return page
+
+    def pattern(self, name: str, /, **slots: Any) -> Stan:
+        """A copy of the template's pattern name, data-pat, with slots
+        filled: one item for a list, say."""
+        if not isinstance(self.template, Stan):
+            raise TypeError("only a parsed template has patterns")
+        copy = self.template.clone_pat(name, **slots)
+        if copy is None:
+            raise ValueError(f"the template has no pattern {name!r}")
+        return copy
+
+    async def handle_HEAD(self, state: State) -> Any:
         self.refuse()
 
-    def handle_POST(self, state: State) -> Any:
+    async def handle_POST(self, state: State) -> Any:
         self.refuse()
 
-    def handle_PUT(self, state: State) -> Any:
+    async def handle_PUT(self, state: State) -> Any:
         self.refuse()
 
-    def handle_PATCH(self, state: State) -> Any:
+    async def handle_PATCH(self, state: State) -> Any:
         self.refuse()
 
-    def handle_DELETE(self, state: State) -> Any:
+    async def handle_DELETE(self, state: State) -> Any:
         self.refuse()
 
     def allowed(self) -> list[str]:
@@ -122,8 +162,51 @@ async def consume_resource(
 
 
 async def produce_resource(thing: Resource, state: State) -> AsyncIterator[Chunk]:
-    async for chunk in produce(thing.render(state), state):
+    async for chunk in produce(await thing.render(state), state):
         yield chunk
+
+
+# Stands for "this resource has no slot_ by that name"
+_MISSING = object()
+
+
+async def _settled(value: Any) -> Any:
+    """value, awaited if it is awaitable: what a handler or slot_ that may
+    be async or not came to."""
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
+def _check_html(name: str, value: Any) -> None:
+    """Refuses, while a response can still say so, a slot's value that
+    would have no HTML once the page is being written out."""
+    values: list[Any] = cast(list[Any], value) if isinstance(value, list) else [value]
+    for each in values:
+        if each is None or isinstance(each, (str, int, float, Stan)):
+            continue
+        if isinstance(each, bool) or not can_produce(each, "text/html"):
+            raise TypeError(f"slot {name!r}: a {type(each).__name__} has no HTML form")
+
+
+def slot_names(node: Stan) -> list[str]:
+    """The slots in a tree, content and attribute alike, in document order
+    and each once -- but not those inside a pattern, which are its own."""
+    return list(dict.fromkeys(_slot_names(node)))
+
+
+def _slot_names(node: Stan) -> Iterator[str]:
+    for child in node.children:
+        if not isinstance(child, Stan) or "data-pat" in child.attributes:
+            continue
+        slot = child.attributes.get("data-slot")
+        if slot:
+            yield slot
+        for pair in str(child.attributes.get("data-attr", "")).split(","):
+            _, eq, attrslot = pair.partition("=")
+            if eq and attrslot:
+                yield attrslot
+        yield from _slot_names(child)
 
 
 def _register(cls: type[Resource]) -> None:

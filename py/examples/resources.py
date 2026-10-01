@@ -127,6 +127,12 @@ new EventSource("/changes.sse").onmessage = async (event) => {
 assert LIST_PAGE is not None
 
 
+def own_url(state: State) -> str:
+    """The URL the request named, without its extension: /todos.json's is
+    /todos, below which its items are."""
+    return str(state.get("url", "")).rpartition(".")[0]
+
+
 def fields(state: State) -> dict[str, Any]:
     """What was sent, a JSON object or a form, as a dict; else empty."""
     body = state.get("parsed_body")
@@ -140,46 +146,49 @@ class Todo(Resource):
         self.text = text
         self.done = False
 
-    def handle_GET(self, state: State) -> Any:
+    async def handle_GET(self, state: State) -> Any:
         if state["extension"] == "html":
             # The text is a visitor's: escaped, as anything they send must be
             mark = "done" if self.done else "to do"
             return f"<p>{html.escape(self.text)} ({mark})</p>"
         return {"text": self.text, "done": self.done}
 
-    def handle_PUT(self, state: State) -> Any:
+    async def handle_PUT(self, state: State) -> Any:
         # Only what a Todo is made of, and only of its own types
         changes = fields(state)
         text, done = changes.get("text", self.text), changes.get("done", self.done)
         if not changes or not isinstance(text, str) or not isinstance(done, bool):
             raise HTTPResponse(400, 'Send {"text": a string, "done": true or false}\n')
         self.text, self.done = text, done
-        return self.handle_GET(state)
+        return await self.handle_GET(state)
 
 
 class Todos(Resource):
-    """The list: read whole, and added to with POST."""
+    """The list: read whole, and added to with POST.
+
+    Its page is LIST_PAGE, filled from its slot_ methods by Resource's own
+    handle_GET: slot_items is the item pattern, copied for each to-do.
+    """
+
+    template = LIST_PAGE
 
     def __init__(self, *texts: str) -> None:
         # A child like any other: /todos/items/0.json is child_items[0]
         self.child_items = [Todo(text) for text in texts]
 
-    def handle_GET(self, state: State) -> Any:
-        # This resource's own URL, /todos.json, without its extension
-        base = str(state.get("url", "")).rpartition(".")[0]
+    async def handle_GET(self, state: State) -> Any:
         if state["extension"] == "html":
-            return self.render_page(base)
+            return await super().handle_GET(state)
+        base = own_url(state)
         return [
             {"text": todo.text, "done": todo.done, "url": f"{base}/items/{i}.json"}
             for i, todo in enumerate(self.child_items)
         ]
 
-    def render_page(self, base: str) -> Stan:
-        """The list page: the item pattern copied and filled for each item,
-        and the copies filled into the page's items slot."""
-        assert LIST_PAGE is not None
-        items = [
-            LIST_PAGE.clone_pat(
+    def slot_items(self, state: State) -> list[Stan]:
+        base = own_url(state)
+        return [
+            self.pattern(
                 "item",
                 # A visitor's text, escaped as the page is written out
                 text=todo.text,
@@ -189,21 +198,16 @@ class Todos(Resource):
             )
             for i, todo in enumerate(self.child_items)
         ]
-        # A copy, filled: the template itself stays as it is for the next
-        page = LIST_PAGE.copy()
-        page.fill_slots("items", items)
-        return page
 
-    def handle_POST(self, state: State) -> Any:
+    async def handle_POST(self, state: State) -> Any:
         text = fields(state).get("text")
         if not isinstance(text, str) or not text:
             raise HTTPResponse(400, 'Send {"text": a string}\n')
         self.child_items.append(Todo(text))
         if state["extension"] == "html":
             # A form's answer is the page it asked for: the list, with this
-            return self.handle_GET(state)
-        base = str(state.get("url", "")).rpartition(".")[0]
-        return {"url": f"{base}/items/{len(self.child_items) - 1}.json"}
+            return await self.handle_GET(state)
+        return {"url": f"{own_url(state)}/items/{len(self.child_items) - 1}.json"}
 
 
 class About(Resource):

@@ -4,7 +4,7 @@ from typing import IO, TYPE_CHECKING, Any, cast
 
 from lxml import etree
 
-from mumulib import producers
+from mumulib import mumutypes, producers
 from mumulib.mumutypes import State
 
 # The public API: Building HTML, filling templates, and rendering them. Every
@@ -515,6 +515,10 @@ class Markup(str):
 RAW_TEXT_ELEMENTS = frozenset({"script", "style"})
 
 
+# What a tree holds as text: escaped, and numbers as their digits
+TEXT_TYPES = (str, int, float)
+
+
 def escape_text(child: Any, tagname: str) -> str:
     """A text child as HTML: escaped, unless it is Markup or in a script or
     style, which are written as they are."""
@@ -522,6 +526,19 @@ def escape_text(child: Any, tagname: str) -> str:
     if isinstance(child, Markup) or tagname in RAW_TEXT_ELEMENTS:
         return text
     return html.escape(text, quote=False)
+
+
+async def produce_child(child: Any, state: State) -> AsyncIterator[str]:
+    """A child that is neither text nor a tree, as HTML: what a producer
+    makes of it -- a dict its listing, a Resource its page. With no HTML of
+    its own, it is an error naming its type, as in JSON; not its repr."""
+    try:
+        async for chunk in producers.produce(child, state):
+            if not isinstance(chunk, str):
+                raise TypeError(f"a {type(child).__name__} produced no HTML")
+            yield chunk
+    except mumutypes.NotFoundResponse:
+        raise TypeError(f"a {type(child).__name__} has no HTML form") from None
 
 
 async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
@@ -551,9 +568,12 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
             if isinstance(child, Stan):
                 async for chunk in produce_html(child, state):
                     yield chunk
-            else:
+            elif isinstance(child, TEXT_TYPES) and not isinstance(child, bool):
                 # Text is text: a visitor's < is shown, not obeyed
                 yield escape_text(child, thing.tagname)
+            else:
+                async for chunk in produce_child(child, state):
+                    yield chunk
     yield f"\n{indent}</{thing.tagname}>\n"
 
 

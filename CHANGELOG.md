@@ -78,6 +78,9 @@ Python package). Breaking changes come first under each release.
   the function itself was the first argument, which nothing used.
 - **Python types are inline.** The `.pyi` stub files are gone; the package is
   annotated throughout, passes pyright in strict mode, and ships `py.typed`.
+- **`tags.produce_html` writes a child that is neither text nor a tree as
+  the HTML a producer makes of it** -- a dict as its listing -- and one with
+  no HTML form is a `TypeError`.
 - **`tags.produce_html` escapes text.** A string in a tree -- a filled slot,
   a child -- had been written out as it was, so a visitor's `<script>` in one
   ran; it is now escaped, and so is every attribute value, where only `"` had
@@ -134,7 +137,10 @@ Python package). Breaking changes come first under each release.
 - **`resource.Resource`**: a class to subclass, with children as `child_`
   attributes and `render(state)` calling `handle_<METHOD>`: `GET` renders its
   `template`, and anything else is 405 unless the subclass handles it. Every
-  subclass is registered as it is defined. A resource answers every method
+  subclass is registered as it is defined. Handlers are `async def`. A parsed
+  template is filled from `slot_<name>` methods and values, with
+  `pattern(name, **slots)` for copies of its patterns. A resource answers
+  every method
   at its own URL: a dict, list, tuple or `MappingProxyType` it is in hands it
   the request instead of replacing, removing or refusing it.
 - **`consumers_app(root, changes=events)`**: every `POST`, `PUT`, `PATCH` or

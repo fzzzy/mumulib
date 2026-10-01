@@ -102,7 +102,8 @@ app = consumers_app(Site())  # /, /profile.html, /profile/name.txt
 ```
 
 `handle_GET` renders `template`; every other method is 405, with `Allow`
-naming `GET` and whatever the subclass handles. What a handler returns is
+naming `GET` and whatever the subclass handles. Handlers are `async def`, and
+`render` awaits them. What a handler returns is
 produced as though it had been published there, of the URL's type: `state`
 says which, in `"content_type"` and `"extension"`. A resource is not a
 container -- it is named as a file, `/profile.html` or `/profile.json` -- and
@@ -117,6 +118,29 @@ the request rather than writing, deleting or refusing it. `PUT
 still narrow: under `GetOnly` it is only read. A type of your own can answer
 for itself the same way, registered with
 `add_consumer(type, consumer, own_methods=True)`.
+
+### Slots
+
+When `template` is a parsed template, `handle_GET` fills a copy of it: each
+slot, `data-slot` or `data-attr`, from the resource's `slot_<name>` -- a
+method called with `state`, async or not, or a plain value:
+
+```python
+class Todos(Resource):
+    template = parse_template(open("todos.html", "rb"))
+    slot_title = "To do"
+
+    async def slot_items(self, state):
+        return [self.pattern("item", text=t.text) for t in await load()]
+```
+
+A slot takes what it is given as text, escaped; a tree, or a list of them,
+as markup -- `self.pattern(name, **slots)` is a filled copy of one of the
+template's `data-pat` patterns; and anything else as the HTML a producer
+makes of it, so a dict is its listing and a resource its page. `None` empties
+a slot, and a slot with no `slot_` keeps what the template has there. A slot
+inside a pattern is the pattern's, filled when it is copied. A value with no
+HTML form is a `TypeError` naming its slot, before anything is sent.
 
 ## Files and directories
 

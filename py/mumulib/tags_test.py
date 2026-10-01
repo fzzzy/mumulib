@@ -380,3 +380,17 @@ class TestEscaping(unittest.TestCase):
         # lxml reads &amp; as &; written out, it is &amp; again
         page = parse_template(io.BytesIO(b"<p>Fish &amp; chips &lt;3</p>"))
         self.assertIn("Fish &amp; chips &lt;3", render(page))
+
+    def test_anything_else_is_the_html_a_producer_makes_of_it(self):
+        # A container's listing is registered by consumers, which a real app
+        # always has, through the server
+        import mumulib.consumers  # noqa: F401
+
+        out = render(t.div[{"a": 1}], accept=("text/html", "*/*"))
+        self.assertIn('<a href="/a.html">a</a>', out)
+
+    def test_what_has_no_html_is_an_error_naming_its_type(self):
+        for child, words in [(object(), "has no HTML form"), (b"raw", "no HTML")]:
+            with self.subTest(child=child):
+                with self.assertRaisesRegex(TypeError, words):
+                    render(t.p[child], accept=("text/html", "*/*"))
