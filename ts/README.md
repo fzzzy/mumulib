@@ -375,4 +375,12 @@ Run it so in place of tsc, as `make check` does over the examples:
 npx mumulib-sfc-check --project tsconfig.examples.json examples
 ```
 
+With `--declarations` it also writes each component's declarations beside
+it, `counter.sfc.html.d.ts`, which TypeScript reads for an import of
+`./counter.sfc.html` with no setting needed. Then tsc, and any editor, knows
+the component's own class too, not only the checker. They are generated from
+the component, so leave them out of git -- `*.sfc.html.d.ts` in
+`.gitignore` -- and write them whenever the components may have changed, as
+this repository's `make check` and `make run` do.
+
 [http://127.0.0.1:8000/examples/use_sfc/](http://127.0.0.1:8000/examples/use_sfc/)

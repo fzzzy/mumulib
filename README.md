@@ -33,6 +33,9 @@ TypeScript; everything runs from here, through the Makefile.
   follows their logs, `var/log/vite.log` and `var/log/server.log`; `make stop`
   stops whatever holds either port; and `make dev` is run and tail together.
 - `make server` runs the Python example alone, in the foreground.
+- `make check` and `make run` write each example component's declarations,
+  `<name>.sfc.html.d.ts`, so tsc and editors know its class. They are made
+  from the components, and git ignores them.
 
 Each half keeps its own dependencies: `ts/package-lock.json`, installed with
 `npm ci`, and `py/uv.lock`, in `py/.venv`. Run `uv lock --project py` after

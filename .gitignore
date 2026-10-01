@@ -170,6 +170,10 @@ blob-report/
 playwright/.cache/
 mumulib-venv
 
+# Declarations generated from .sfc.html components, for tsc and editors:
+# make check and make run write them, from the components themselves
+*.sfc.html.d.ts
+
 # Browser coverage from the Playwright tests
 .nyc_output
 coverage-frontend

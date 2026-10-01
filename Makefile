@@ -1,6 +1,6 @@
 .PHONY: check lint fix typecheck test py-test browser-test node-test build dist \
 	python-sync \
-	node_modules run stop tail dev server server-exists clean tags
+	node_modules run stop tail dev server server-exists declarations clean tags
 
 # The examples' dev server, and where its output goes
 PORT := 8000
@@ -37,7 +37,7 @@ fix: node_modules python-sync
 
 typecheck: node_modules python-sync
 	$(NPM) run test:unit
-	cd ts && node src/vite/sfc-check.mjs --project tsconfig.examples.json examples
+	cd ts && node src/vite/sfc-check.mjs --project tsconfig.examples.json --declarations examples
 	$(UV) pyright
 
 
@@ -76,7 +76,7 @@ ts/node_modules: ts/package.json ts/package-lock.json
 # http://127.0.0.1:$(SERVER_PORT)/, each reloading as its code changes and
 # logging to var/log. A service is whatever holds its port: run frees both
 # ports first, stop signals whatever holds them, and neither needs a pidfile.
-run: node_modules python-sync server-exists
+run: node_modules python-sync server-exists declarations
 	@mkdir -p "$(LOG)"
 	@$(MAKE) --no-print-directory stop > /dev/null
 	@cd ts && exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
@@ -143,6 +143,11 @@ fi; \
 echo "$(2) stopped (port $(1))."
 endef
 
+
+# Each example component's <name>.sfc.html.d.ts, so tsc and editors know its
+# class: written even if a component has a type error, which make check says
+declarations: node_modules
+	-@cd ts && node src/vite/sfc-check.mjs --declarations examples > /dev/null
 
 # A Python example, in the foreground, reloading as its code changes
 server: python-sync server-exists

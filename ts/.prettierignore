@@ -5,6 +5,8 @@ playwright-report
 test-results
 .nyc_output
 var
+# Generated from .sfc.html components
+**/*.sfc.html.d.ts
 package-lock.json
 # Fixtures whose exact layout the tests assert
 src/vite/test_fixtures

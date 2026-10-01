@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { test, expect } from '@playwright/test'
 
@@ -56,5 +58,40 @@ test.describe('Mumulib single-file component type checking', () => {
     expect(run.errors).toEqual([{ line: 5, column: 1, code: 2322 }])
     expect(run.stdout).toContain('src/vite/test_fixtures/typed/use.ts:5:1')
     expect(run.status).toBe(1)
+  })
+
+  test('--declarations writes what tsc reads for a component', () => {
+    // A copy of the fixture, the run's own: both browsers run this at once
+    const typed = fs.mkdtempSync(path.join(os.tmpdir(), 'sfc-typed-'))
+    for (const name of ['tally.sfc.html', 'use.ts']) {
+      fs.copyFileSync(
+        path.join(FIXTURES, 'typed', name),
+        path.join(typed, name)
+      )
+    }
+    const tsconfig = path.join(typed, 'tsconfig.json')
+    const config = JSON.parse(
+      fs.readFileSync(path.join(FIXTURES, 'typed', 'tsconfig.json'), 'utf-8')
+    )
+    config.include = ['*.ts', path.join(__dirname, 'sfc-client.d.ts')]
+    fs.writeFileSync(tsconfig, JSON.stringify(config))
+    try {
+      const run = check('--project', tsconfig, '--declarations', typed)
+      expect(run.stdout).toContain('Wrote 1 declaration')
+      expect(
+        fs.readFileSync(path.join(typed, 'tally.sfc.html.d.ts'), 'utf-8')
+      ).toContain('export default class Tally extends HTMLElement')
+      // And tsc alone, with no checker, now knows the component's class
+      const tsc = spawnSync(
+        'npx',
+        ['tsc', '--pretty', 'false', '-p', tsconfig],
+        { cwd: ROOT, encoding: 'utf-8' }
+      )
+      expect(tsc.stdout).toContain(
+        "use.ts(5,1): error TS2322: Type 'string' is not assignable to type 'number'."
+      )
+    } finally {
+      fs.rmSync(typed, { recursive: true, force: true })
+    }
   })
 })

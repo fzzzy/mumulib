@@ -110,7 +110,9 @@ Python package). Breaking changes come first under each release.
   dependency.
   Given `--project`, it checks the files that tsconfig names as well, and an
   import of a `.sfc.html` in them resolves to the component's own class, with
-  its own properties, rather than `sfc-client`'s wildcard declaration.
+  its own properties, rather than `sfc-client`'s wildcard declaration. With
+  `--declarations` it writes each component's `<name>.sfc.html.d.ts` beside
+  it, which tsc and editors read for the import with no setting needed.
 - **`mumulib/sfc-client`**: the declaration of what importing a `.sfc.html`
   gives, referenced as `vite/client` is.
 - **`consumers.GetOnly(obj)`**: an object published read-only. A consumer

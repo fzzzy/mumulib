@@ -13,6 +13,8 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       'var/**',
+      // Generated from .sfc.html components
+      '**/*.sfc.html.d.ts',
     ],
   },
   ...tseslint.configs.recommended,
