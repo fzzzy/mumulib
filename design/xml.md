@@ -45,18 +45,17 @@ then, may take only some kinds of object.
 
 Tentative: to be confirmed when the XML convention itself is settled.
 
+### 5. Each key is an element's name
+
+A dict's entry is an element named by its key, as the common JSON-to-XML
+convention writes it (Python's `dicttoxml` and `xmltodict.unparse` among
+others): `{"name": "Ada"}` is `<name>Ada</name>`. It is the shape a language
+model reads most readily: what each value is, named at both of its ends,
+rather than by a type with the name in an attribute, as the W3C XPath
+`json-to-xml` form has it.
+
 ## Open questions
 
-These two are left for later: the answers are not known yet.
-
-1. **How keys become XML.** Keys are not always valid element names -- `0`, a
-   list index; `a b`; a name starting with a digit. Either:
-   - the key as the element's name, `<name>Ada</name>`, with a fallback for
-     keys that cannot be names; or
-   - elements named by type, with the key as an attribute, as the W3C
-     `json-to-xml` schema has it:
-     `<map><string key="name">Ada</string><number key="age">3</number></map>`,
-     which takes any key and keeps types.
-2. **How a link looks.** Its JSON is `{"@id": "/users/42"}`. In XML, an element
-   of its own -- `<link href="/users/42"/>` -- or the typed form's
-   equivalent?
+1. **How a link looks.** Its JSON is `{"@id": "/users/42"}`, in state sync's
+   part two, which is deferred; in part one a link is a plain URL string,
+   and so plain text in XML.
