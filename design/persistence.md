@@ -164,3 +164,16 @@ A persist's file is streamed, as mumulib serves files now. No ASGI server
 supports the zero-copy extension, `http.response.zerocopysend`, so it is
 used only where one does -- or `http.response.pathsend`, the simpler one in
 which the app names the file -- when a server offers either.
+
+## Caveat: reading another object's memory
+
+An object loads its file when a request first reaches it. One that reads
+another object's state directly, from memory -- the editors index rendering
+every character's row from `characters[...]` -- sees that object's
+constructor state until a request has reached it itself. After a restart,
+the index is out of date until each object it shows has been asked for.
+
+Accepted for now. The direction for fixing it: a resource does not reach
+into another resource's memory, but asks for its state over HTTP, by its
+URL, as any client would -- which reaches it, so it is loaded, and lets the
+objects live in different processes, or on different machines, sharded.
