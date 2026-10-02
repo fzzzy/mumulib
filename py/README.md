@@ -270,11 +270,18 @@ serves it itself, read-only, at `/mumulib/changes.sse`, and beside it
 changes = EventSource()
 app = consumers_app(Site(), changes=changes)
 
-# In a page made with tags.page(..., live=True), each element with live=True
-# and an id is fetched again, from the page's own URL, whenever anything
-# changes, and put in place of the one shown.
-t.table(id="todos", live=True)[...]
+# In a page made with tags.page(..., live=True): each live element has an id,
+# and watches a URL -- live="/todos/3", or live=True for the page's own.
+t.tr(id="todo-3", live="/todos/3")[...]
 ```
+
+When a change announces the URL an element watches -- compared as paths,
+without an extension, query or fragment, a trailing slash kept, and exactly
+-- the page is fetched again, once for the change, and each element
+watching it is replaced by the element with the same id in the fresh page.
+Other elements are left as they are, and a change nothing watches fetches
+nothing. A page of your own, not made with `tags.page`, links
+`<script src="/mumulib/live.js" defer>` as it would any script.
 
 A page of your own can listen too: `new EventSource("/mumulib/changes.sse")`,
 each event's data the JSON of a URL.

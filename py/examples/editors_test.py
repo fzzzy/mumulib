@@ -86,13 +86,17 @@ class TestEditors(unittest.TestCase):
         )
         self.assertIn("border-collapse", css)
 
-    def test_the_index_is_live_by_mumulibs_script(self):
+    def test_every_page_is_live_by_mumulibs_script(self):
         index = self.page("/editors/")
         self.assertIn('<script src="/mumulib/live.js" defer>', index)
-        for table in ("characters", "parties", "deploys"):
-            self.assertIn(f'<table id="{table}" data-live>', index)
-        # An edit page has nothing live, so no script
-        self.assertNotIn("live.js", self.page("/editors/characters/c1.html"))
+        # Each row watches its own object
+        for kind, key in (("characters", "c1"), ("parties", "p2"), ("deploys", "d1")):
+            self.assertIn(f'id="{kind}-{key}" data-live="/editors/{kind}/{key}"', index)
+        # An edit page's heading watches the page's own URL: no value
+        edit = self.page("/editors/characters/c1.html")
+        self.assertIn('<script src="/mumulib/live.js" defer>', edit)
+        self.assertIn('<h1 id="heading" data-slot="name" data-live>', edit)
+        self.assertIn("Code Reviewer", edit)
         # consumers_app serves both, being given changes
         status, headers, js = self.request("/mumulib/live.js")
         self.assertEqual(status, 200)

@@ -25,10 +25,11 @@ Each object has an id that never changes, so its URL does not either, and
 renaming is a post to the URL it already had. A party's members and a
 deploy's party are ids, so they follow a rename.
 
-An edit link is a link, and a form a form. The tables are live=True, and
-the index page links mumulib's live.js, which consumers_app serves, given
-changes: whenever anything changes -- anyone's change, from any page -- the
-page is fetched again and its tables put in place of these.
+An edit link is a link, and a form a form. Every page links mumulib's
+live.js, which consumers_app serves, given changes. Each row of the index
+watches its own object, and each edit page's heading watches the page's own
+URL: when anyone, from any page, changes an object, the pages watching it
+are fetched again and those elements alone put in place.
 """
 
 from pathlib import Path
@@ -50,12 +51,17 @@ def buttons() -> Stan:
 
 
 def edit_page(title: str, *fields: Any) -> Stan:
-    """An edit page: a form posting to its own URL, Resource's url slot."""
+    """An edit page: the object's name, kept up to date, and a form posting
+    to its own URL, Resource's url slot. The heading is live with no URL, so
+    it watches the page's own -- the object's -- and someone else's edit of
+    the object shows here; the form, being typed in, is not."""
     return page(
         title,
         NAV,
+        t.h1(id="heading", live=True, slt="name")["A name"],
         t.form(attr="action=url", method="post")[t.h2[title], *fields, buttons()],
         stylesheets=[STYLESHEET],
+        live=True,
     )
 
 
@@ -185,43 +191,49 @@ deploys: dict[str, Deploy] = {
 }
 
 
-def edit_link(kind: str, key: str) -> str:
-    return f"/editors/{kind}/{key}.html"
+def row(kind: str, key: str) -> dict[str, str]:
+    """A row's own slots: its id, the object it watches, and its edit link.
+    Each row is live, and refreshed when its own object changes."""
+    return {
+        "row_id": f"{kind}-{key}",
+        "watch": f"/editors/{kind}/{key}",
+        "edit": f"/editors/{kind}/{key}.html",
+    }
 
 
 class Editors(Resource):
-    """/editors/: a table of each kind, every row a copy of its pattern. The
-    tables are live, kept up to date by mumulib's live.js."""
+    """/editors/: a table of each kind, every row a copy of its pattern. Each
+    row is live, watching its own object, kept up to date by live.js."""
 
     template = page(
         "Editors",
         NAV,
-        t.table(id="characters", live=True)[
+        t.table(id="characters")[
             t.caption["Characters"],
             t.thead[t.tr[t.th["Name"], t.th["Prompt"], t.th["Agent args"]]],
             t.tbody(slt="character_rows")[
-                t.tr(pat="character_row")[
+                t.tr(pat="character_row", attr={"id": "row_id", "data-live": "watch"})[
                     t.td[t.a(slt="name", attr="href=edit")],
                     t.td(slt="prompt"),
                     t.td[t.code(slt="agent_args")],
                 ]
             ],
         ],
-        t.table(id="parties", live=True)[
+        t.table(id="parties")[
             t.caption["Parties"],
             t.thead[t.tr[t.th["Name"], t.th["Members"]]],
             t.tbody(slt="party_rows")[
-                t.tr(pat="party_row")[
+                t.tr(pat="party_row", attr={"id": "row_id", "data-live": "watch"})[
                     t.td[t.a(slt="name", attr="href=edit")],
                     t.td(slt="members"),
                 ]
             ],
         ],
-        t.table(id="deploys", live=True)[
+        t.table(id="deploys")[
             t.caption["Deploys"],
             t.thead[t.tr[t.th["Name"], t.th["Party"], t.th["Status"]]],
             t.tbody(slt="deploy_rows")[
-                t.tr(pat="deploy_row")[
+                t.tr(pat="deploy_row", attr={"id": "row_id", "data-live": "watch"})[
                     t.td[t.a(slt="name", attr="href=edit")],
                     t.td(slt="party"),
                     t.td(slt="status"),
@@ -234,7 +246,7 @@ class Editors(Resource):
 
     def slot_character_rows(self, request: State) -> list[Stan]:
         return [
-            self.pattern("character_row", edit=edit_link("characters", cid), **c.state)
+            self.pattern("character_row", **row("characters", cid), **c.state)
             for cid, c in characters.items()
         ]
 
@@ -242,7 +254,7 @@ class Editors(Resource):
         return [
             self.pattern(
                 "party_row",
-                edit=edit_link("parties", pid),
+                **row("parties", pid),
                 name=p.state["name"],
                 members=", ".join(
                     characters[m].state["name"] for m in p.state["members"]
@@ -255,7 +267,7 @@ class Editors(Resource):
         return [
             self.pattern(
                 "deploy_row",
-                edit=edit_link("deploys", did),
+                **row("deploys", did),
                 name=d.state["name"],
                 party=parties[d.state["party"]].state["name"],
                 status=d.state["status"],

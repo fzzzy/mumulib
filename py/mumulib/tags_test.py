@@ -469,3 +469,14 @@ class TestEscaping(unittest.TestCase):
         self.assertLess(out.index("<h1>"), out.index("<p>"))
         # Without live, no live.js
         self.assertNotIn("live.js", render(tags.page("t")))
+
+    def test_a_patterns_own_attribute_slots_are_filled(self):
+        rows = t.tbody[
+            t.tr(pat="row", attr={"id": "row_id", "title": "hint"})[t.td(slt="name")]
+        ]
+        copy = rows.clone_pat("row", row_id="r1", name="Ada")
+        assert copy is not None
+        self.assertEqual(copy.attributes["id"], "r1")
+        # A slot not given leaves the attribute out, as before
+        self.assertNotIn("title", copy.attributes)
+        self.assertIn("Ada", render(copy))

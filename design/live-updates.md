@@ -1,23 +1,15 @@
 # Live updates
 
-Status: decided, not yet built. Started 2026-10-01.
+Status: built (`live.js`). Started 2026-10-01.
 
 How a page's elements keep themselves up to date when the server's state
 changes, using `consumers_app(changes=...)` and mumulib's `live.js`.
 
-## What the code does today
+## What the code did before
 
-- Every successful mutation -- a `POST`, `PUT`, `PATCH` or `DELETE` answered
-  with a 2xx, or with a form post's 303 See Other -- puts **one** URL on the
-  change stream: the request's URL without its extension
-  (`/editors/characters/c1`), or for a 201 the new object's `Location`,
-  likewise without its extension. A slash (`/editors/`) is put as itself.
-- `consumers_app(changes=...)` serves the stream at `/mumulib/changes.sse` and
-  the script at `/mumulib/live.js`.
-- `live.js` opens the stream only if the page has `data-live` elements with
-  an `id`. On **every** event, whatever URL it carries, it fetches the
-  page's own URL again and replaces each `data-live` element by the element
-  with the same `id` in the fresh page. `data-live` carries no value.
+- `live.js` refreshed on **every** event, whatever URL it carried: it
+  fetched the page's own URL again and replaced each `data-live` element by
+  the element with the same `id`. `data-live` carried no value.
 
 ## The design
 

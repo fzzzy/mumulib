@@ -214,6 +214,14 @@ ALL_ELEMENTS.extend(DEMARCATING_EDITS + TABLE_CONTENT)
 ALL_ELEMENTS.extend(FORMS + INTERACTIVE_ELEMENTS + WEB_COMPONENTS)
 
 
+def attr_slots(node: "Stan") -> list[tuple[str, str]]:
+    """An element's own attribute slots, from its data-attr: "id=row_id,
+    title=hint" is [("id", "row_id"), ("title", "hint")]."""
+    mapping = str(node.attributes.get("data-attr", ""))
+    pairs = (pair.partition("=") for pair in mapping.split(",") if pair)
+    return [(name, slot) for name, eq, slot in pairs if eq and name and slot]
+
+
 def reindent_tree(node: "Stan", indent: int) -> None:
     node.indent = indent
     for child in node.children:
@@ -286,6 +294,11 @@ class Stan:
 
             for k, v in slots.items():
                 copy.fill_slots(k, v)
+            # fill_slots fills what is below an element: the pattern's own
+            # attribute slots, data-attr on the pattern itself, are filled here
+            for attrname, slotname in attr_slots(copy):
+                if slotname in slots:
+                    copy.attributes[attrname] = slots[slotname]
             return copy
         for child in self.children:
             if isinstance(child, Stan):

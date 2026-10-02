@@ -69,15 +69,25 @@ test.describe('The editors example', () => {
   })
 
   test("a party's members are chosen, or none", async ({ page }, info) => {
-    const { p } = OWN[info.project.name]
+    const { c, p } = OWN[info.project.name]
     await page.goto(INDEX)
     const row = page.locator('#parties tr', {
       has: editLink(page, 'parties', p),
     })
     let form = await edit(page, 'parties', p)
-    await form.locator('select[name="members[]"]').selectOption(['c1', 'c3'])
+    // This browser's own character, which only its own tests rename, and c3,
+    // which no test does: the other browser renames its own meanwhile
+    await form.locator('select[name="members[]"]').selectOption([c, 'c3'])
     await save(page)
-    await expect(row).toContainText('Code Reviewer, Shell Helper')
+    const names = await Promise.all(
+      [c, 'c3'].map(async (id) => {
+        const r = await page.request.get(
+          `${EDITORS}/editors/characters/${id}/state.json`
+        )
+        return (await r.json()).name as string
+      })
+    )
+    await expect(row).toContainText(names.join(', '))
     form = await edit(page, 'parties', p)
     await form.locator('select[name="members[]"]').selectOption([])
     await save(page)
@@ -136,6 +146,69 @@ test.describe('The editors example', () => {
     // The watcher never reloaded: its tables were fetched and put in place
     await expect(watcher.locator('#characters')).toContainText(prompt)
     await watcher.close()
+    await page.close()
+  })
+
+  test('a change replaces only the rows watching it', async ({
+    browser,
+  }, info) => {
+    const { c, p, d } = OWN[info.project.name]
+    const watcher = await browser.newPage()
+    await watcher.goto(INDEX)
+    // Every row marked, as a node: a row replaced is a new node, unmarked
+    await watcher.evaluate(() => {
+      for (const row of document.querySelectorAll('tr[data-live]')) {
+        ;(row as HTMLElement & { marked?: boolean }).marked = true
+      }
+    })
+    const prompt = `Only this row, ${info.project.name} ${Date.now()}`
+    await watcher.request.post(`${EDITORS}/editors/characters/${c}.html`, {
+      form: { name: `Character ${c}`, prompt, agent_args: '' },
+    })
+    await expect(watcher.locator(`#characters-${c}`)).toContainText(prompt)
+    const marked = await watcher.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll('tr[data-live]')].map((row) => [
+          row.id,
+          (row as HTMLElement & { marked?: boolean }).marked === true,
+        ])
+      )
+    )
+    // This browser's own rows: the other browser changes its own meanwhile
+    expect(marked[`characters-${c}`], 'the changed row').toBe(false)
+    expect(marked[`parties-${p}`], 'its party').toBe(true)
+    expect(marked[`deploys-${d}`], 'its deploy').toBe(true)
+    await watcher.close()
+  })
+
+  test("a bare data-live watches the page's own URL, and nothing else fetches", async ({
+    browser,
+  }, info) => {
+    const { c, d } = OWN[info.project.name]
+    const page = await browser.newPage()
+    const url = `${EDITORS}/editors/characters/${c}.html`
+    await page.goto(url)
+    let fetched = 0
+    page.on('request', (request) => {
+      if (request.url() === url) fetched += 1
+    })
+    // A change to a deploy: nothing on this page watches it
+    const deploy = await (
+      await page.request.get(`${EDITORS}/editors/deploys/${d}/state.json`)
+    ).json()
+    await page.request.post(`${EDITORS}/editors/deploys/${d}.html`, {
+      form: { name: deploy.name, party: deploy.party },
+    })
+    // A change to this character: the heading, watching the page's URL
+    const name = `Renamed ${info.project.name} ${Date.now()}`
+    await page.request.post(url, {
+      form: { name, prompt: 'p', agent_args: '' },
+    })
+    await expect(page.locator('#heading')).toHaveText(name)
+    // One fetch, for the change it watches; none for the deploy's
+    expect(fetched).toBe(1)
+    // And the form, being typed in, was left as it was
+    await expect(page.locator('input[name="name"]')).not.toHaveValue(name)
     await page.close()
   })
 })

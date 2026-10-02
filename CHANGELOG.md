@@ -165,9 +165,13 @@ Python package). Breaking changes come first under each release.
 - **`tags.page(title, *content, stylesheets=, scripts=, live=)`**: a whole
   page, doctype, charset, viewport and all.
 - **Live pages**: `consumers_app(root, changes=events)` serves the change
-  stream at `/mumulib/changes.sse` and `/mumulib/live.js`, which fetches a
-  page again on every change and puts its fresh `data-live` elements in place
-  of those shown. The Python package ships `live.js`.
+  stream at `/mumulib/changes.sse` and `/mumulib/live.js`. Each `data-live`
+  element watches one URL, its value or the page's own; a change announcing
+  it, matched exactly as a path, fetches the page again once and replaces the
+  elements watching it alone. The Python package ships `live.js`.
+- **Stan's `clone_pat` fills a pattern's own attribute slots**, its
+  `data-attr`, as `Template.clone_pat` did; only those of its children had
+  been.
 - **`producers.add_json_form(type, to_json)`**: what a type's things are in
   JSON, wherever one is found; a `Resource` is its state.
 - **`add_consumer(..., own_methods=True)`**: a type whose things answer every
