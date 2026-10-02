@@ -11,14 +11,15 @@ it, is found. A directory lists what is in it: /static/ as links, and
 
 Its "data" entry is a dict with a dict in it, listed the same way: /data/
 links /data/motto.txt and /data/more/, whose own index links its parent,
-/data/, and /data/more/list/. /data.json is the whole of it, as JSON.
+/data/, and /data/more/list/. /data/page.html is a Markup, its HTML, linked
+as .html where the strings are .txt. /data.json is the whole of it, as JSON.
 
 The whole of it is in GetOnly: nothing but GET gets in.
 """
 
 import pathlib
 
-from mumulib import consumers, server
+from mumulib import consumers, server, tags
 
 SITE = pathlib.Path(__file__).parent / "files"
 
@@ -34,6 +35,9 @@ app = server.consumers_app(
             "data": {
                 "motto": "Served from files, and from a dict",
                 "answer": 42,
+                # HTML of the program's own, at .html alone: a plain string
+                # is text, never markup
+                "page": tags.Markup("<h1>A page</h1><p>Markup, in a dict.</p>"),
                 "more": {"deeper": "Down a level", "list": ["one", "two"]},
             },
         }

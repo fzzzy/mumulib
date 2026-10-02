@@ -100,3 +100,11 @@ class TestNestedData(unittest.TestCase):
 
     def test_the_page_links_it(self):
         self.assertIn(b'href="/data/"', get("/")[2])
+
+    def test_markup_in_it_is_html_and_linked_as_html(self):
+        self.assertIn(b'<a href="/data/page.html">page</a>', get("/data/")[2])
+        status, content_type, body = get("/data/page.html")
+        self.assertEqual((status, content_type), (200, b"text/html; charset=UTF-8"))
+        self.assertEqual(body.strip(), b"<h1>A page</h1><p>Markup, in a dict.</p>")
+        # Markup is HTML alone
+        self.assertEqual(get("/data/page.txt")[0], 404)
