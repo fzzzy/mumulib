@@ -28,32 +28,48 @@ Vite's `base` is `/vite/`, so everything it serves is under that one prefix:
 in development its own client and helpers, every source module (which Vite
 otherwise serves at its file path, `/src/index.ts`, where it could collide
 with the tree) and the HMR websocket; in production the built chunks and
-assets, `/vite/assets/...`. Python reserves `/vite/` for its own handlers,
-ahead of the tree, as it does `/mumulib/`: no published object can be
-reached there.
+assets, `/vite/assets/...`.
 
-### 2. Python proxies Vite while developing, hot reloading included
+### 2. In development, the browser talks to Vite's dev server directly
 
-In development, the Python server passes everything under `/vite/` on to the
-Vite dev server, the HMR websocket included, so a page served by Python
-reloads as its TypeScript changes.
+In development, a page's modules, Vite's client and the HMR websocket come
+straight from the Vite dev server, not through Python. Python does not
+proxy `/vite/`.
 
-This needs an ASGI proxy for HTTP and websockets, pulled in as a dependency
-when it is built.
+Three reasons, from the review of this doc against the others:
 
-### 3. Development by default, production by an environment variable
+- Python reloads, with `--reload`, on every change to its code. A websocket
+  through it would be cut each time, and would hold up each reload's
+  graceful shutdown, as event streams did, until it was closed.
+- Vite's URLs do not follow the Python server's: `/vite/@vite/client` has no
+  extension, others carry queries, and a `.ts` is served as JavaScript.
+- No ASGI proxy for HTTP and websockets is needed.
 
-The Python server is in development mode unless an environment variable
-says production -- `MUMULIB_PRODUCTION=1`
+### 3. Vite's dev server has a port of its own, always the same
 
-### 4. Bundled and code-split from the start
+The Vite dev server runs on one fixed port, chosen to be unlikely to collide
+with other projects' servers, and always that one.
+
+### 4. Production by default, development by an environment variable
+
+The Python server is in production mode unless an environment variable says
+development.
+
+### 5. Bundled and code-split from the start
 
 Pages are built with Vite's bundling and code splitting from the start. In
-production `/vite/` is served from Vite's build directory, as bytes: Python
-does not know the graph between the chunks, since the HTML Vite built names
-them, and their hashed file names bust caches.
+production Python serves `/vite/` from Vite's build directory, as bytes:
+Python does not know the graph between the chunks, since the HTML Vite built
+names them, and their hashed file names bust caches.
 
-### 5. A Page serves a Vite HTML entry as Vite made it
+`/vite/` is handled before `split_path`, as a special case: its URLs are
+Vite's, not the tree's, and are served as the files they name.
+
+Built files are cached as persistence caches a file
+([persistence.md](persistence.md), decision 9): an `ETag` from the file's
+modification time and size.
+
+### 6. A Page serves a Vite HTML entry as Vite made it
 
 A `Page` names a Vite HTML entry -- `Page("editors/index.html")`, say -- and
 serves that HTML exactly as Vite made it: in development by asking Vite's
@@ -61,19 +77,30 @@ dev server for it, so it comes with Vite's client and hot reloading; in
 production by reading Vite's build of it from disk. Python does not fill or
 change it.
 
-A Vite page that wants live updates links mumulib's live.js itself, with a
-plain `<script src="/mumulib/live.js" defer>` in its HTML entry, as it would
-any other script: Python does not add it, since it serves the page as Vite
-made it. Importing live updates as a module instead can be tried once this
-works.
-
 `Page`, the class, and `tags.page()`, the Stan function, are different
-things, and differ at least by case; `Page` may well go in a module of its
-own, for things served from disk.
+things, and differ at least by case. `Page` goes in a new module, for things
+served from disk that are not persists; its name is not chosen yet.
 
-### 6. Past the HTML, the TypeScript world
+### 7. A Vite page is kept up to date by state sync, not live.js
+
+live.js refetches the page and replaces its `data-live` elements with the
+fresh copy's, which suits a page Python renders. A Vite page's HTML is the
+entry as built, before any TypeScript has run, so a fresh copy of it would
+put the template's markup back over what the page rendered. A Vite page
+uses state sync ([state-sync.md](state-sync.md)) instead: its state paths
+bound to URLs, fetched again when the change stream announces them.
+
+### 8. Past the HTML, the TypeScript world
 
 Once the HTML is served, the page is Vite's and TypeScript's: its modules,
 its `.sfc.html` imports, mumulib's `state` and `patslot`. It talks back to
-the Python server over Ajax -- `GET`, `PUT` and `PATCH` against the
-published tree -- and listens to the change stream.
+the Python server over Ajax -- `GET`, `PUT` and `PATCH`
+([patch.md](patch.md), later) against the published tree -- and listens to
+the change stream.
+
+## Open questions
+
+1. **The new module's name**, for things served from disk that are not
+   persists.
+2. **Vite's port**: which number.
+3. **The environment variable** that says development: its name.
