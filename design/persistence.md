@@ -41,6 +41,12 @@ The next step from RAM is a JSON document on disk for each persisted object.
 
 Behaviour and hot: a resource. Plain durable data: a persist.
 
+Persist starts with JSON alone: its `.json` is its file as it is. Anything
+that does not fit that is marked TODO for now.
+
+- TODO: a persist's `.html`, which has to be rendered from its state, so its
+  file parsed -- presumably from a template, as a resource's is.
+
 ### 4. A persist learns its URL on first access, and loads then
 
 A persist's URL -- and so its file -- is not its own: it is where it sits in
@@ -51,39 +57,19 @@ loaded from its file then: identity and hydration happen together, lazily.
 ### 5. One object, one URL
 
 A resource or persist is only ever reached by the one URL it was first
-reached by. Reaching it by any other is an error, checked at every access:
-its file, its change announcements and its liveness all hang on its URL, so
-one object at two URLs would be one object with two identities.
+reached by. Reaching it by any other is an error, checked at every access,
+and answered with a 500 that logs both URLs: its file, its change
+announcements and its liveness all hang on its URL, so one object at two URLs
+would be one object with two identities.
 
-### 6. Only resources and persists have URLs
+### 6. Addressing stays as it is
 
-A URL ends at a resource or a persist; no scalar -- a string, a number -- is
-addressable. Values have no identity of their own, so giving one a URL
-aliases it with every equal value elsewhere. Below a persist is the
-document's content, read out of it, not tree to traverse: the persist is the
-finest addressable unit. A field that needs its own URL, to be fetched or
-watched alone, is made a persist nested in its parent.
+Everything addressable today stays addressable, and writable as it is:
 
-### 7. PATCH on a container
-
-`PATCH` on a container makes sense. Its language is decided later.
-
-## Open questions
-
-1. **Plain dicts and lists.** Are they still traversable structure, with no
-   URL of their own -- or can a container still be fetched whole, as
-   `/editors/characters.json` is today?
-2. **A resource's state.** Does `/<resource>/state.json` stay, the whole state
-   at one URL, with nothing addressable below it -- so `/state/name.txt` goes?
-3. **Files and directories.** A `Path` has an identity of its own, its path on
-   disk. Is a file a persist, or a kind of its own?
-4. **A persist's HTML.** Its `.json` can be its file as it is; its `.html` has
-   to be rendered from its state, so the file is parsed. Rendered as a
-   resource's is, from a template?
-5. **The aliasing error.** Reaching an object by a second URL is a bug in the
-   tree. Is a 500, logged with both URLs, the answer?
-6. **Writing entries.** Once entries have no URLs, `PUT` and `DELETE` on a
-   dict's entries and a list's tombstones go. Does every write then go
-   through a resource's or persist's own handlers -- and `PATCH`, when it is
-   designed?
-7. **The PATCH language.** Decided later in the conversation.
+- plain dicts and lists are traversed as now, and each entry, element and
+  scalar inside them has its URL;
+- a resource's state is read at `state.json`, and each entry below it, as
+  `/state/name.txt`;
+- `PUT` and `DELETE` on an entry work as now, a list's tombstones and `last`
+  included;
+- a `Path`, a file or a directory, is served as it is now.
