@@ -167,6 +167,11 @@ Python package). Breaking changes come first under each release.
   reaches the resource -- an existing file wins over the constructor's
   state -- and written, atomically, by `await self.save()`, which a handler
   that changes the state calls.
+- **`Persist(document)`**: a JSON document kept in its file, named by its
+  URL. Its first request writes what it was made with there, if there is no
+  file yet; `GET` at its URL streams the file; a `PUT` or `DELETE` below it
+  sets the document and writes the file again, atomically; a `PUT` at its
+  URL replaces it. JSON only, for now.
 - **Short names for the template attributes in Stan**: `pat=` for
   `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), `attr=` for
   `data-attr`, as `"href=url"` or `{"href": "url"}`, and `live=` for

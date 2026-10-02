@@ -1,0 +1,128 @@
+# pyright: standard
+import asyncio
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+from mumulib import persist
+from mumulib.persist import Persist
+from mumulib.server import EventSource, consumers_app
+
+
+class TestPersist(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.data = Path(directory.name).resolve()
+        self.people = Persist({"ada": {"name": "Ada"}, "list": [1, 2]})
+        self.root = {"people": self.people}
+
+    def call(self, method, path, body=None, root=None, changes=None):
+        """The status, headers, body messages and body of one request."""
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            data = json.dumps(body).encode() if body is not None else b""
+            return {"type": "http.request", "body": data, "more_body": False}
+
+        headers = [(b"content-type", b"application/json")] if body is not None else []
+        scope = {"type": "http", "method": method, "path": path, "headers": headers}
+        app = consumers_app(
+            self.root if root is None else root, changes=changes, data=self.data
+        )
+
+        async def go():
+            await app({**scope, "state": {}}, receive, send)
+
+        asyncio.run(go())
+        bodies = [m["body"] for m in sent[1:]]
+        return sent[0]["status"], dict(sent[0]["headers"]), bodies, b"".join(bodies)
+
+    def saved(self):
+        return json.loads((self.data / "people.json").read_text())
+
+    def test_its_first_request_writes_what_it_was_made_with(self):
+        self.assertFalse((self.data / "people.json").exists())
+        self.call("GET", "/people/ada/name.txt")
+        self.assertEqual(self.people.file, self.data / "people.json")
+        self.assertEqual(self.saved(), {"ada": {"name": "Ada"}, "list": [1, 2]})
+
+    def test_an_existing_file_wins(self):
+        (self.data / "people.json").write_text('{"grace": {"name": "Grace"}}')
+        _, _, _, body = self.call("GET", "/people/grace/name.txt")
+        self.assertEqual(body.strip(), b"Grace")
+        self.assertEqual(self.people.document, {"grace": {"name": "Grace"}})
+
+    def test_get_is_the_file_streamed_as_it_is_on_disk(self):
+        self.call("GET", "/people/ada.json")
+        # Written by hand: what is served is the file's bytes, not the
+        # document's JSON made again
+        (self.data / "people.json").write_text('{"spaced" :  1}')
+        with mock.patch.object(persist, "CHUNK_SIZE", 4):
+            status, headers, bodies, body = self.call("GET", "/people.json")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")
+        self.assertEqual(body.strip(), b'{"spaced" :  1}')
+        self.assertIn(b'{"sp', bodies)
+
+    def test_a_write_below_it_sets_the_document_and_writes_the_file(self):
+        status = self.call("PUT", "/people/ada/name.json", "Augusta")[0]
+        self.assertEqual(status, 204)
+        self.assertEqual(self.saved()["ada"], {"name": "Augusta"})
+        self.assertEqual(self.call("PUT", "/people/list/last.json", 3)[0], 201)
+        self.assertEqual(self.call("DELETE", "/people/ada.json")[0], 204)
+        self.assertEqual(self.saved(), {"list": [1, 2, 3]})
+        self.assertEqual(self.people.document, self.saved())
+
+    def test_what_fails_writes_nothing(self):
+        self.call("GET", "/people.json")
+        before = (self.data / "people.json").stat().st_mtime_ns
+        for method, path in [
+            ("DELETE", "/people/missing.json"),
+            ("PUT", "/people/list/9.json"),
+            ("GET", "/people/ada.json"),
+        ]:
+            with self.subTest(method=method, path=path):
+                self.call(method, path, "x" if method == "PUT" else None)
+                self.assertEqual((self.data / "people.json").stat().st_mtime_ns, before)
+
+    def test_a_put_to_it_replaces_the_document(self):
+        self.assertEqual(self.call("PUT", "/people.json", {"new": True})[0], 204)
+        self.assertEqual(self.saved(), {"new": True})
+        self.assertIs(self.root["people"], self.people)
+        status, headers, _, _ = self.call("DELETE", "/people.json")
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, PUT"))
+
+    def test_only_json_for_now(self):
+        self.assertEqual(self.call("GET", "/people.html")[0], 404)
+        self.assertEqual(self.call("GET", "/people.txt")[0], 404)
+
+    def test_a_write_inside_it_announces_it(self):
+        changes = EventSource()
+        with mock.patch.object(changes, "put") as put:
+            self.call("PUT", "/people/ada/name.json", "A", changes=changes)
+            self.call("PUT", "/people.json", {}, changes=changes)
+        self.assertEqual([c.args[0] for c in put.call_args_list], ["/people"] * 2)
+
+    def test_inside_json_it_is_its_document(self):
+        _, _, _, body = self.call("GET", "/all.json", root={"all": {"p": self.people}})
+        self.assertEqual(
+            json.loads(body)["p"], {"ada": {"name": "Ada"}, "list": [1, 2]}
+        )
+
+    def test_with_no_data_directory_it_is_kept_in_memory(self):
+        thing = Persist()
+        self.assertIsNone(thing.file)
+        asyncio.run(thing.load())
+        thing.write()
+
+        async def go():
+            # Asked for with no file: the document, made into JSON
+            return [c async for c in persist._produce_persist(thing, {})]
+
+        self.assertEqual(asyncio.run(go()), ["{}"])

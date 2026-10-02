@@ -170,6 +170,25 @@ before or the state after. Nothing else saves: a change not saved is gone
 when the process is. A resource no request has reached has no file, and
 saving it is an error.
 
+### Persist
+
+`mumulib.persist.Persist` is the other persistent kind: a JSON document,
+kept in its file and served from it, for data with nothing to compute.
+
+```python
+people = Persist({"ada": {"name": "Ada"}})
+app = consumers_app({"people": people})  # var/data/people.json
+```
+
+Its first request loads its file as the document -- an existing file wins
+-- or, with none, writes what it was made with there at once. `GET
+/people.json` is then the file, streamed as it is on disk. Below it, the
+document is walked as any dict or list: `GET /people/ada/name.txt` reads
+it, and a `PUT` or `DELETE` there sets or removes an entry, then writes the
+whole document to the file, atomically, before it is answered. A `PUT
+/people.json` replaces the document. Every write inside it announces
+`/people`. It is JSON only for now: `/people.html` is not found.
+
 ### Slots
 
 When `template` is a parsed template, `handle_GET` fills a copy of it: each

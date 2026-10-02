@@ -31,6 +31,7 @@ PUBLIC = {
         "content_type_for",
     },
     "server": {"consumers_app", "EventSource"},
+    "persist": {"Persist"},
     "consumers": {
         "consume",
         "add_consumer",
