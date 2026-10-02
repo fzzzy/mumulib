@@ -13,7 +13,8 @@ class TestResources(unittest.TestCase):
     def setUp(self):
         # A site of its own for each test, so writes do not leak between them
         self.site = resources.Site()
-        self.app = resources.consumers_app(self.site, changes=self.site.child_changes)
+        self.changes = resources.EventSource()
+        self.app = resources.consumers_app(self.site, changes=self.changes)
 
     def request(
         self, path: str, method: str = "GET", body: object = None, form: bytes = b""
@@ -85,8 +86,9 @@ class TestResources(unittest.TestCase):
     def test_each_item_has_a_checkbox_for_its_own_url(self):
         self.request("/todos/items/1.json", "PUT", {"done": True})
         _, _, body = self.request("/todos.html")
-        self.assertIn(b'data-url="/todos/items/0.json" data-done="false"', body)
-        self.assertIn(b'data-url="/todos/items/1.json" data-done="true"', body)
+        # checked when done, and left out when not
+        self.assertIn(b'data-url="/todos/items/0.json" />', body)
+        self.assertIn(b'data-url="/todos/items/1.json" checked />', body)
         # And the page's script to PUT what it is set to
         self.assertIn(b'method: "PUT"', body)
 
@@ -100,7 +102,7 @@ class TestResources(unittest.TestCase):
         site.child_todos = resources.Todos()
         self.app = resources.consumers_app(site)
         _, _, body = self.request("/todos.html")
-        self.assertIn(b'<ul data-slot="items">', body)
+        self.assertIn(b'<ul id="items" data-live="/todos" data-slot="items">', body)
         self.assertNotIn(b"<li", body)
 
     def test_post_adds_one_and_says_where(self):
@@ -160,7 +162,7 @@ class TestResources(unittest.TestCase):
         self.assertEqual(len(self.json("/todos.json")), 2)
 
     def test_every_change_is_put_on_the_sites_changes(self):
-        with mock.patch.object(self.site.child_changes, "put") as put:
+        with mock.patch.object(self.changes, "put") as put:
             self.request("/todos/items/1.json", "PUT", {"done": True})
             self.request("/todos.json", "POST", {"text": "Milk"})
             self.request("/todos.html", "POST", form=b"text=Eggs")
@@ -171,7 +173,12 @@ class TestResources(unittest.TestCase):
         heard = [call.args[0] for call in put.call_args_list]
         self.assertEqual(heard, ["/todos/items/1", "/todos", "/todos"])
 
-    def test_the_changes_are_published_as_an_event_stream(self):
-        self.assertIsInstance(self.site.child_changes, resources.EventSource)
+    def test_the_list_and_each_item_are_live(self):
         _, _, body = self.request("/todos.html")
-        self.assertIn(b'new EventSource("/changes.sse")', body)
+        self.assertIn(b'<script src="/mumulib/live.js" defer="defer">', body)
+        # The list watches /todos, which adding announces; each item its own
+        self.assertIn(b'<ul id="items" data-live="/todos"', body)
+        self.assertIn(b'id="item-1" data-live="/todos/items/1"', body)
+        # And consumers_app serves both, being given changes
+        self.assertEqual(self.request("/mumulib/live.js")[0], 200)
+        self.assertEqual(self.request("/changes.sse")[0], 404)

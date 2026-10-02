@@ -4,7 +4,7 @@
 
 A Resource subclass is published like anything else. Its children are its
 child_ attributes, walked into by name, and a request that ends at it is
-answered by its handle_<METHOD>, called with the request's request. GET
+answered by its handle_<METHOD>, called with the request. GET
 renders its template unless it says otherwise; any method it has no handler
 for is 405, with Allow naming the ones it has. What a handler returns is
 produced as though it had been published there, of the URL's type.
@@ -20,12 +20,15 @@ produced as though it had been published there, of the URL's type.
     GET    /todos/items/                      a listing of links to each item
     PUT    /todos/items/0.json  {"done": true}    the item, done
     DELETE /todos/items/0.json                405, Allow: GET, PUT
-    GET    /changes.sse                       "/todos/items/0", "/todos", ...
+    GET    /mumulib/changes.sse               "/todos/items/0", "/todos", ...
+    GET    /mumulib/live.js                   the script that follows them
 
 Every page open is kept up to date with everyone's changes: the app is
-given the site's EventSource as changes, and puts on it the URL of whatever
-each POST, PUT or DELETE changed. The list page listens, and fetches again
-what it hears.
+given an EventSource as changes, and puts on it the URL of whatever each
+POST, PUT or DELETE changed. The list page links mumulib's live.js: the list
+watches /todos, which a POST adding to it announces, and each item its own
+URL, which a PUT to it announces -- so the page is fetched again and the
+list, or the one item, put in place.
 
 Each item is a Todo in a plain list. A list would replace an element on
 PUT and tombstone it on DELETE, but a resource answers every method at its
@@ -60,10 +63,9 @@ and <a href="/todos/items/">each item</a>.</p>
 # takes the place of the pattern that was there.
 #
 # Each item's checkbox PUTs {"done": ...} to the item's own URL, and is put
-# back if that fails. The page listens at /changes.sse, where the server
-# says what any request changed, so every page open shows every change. A
-# slot can set an attribute but not leave one out, and checked is on whenever
-# it is there at all, so the box gets its request from data-done instead.
+# back if that fails; checked is an attribute slot, there when done is True
+# and left out when it is False. The page's one script of its own is that:
+# live.js keeps the list and each item up to date.
 LIST_PAGE = parse_template(
     BytesIO(
         b"""<!doctype html>
@@ -71,24 +73,17 @@ LIST_PAGE = parse_template(
 <head><title>To do</title></head>
 <body>
 <h1>To do</h1>
-<ul data-slot="items">
-  <li data-pat="item">
-    <input type="checkbox" data-attr="data-url=json_url,data-done=done" />
+<ul id="items" data-live="/todos" data-slot="items">
+  <li data-pat="item" data-attr="id=item_id,data-live=watch">
+    <input type="checkbox" data-attr="data-url=json_url,checked=done" />
     <a data-slot="text" data-attr="href=url">An item</a>
   </li>
 </ul>
 <p><a href="/">Add another</a></p>
+<script src="/mumulib/live.js" defer></script>
 <script>
-// Each box from its data-done, here and in any list swapped in later
-const sync = () => {
-  for (const box of document.querySelectorAll("input[data-url]")) {
-    box.checked = box.dataset.done === "true";
-  }
-};
-sync();
-
 // A box changed here: PUT it to its item, and put it back if that fails.
-// One listener for the page, so it hears boxes in a list swapped in too.
+// One listener for the page, so it hears boxes in an item swapped in too.
 document.addEventListener("change", async (event) => {
   const box = event.target;
   if (!box.dataset.url) return;
@@ -99,25 +94,6 @@ document.addEventListener("change", async (event) => {
   });
   if (!response.ok) box.checked = !box.checked;
 });
-
-// Something changed, here or in anyone else's page: the server says what.
-// A changed item is fetched again and shown; anything else of the list's,
-// a POST adding to it, is the whole list again.
-new EventSource("/changes.sse").onmessage = async (event) => {
-  const url = JSON.parse(event.data);
-  const box = document.querySelector(`input[data-url="${url}.json"]`);
-  if (box) {
-    const todo = await (await fetch(`${url}.json`)).json();
-    box.dataset.done = String(todo.done);
-    box.checked = todo.done;
-    box.nextElementSibling.textContent = todo.text;
-  } else if (url === "/todos" || url.startsWith("/todos/")) {
-    const page = await (await fetch("/todos.html")).text();
-    const fresh = new DOMParser().parseFromString(page, "text/html");
-    document.querySelector("ul").replaceWith(fresh.querySelector("ul"));
-    sync();
-  }
-};
 </script>
 </body>
 </html>
@@ -196,7 +172,10 @@ class Todos(Resource):
                 text=todo.text,
                 url=f"{base}/items/{i}.html",
                 json_url=f"{base}/items/{i}.json",
-                done="true" if todo.done else "false",
+                # True writes checked, False leaves it out
+                done=todo.done,
+                item_id=f"item-{i}",
+                watch=f"{base}/items/{i}",
             )
             for i, todo in enumerate(self.child_items)
         ]
@@ -227,10 +206,10 @@ class Site(Resource):
         super().__init__()
         self.child_todos = Todos("Write the example", "Test it")
         self.child_about = About()
-        # /changes.sse: the URL of whatever a request changes, for every
-        # page open to fetch again
-        self.child_changes = EventSource()
 
+
+# Every change announced on it: consumers_app serves it, and live.js
+changes = EventSource()
 
 site = Site()
-app = consumers_app(site, changes=site.child_changes)
+app = consumers_app(site, changes=changes)
