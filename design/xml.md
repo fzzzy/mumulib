@@ -36,7 +36,18 @@ mumulib itself produces -- containers, scalars, and the tagged values links
 are -- and mirrors the decisions already made for JSON: a link is a link,
 not inlined.
 
+### 4. Dictionaries only (tentative)
+
+The XML serializer serializes dictionaries, and nothing else: a scalar at
+`.xml` -- `/motto.xml` -- is not found, as anything with no producer for a
+type is. That is an exception to a string being its own content as any type:
+for XML, it is not. A serializer, then, may take only some kinds of object.
+
+Tentative: to be confirmed when the XML convention itself is settled.
+
 ## Open questions
+
+These two are left for later: the answers are not known yet.
 
 1. **How keys become XML.** Keys are not always valid element names -- `0`, a
    list index; `a b`; a name starting with a digit. Either:
@@ -49,6 +60,3 @@ not inlined.
 2. **How a link looks.** Its JSON is `{"@id": "/users/42"}`. In XML, an element
    of its own -- `<link href="/users/42"/>` -- or the typed form's
    equivalent?
-3. **A scalar at `.xml`.** Is `/motto.xml` an XML document,
-   `<string>mumu</string>`, leaving `.txt` for the raw text -- or does a string
-   stay its own content as any type?
