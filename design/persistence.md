@@ -47,14 +47,22 @@ differ in how they answer a `GET`:
 
 - **Written after every change.** On any mutating request to a resource --
   `POST`, `PUT`, `PATCH`, `DELETE` -- an ASGI wrapper makes a `GET` of the
-  resource immediately after, and writes what it answers to the resource's
-  file. _(Which `GET`: open question 1.)_
+  resource's `state.json` immediately after, and writes what it answers to
+  the resource's file: the file is `self.state` as JSON.
 - **Loaded lazily, on its first request.** A resource does not know where it is
   stored until a request first reaches it -- its file follows from its URL,
   as a persist's does (decision 4) -- and then `self.state` is loaded from
-  its file. _(Where files are, and a first load with no file: open questions
-  2 and 4.)_
-- The same generic writing serves a persist's JSON file too.
+  its file.
+- **No file yet: the constructor's state.** If there is no file -- a first run
+  -- the state is the one the constructor was given, `GET`s answer from it in
+  memory, and the first change creates the file.
+- **A resource is a container**, as a persist is: a write to it announces its
+  own URL (decision 8), and its file gives it its `ETag` (decision 9).
+- **Where.** Every file is under one data directory, `./var/data`, at the path
+  its URL gives it: `/editors/characters/c1` is
+  `./var/data/editors/characters/c1.json`.
+- How a persist's file is written after a change may not be the same:
+  _open question 1._
 
 Persist starts with JSON alone: its `.json` is its file as it is. Anything
 that does not fit that is marked TODO for now.
@@ -129,13 +137,9 @@ everything not inside a persist.
 
 ## Open questions
 
-1. **Which `GET` the wrapper makes.** The resource's `state.json`, so that its
-   file is `self.state` as JSON?
-2. **Where the files are.** Under one data directory, mirroring the URL --
-   `/editors/characters/c1` as `<data>/editors/characters/c1.json` -- and where
-   is the data directory set?
-3. **A resource as a container.** Is a persistent resource a container, as a
-   persist is: a write to it announcing its own URL (decision 8), and its file
-   giving it an `ETag` (decision 9)?
-4. **A first load with no file.** Is the state the constructor was given the
-   starting state, written out on the first change?
+1. **How a persist is written after a change.** A resource's wrapper `GET`s
+   its `state.json`; a persist's file is its state, so there may be nothing
+   to `GET`. Perhaps the write itself has the new document in hand -- a
+   `PATCH` applied to the loaded document, a sub-URL `PUT` setting one value
+   in it -- and writes it (to a temporary file, then renamed), so the two
+   wrappers are not one generic wrapper. Is that it?
