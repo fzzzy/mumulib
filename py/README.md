@@ -49,9 +49,10 @@ extension alone decides what comes back.
 
 - `/motto.json` is `root["motto"]` as JSON, and `/motto.txt` the same value as
   text. The extension is the type, not part of the key. `.txt` is plain text,
-  `.sse` server-sent events, and any other extension is the type `mimetypes`
-  gives it. A URL without an extension is 404, and so is one whose extension
-  has no type.
+  `.sse` server-sent events, `.xml` `application/xml`, and any other extension
+  is the type Python's own table gives it -- never the machine's
+  `/etc/mime.types`, so a type is the same on every machine, every time. A
+  URL without an extension is 404, and so is one whose extension has no type.
 - A container -- a dict, list, tuple or directory -- has one URL per type:
   its slash, `/todos/`, as HTML, which is for people in browsers, and its
   name, `/todos.json`, as anything else, as a leaf's is. `/todos.html` is

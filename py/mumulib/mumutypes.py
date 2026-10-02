@@ -118,24 +118,28 @@ class SeeOtherResponse(SpecialResponse):
 
 # The type of every response is the one its URL's extension names, and
 # nothing else: not the request's headers, so no response varies by them.
-# These are the extensions mumulib's producers speak; any other goes through
-# mimetypes, and one with no type there is not found.
+# These are the extensions mumulib's producers speak; any other is Python's
+# own table's, and one with no type there is not found.
 CONTENT_TYPES = {
     "json": "application/json",
     "html": "text/html",
     "txt": "text/plain",
     "sse": "text/event-stream",
-    # Here, not from mimetypes: Python's own table has text/xml, and the
-    # system's, which mimetypes reads the first time it is asked to guess,
-    # application/xml -- so it was either, by what had run before
+    # application/xml, as RFC 7303 has it, not Python's table's text/xml
     "xml": "application/xml",
 }
+
+# Python's own table of types, and only it: never the system's files --
+# /etc/mime.types and the rest -- which the mimetypes module reads the first
+# time anything asks it to guess, so that a type had depended on the machine
+# and on what had run before. This one is the same everywhere, every time.
+_TYPES = mimetypes.MimeTypes(filenames=())
 
 
 def content_type_for(extension: str) -> str | None:
     """The Content-Type an extension names, charset and all, or None."""
     extension = extension.lower()
-    mime = CONTENT_TYPES.get(extension) or mimetypes.types_map.get(f".{extension}")
+    mime = CONTENT_TYPES.get(extension) or _TYPES.types_map[True].get(f".{extension}")
     if mime is None:
         return None
     if mime.startswith("text/") or mime in (

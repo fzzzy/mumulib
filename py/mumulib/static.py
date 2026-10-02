@@ -25,7 +25,6 @@ nothing is asked of it.
 """
 
 import asyncio
-import mimetypes
 import urllib.error
 import urllib.request
 from collections.abc import AsyncIterator
@@ -43,6 +42,7 @@ from mumulib.mumutypes import (
     SpecialResponse,
     State,
     Writer,
+    content_type_for,
 )
 from mumulib.producers import add_producer
 
@@ -170,9 +170,9 @@ async def serve_vite(
     if is_fresh(cache[0][1], scope["headers"]):
         await _answer(send, 304, b"", cache)
         return
-    content_type = mimetypes.guess_type(file.name)[0] or "application/octet-stream"
-    if content_type.startswith("text/") or content_type.endswith("javascript"):
-        content_type += "; charset=UTF-8"
+    content_type = (
+        content_type_for(file.suffix.removeprefix(".")) or "application/octet-stream"
+    )
     await send(
         {
             "type": "http.response.start",

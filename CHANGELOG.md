@@ -21,8 +21,10 @@ Python package). Breaking changes come first under each release.
 
 - **Python server: a URL's extension is its type, and nothing else.**
   `consumers_app` serves every response with the type its URL names:
-  `.json`, `.html`, `.txt`, `.sse` (server-sent events), or any extension
-  Python's `mimetypes` knows. The request's own `Content-Type` still decides how
+  `.json`, `.html`, `.txt`, `.sse` (server-sent events), `.xml`, or any
+  extension in Python's own table of types -- never the machine's, which
+  Python's `mimetypes` module reads the first time it guesses, so that a
+  type had depended on the machine and on what had run before. The request's own `Content-Type` still decides how
   its body is parsed, but it no longer changes what comes back, so no response
   depends on request headers and none needs `Vary`.
   - The extension names a representation, not a key: `/motto.json` and
@@ -199,9 +201,7 @@ Python package). Breaking changes come first under each release.
   reloading, from Vite directly.
 - **XML** at `.xml`: a dict -- a resource's state, a persist's document, a
   plain dict -- each key an element named by it, each element with its
-  `type`, and the root named by the document's class. `application/xml`,
-  whatever Python's `mimetypes` has read: it had been `text/xml` or
-  `application/xml` by what ran first.
+  `type`, and the root named by the document's class, as `application/xml`.
 - **`sync.bind(path, url)`** (TypeScript): a path in the state bound to a
   resource or persist on mumulib's Python server, fetched as `<url>.json`
   and fetched again whenever the change stream announces it.

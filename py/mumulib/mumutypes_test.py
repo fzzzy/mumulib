@@ -9,6 +9,7 @@ from mumulib.mumutypes import (
     NotFoundResponse,
     SeeOtherResponse,
     SpecialResponse,
+    content_type_for,
 )
 
 
@@ -164,3 +165,19 @@ class TestSeeOtherResponse(unittest.TestCase):
         headers = response.asgi_send_dict["headers"]
         self.assertEqual(headers[1][0], b"location")
         self.assertEqual(headers[1][1], redirect_url.encode("utf8"))
+
+
+class TestTypesAreTheSameEverywhere(unittest.TestCase):
+    def test_the_systems_table_changes_nothing(self):
+        import mimetypes
+        from unittest import mock
+
+        # As though the machine's /etc/mime.types said otherwise, and the
+        # mimetypes module had read it
+        mimetypes.init()
+        local = {".js": "application/x-local", ".css": "text/x-local"}
+        with mock.patch.dict(mimetypes.types_map, local):
+            self.assertEqual(content_type_for("js"), "text/javascript; charset=UTF-8")
+            self.assertEqual(content_type_for("css"), "text/css; charset=UTF-8")
+        self.assertEqual(content_type_for("xml"), "application/xml; charset=UTF-8")
+        self.assertIsNone(content_type_for("nosuchextension"))
