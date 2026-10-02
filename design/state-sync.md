@@ -1,6 +1,7 @@
 # State sync
 
-Status: part one built (`sync.bind`); part two, links, deferred. Started
+Status: built (`sync.bind`). Nested persistence, links between containers,
+is [nested-persistence.md](nested-persistence.md), tentative. Started
 2026-10-01.
 
 How the server's state tree and the TypeScript `state` module are kept the
@@ -14,10 +15,12 @@ same, automatically.
 - The TypeScript `state` module kept a state tree in the browser, changed by
   `set_state` and `set_path`; nothing connected it to the server's.
 
-State sync comes in two parts. Part one has no container -- a resource or
-a persist, anything Located -- inside another, so it has no links; it is
-built. Part two, links between them, is deferred. The decisions keep the
-numbers they were made with.
+State sync was designed in two parts. Part one, here, has no container --
+a resource or a persist, anything Located -- inside another, so it has no
+links; it is built. Part two, links between them, is its own design now,
+[nested-persistence.md](nested-persistence.md), tentative. The decisions
+here keep the numbers they were made with; the missing ones, 4 to 8, 11 and
+12, are part two's, renumbered there.
 
 ## Part one: no container in a container (built)
 
@@ -65,7 +68,8 @@ bound.
 ### 13. To start, no resource or persist holds another
 
 Links in a saved file would have to be hydrated back into the objects they
-name when it is loaded, which needs more design. To start, no resource or
+name when it is loaded, which needs more design
+([nested-persistence.md](nested-persistence.md)). To start, no resource or
 persist contains another container.
 
 ### 14. A bound document holds no resource or persist
@@ -115,67 +119,3 @@ Built first, as part of part one ([persistence.md](persistence.md), decision
 served as markup, a visitor's included. HTML of a program's own is a
 `tags.Markup`, served at `.html`. A resource's template is HTML alone, not
 found as `.txt`. A file is served at its extension on disk alone.
-
-## Part two: links (deferred)
-
-Part two -- a resource or persist inside another's state, as a link --
-waits. What part one has, plain JSON with references as plain ids looked up
-by whoever needs them, is much simpler, and is to be used until it causes a
-problem; part two is designed then, against that problem. These are what
-was decided for it before it was deferred.
-
-### 4. A URL not seen before is fetched eagerly
-
-A bound tree's links are where one document ends and another begins. When
-the client meets a link to a URL it has not seen before, it fetches it then
-and there, rather than waiting until it is needed.
-
-### 5. A link is a richer type than a string
-
-A link to another document has to be told apart from a field whose value is
-a string that looks like a URL, so it is not a bare string.
-
-### 6. One tagged-value shape for every richer type: JSON-LD's
-
-JSON has no type for a link, a date or anything else beyond its own, so
-richer types are carried by one general mechanism, borrowed from JSON-LD:
-an object whose keys start with `@`. A link is a node reference,
-`{"@id": "/users/42"}`. Others come the same way when they are needed --
-JSON-LD's typed value, `{"@value": "2026-10-01", "@type": "..."}`, for a
-date, say. Every key starting with `@` is reserved for these.
-
-### 7. The shape is reserved, and only the serializer makes it
-
-The tagged shape is never user content. The JSON serializer is the only thing
-that produces it, so a tagged value in the output always came from the
-serializer and means what its tag says.
-
-### 8. Writes that contain it are refused, everywhere
-
-A write whose content contains the reserved shape -- any key starting with
-`@`, at any depth -- is refused, with a 400, not escaped. Escaping would let
-user data use the shape too, at the cost of a transform on every read and
-write; refusing is much simpler.
-
-It is checked on every write: `PUT`, `PATCH` and a sub-URL `PUT`, into a
-persist and into plain dicts and lists in memory alike. Allowing it anywhere
-would let the shape into stored content.
-
-### 11. A link is expanded, on the client, into the state it names
-
-Links follow decision 6: a resource or persist inside other JSON is a link,
-`{"@id": url}`, not its state inlined. On the client a link is the special
-case: it is expanded, recursively, into the state its URL names, and that
-is what keeps the client's tree in the server's shape.
-
-### 12. Clients do not write links
-
-Every `@` key is refused in a write (decision 8), so a client cannot make a
-link: a reference it writes is plain data, an id, as the editors example's
-party members are, and a persist never holds a link.
-
-### Open questions for part two
-
-1. **Links to objects not yet located.** A link needs the object's URL,
-   which it learns when a request first reaches it; until then it has none.
-2. **Hydrating links in a saved file**, when it is loaded: to be refined.

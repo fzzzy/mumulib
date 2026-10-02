@@ -83,6 +83,6 @@ of its `.xml`. Writes stay JSON and forms. Its content type is
 
 ## Open questions
 
-1. **How a link looks.** Its JSON is `{"@id": "/users/42"}`, in state sync's
-   part two, which is deferred; in part one a link is a plain URL string,
-   and so plain text in XML.
+1. **How a link looks.** Its JSON is `{"@id": "/users/42"}`, in
+   [nested-persistence.md](nested-persistence.md), which is tentative; as
+   built, a link is a plain URL string, and so plain text in XML.

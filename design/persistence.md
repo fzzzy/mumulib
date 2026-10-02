@@ -65,7 +65,8 @@ a change, and in how they answer a `GET`:
   own URL (decision 8), and its file gives it its `ETag` (decision 9).
 - **Its state is plain JSON**: it holds no resource or persist
   ([state-sync.md](state-sync.md), decision 14). Saving one that does is a
-  `TypeError` naming where.
+  `TypeError` naming where. A container in a container is
+  [nested-persistence.md](nested-persistence.md), tentative.
 - **Where.** Every file is under one data directory, `./var/data` unless
   `consumers_app(..., data=...)` names another -- as tests do, a temporary
   directory of their own -- at the path its URL gives it:

@@ -1,12 +1,12 @@
 # PATCH
 
-Status: design to come, and lower priority: a `PUT` to each sub-URL already
+Status: tentative, and lower priority: a `PUT` to each sub-URL already
 changes one field at a time. Started 2026-10-01.
 
 Changing several fields of a container in one atomic write. Moved here from
 the persistence design, to be designed and built when it is needed.
 
-## Decided so far
+## Decisions, tentative
 
 - `PATCH` on a container changes several of its fields in one atomic write:
   the whole container committed, as every write is (persistence decision 7).
