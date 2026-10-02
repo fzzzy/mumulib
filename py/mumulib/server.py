@@ -320,6 +320,9 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
             )
             return
         state["extension"] = extension
+        # Every segment, as the path has them: what was walked to reach an
+        # object is these less those remaining, and names its URL
+        state["segments"] = segments
         state["content_type"] = content_type
         state["accept"] = [content_type.split(";")[0], "*/*"]
 

@@ -26,7 +26,7 @@ import inspect
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, NoReturn, cast
 
-from mumulib.consumers import GetOnly, add_consumer, consume, refuse
+from mumulib.consumers import GetOnly, Located, add_consumer, consume, refuse
 from mumulib.mumutypes import Chunk, Send, SpecialResponse, State
 from mumulib.producers import add_json_form, add_producer, can_produce, produce
 from mumulib.tags import Stan
@@ -57,7 +57,7 @@ class Form:
         return [v for v in values if isinstance(v, str)]
 
 
-class Resource:
+class Resource(Located):
     """A published object with children of its own and a way to answer.
 
     Every subclass is registered as it is defined, with the consumer and
@@ -70,6 +70,10 @@ class Resource:
     template's slots are filled from when there is no slot_ for them. The
     request a handler is given is another thing, and is called request here
     to keep the two apart.
+
+    It is Located: url is where it is published, without an extension --
+    /editors/characters/c1 -- learnt when a request first reaches it, and
+    None until then. Unlike the url slot, which is the request's own URL.
     """
 
     template: Any = ""

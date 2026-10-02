@@ -8,10 +8,12 @@ from urllib.parse import quote, unquote
 from mumulib.consumers import (
     MAX_LIST_INDEX,
     GetOnly,
+    Located,
     RefuseIndex,
     add_consumer,
     consume,
     is_container,
+    url_of,
 )
 from mumulib.server import consumers_app
 
@@ -730,3 +732,21 @@ class TestContainerFlag(unittest.TestCase):
         root = RefuseIndex({"shelf": Shelf(novel="text")})
         self.assertEqual(call(root, "GET", "/shelf.json")[0], 404)
         self.assertEqual(call(root, "GET", "/shelf/novel.json")[0], 200)
+
+
+class TestLocated(unittest.TestCase):
+    def test_a_url_is_the_path_walked_an_index_its_slash(self):
+        self.assertEqual(url_of([]), "/")
+        self.assertEqual(url_of(["index"]), "/")
+        self.assertEqual(url_of(["a", "b"]), "/a/b")
+        self.assertEqual(url_of(["a", "b", "index"]), "/a/b/")
+
+    def test_consumed_outside_a_request_it_learns_nothing(self):
+        thing = Located()
+
+        async def send(message):
+            pass
+
+        found = asyncio.run(consume({"x": thing}, ["x"], {"method": "GET"}, send))
+        self.assertIs(found, thing)
+        self.assertIsNone(thing.url)

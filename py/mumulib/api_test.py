@@ -31,7 +31,14 @@ PUBLIC = {
         "content_type_for",
     },
     "server": {"consumers_app", "EventSource"},
-    "consumers": {"consume", "add_consumer", "GetOnly", "RefuseIndex"},
+    "consumers": {
+        "consume",
+        "add_consumer",
+        "GetOnly",
+        "RefuseIndex",
+        "Located",
+        "Aliased",
+    },
     "producers": {"add_json_form", "produce", "add_producer"},
     "shaped": {
         "is_shaped",

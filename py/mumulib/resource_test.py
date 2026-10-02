@@ -3,6 +3,7 @@ import asyncio
 import io
 import json
 import unittest
+import unittest.mock
 from types import MappingProxyType
 
 from mumulib.consumers import GetOnly, RefuseIndex
@@ -535,3 +536,38 @@ class TestForms(unittest.TestCase):
         # Nothing posted, or not an object, is an empty form
         self.assertEqual(Resource().form({}).text("name"), "")
         self.assertEqual(Resource().form({"parsed_body": [1]}).texts("x"), [])
+
+
+class TestItsUrl(unittest.TestCase):
+    def test_a_resource_learns_its_url_when_first_reached(self):
+        profile, home = Profile(), Resource()
+        root = {"people": {"ada": profile}, "home": {"index": home}}
+        self.assertIsNone(profile.url)
+        call(root, "GET", "/people/ada.html")
+        self.assertEqual(profile.url, "/people/ada")
+        # Every type of it, and below it, is the same URL
+        for path in ("/people/ada.json", "/people/ada/state.json"):
+            self.assertEqual(call(root, "GET", path)[0], 200)
+        call(root, "PUT", "/people/ada.json", {})
+        self.assertEqual(profile.url, "/people/ada")
+        # An index is its container's slash
+        call(root, "GET", "/home/")
+        self.assertEqual(home.url, "/home/")
+
+    def test_a_resource_walked_through_is_where_it_is_too(self):
+        root = Site()
+        call(root, "GET", "/profile/name.txt")
+        self.assertEqual(root.url, "/")
+        self.assertEqual(Site.child_profile.url, "/profile")
+
+    def test_one_resource_has_one_url(self):
+        ada = Profile()
+        root = {"a": ada, "b": ada}
+        self.assertEqual(call(root, "GET", "/a.html")[0], 200)
+        with unittest.mock.patch("traceback.print_exc") as logged:
+            status, _, body = call(root, "GET", "/b.html")
+        self.assertEqual(status, 500)
+        # Logged, and said: both URLs
+        logged.assert_called_once()
+        self.assertIn(b"Profile at /a was reached as /b", body)
+        self.assertEqual(ada.url, "/a")

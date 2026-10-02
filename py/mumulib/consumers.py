@@ -56,6 +56,8 @@ __all__ = [
     "add_consumer",
     "GetOnly",
     "RefuseIndex",
+    "Located",
+    "Aliased",
 ]
 
 _consumer_adapters: dict[type[Any], Consumer] = {}
@@ -181,6 +183,51 @@ def _own_handler(parent: Any, segment: str) -> Any | None:
     return entry if answers_own_methods(entry) else None
 
 
+class Located:
+    """A published object that knows its own URL: a Resource, and anything
+    else whose state is kept in a file named after where it is.
+
+    It learns the URL from the path walked to reach it, the first time a
+    request reaches it, and keeps it: /editors/characters/c1 for
+    /editors/characters/c1.html, .json and /c1/state.json alike, and
+    /editors/ for one reached as an index, at its slash. Until then url is
+    None. One object has one URL: reaching it by another is Aliased, a 500.
+    """
+
+    url: str | None = None
+
+
+class Aliased(Exception):
+    """One Located object reached by a second URL. Its file, and what a write
+    to it announces, are named by its URL, so it has only one."""
+
+    def __init__(self, thing: Located, url: str) -> None:
+        super().__init__(
+            f"{type(thing).__name__} at {thing.url} was reached as {url}: "
+            "an object is published at one URL"
+        )
+
+
+def url_of(walked: list[str]) -> str:
+    """The URL of what the segments walked reach, without an extension: an
+    index -- the last segment index -- is its container's slash."""
+    if walked and walked[-1] == "index":
+        return "/" + "".join(f"{segment}/" for segment in walked[:-1])
+    return "/" + "/".join(walked)
+
+
+def _locate(thing: Located, segments: list[str], state: State) -> None:
+    # What has been walked is the request's segments, less those remaining
+    walked = state.get("segments")
+    if walked is None:
+        return
+    url = url_of(walked[: len(walked) - len(segments)])
+    if thing.url is None:
+        thing.url = url
+    elif thing.url != url:
+        raise Aliased(thing, url)
+
+
 def answer(
     status: int, headers: list[tuple[bytes, bytes]] | None = None, body: bytes = b""
 ) -> SpecialResponse:
@@ -218,6 +265,8 @@ async def consume(
     Returns:
         any or None: The object found at the end of the traversal, or None if not found.
     """
+    if isinstance(parent, Located):
+        _locate(parent, segments, state)
     if not segments:
         return parent
     state["remaining"] = segments
@@ -251,7 +300,7 @@ async def consume_tuple(
     if len(segments) == 1 and state["method"] != "GET":
         own = _own_handler(parent, segments[0])
         if own is not None:
-            return own
+            return await consume(own, [], state, send)
         return refuse("GET")
     child: Any
     try:
@@ -303,7 +352,7 @@ async def consume_list(
         index_str = segments[0]
         own = _own_handler(parent, index_str) if method != "GET" else None
         if own is not None:
-            return own
+            return await consume(own, [], state, send)
 
         if method == "PUT" and index_str == "last":
             # Append new element
@@ -368,7 +417,7 @@ async def _consume_immutabledict(
     if len(segments) == 1 and state["method"] != "GET" and state["method"] != "POST":
         own = _own_handler(parent, segments[0])
         if own is not None:
-            return own
+            return await consume(own, [], state, send)
         return refuse("GET, POST")
     child: Any
     try:
@@ -419,7 +468,7 @@ async def consume_dict(
             return None
         own = _own_handler(parent, key) if method != "GET" else None
         if own is not None:
-            return own
+            return await consume(own, [], state, send)
 
         if method == "PUT":
             # Created if it was not found before: absent, or None
