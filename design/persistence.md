@@ -62,9 +62,10 @@ a change, and in how they answer a `GET`:
   memory, and the first change creates the file.
 - **A resource is a container**, as a persist is: a write to it announces its
   own URL (decision 8), and its file gives it its `ETag` (decision 9).
-- **Where.** Every file is under one data directory, `./var/data`, at the path
-  its URL gives it: `/editors/characters/c1` is
-  `./var/data/editors/characters/c1.json`.
+- **Where.** Every file is under one data directory, `./var/data` unless
+  `consumers_app(..., data=...)` names another -- as tests do, a temporary
+  directory of their own -- at the path its URL gives it:
+  `/editors/characters/c1` is `./var/data/editors/characters/c1.json`.
 
 ### 3b. How a persist is persisted
 
@@ -117,11 +118,8 @@ Everything addressable today stays addressable, and writable as it is:
 ### 7. Writing: whole-container commits, PATCH for several fields
 
 - A sub-URL's **container** is the nearest persist above it.
-- `PATCH` on a container changes several of its fields in one atomic write.
-  Its language is JSON Patch (RFC 6902) to start with: a list of operations
-  -- `add`, `remove`, `replace`, `move`, `copy`, `test` -- each at a JSON
-  Pointer into the document, applied in order, all or none. We see whether
-  we like it.
+- `PATCH` on a container, to change several of its fields in one atomic
+  write, is designed in [patch.md](patch.md), and built last.
 - `PUT` on a sub-URL stays, for the convenient one-field change.
 - Either way, a write is one atomic commit of the whole container: its file
   rewritten as a whole (to a temporary file, then renamed over the old). A
@@ -150,4 +148,18 @@ everything not inside a persist.
   `If-None-Match` with the container's `ETag`: 304 if the container has not
   changed, a fresh 200 if it has.
 - State in memory that is in no file -- plain dicts and lists outside any
-  persist or resource -- has no `ETag`. _(A resource's: open question 3.)_
+  persist or resource -- has no `ETag`.
+- A resource's `state.json`, and the sub-URLs below it, are its file, and
+  have its `ETag` as a persist's do. Its computed HTML is not cached at all
+  by default -- no `ETag` -- since it can depend on more than its own file
+  (the editors index shows every character). Each resource subclass decides
+  its own caching, setting its own cache headers; that needs a way for a
+  handler to set its response's headers, which handlers, returning a value,
+  do not have today.
+
+### 10. Serving a file: streamed, zero-copy when a server offers it
+
+A persist's file is streamed, as mumulib serves files now. No ASGI server
+supports the zero-copy extension, `http.response.zerocopysend`, so it is
+used only where one does -- or `http.response.pathsend`, the simpler one in
+which the app names the file -- when a server offers either.
