@@ -304,7 +304,10 @@ extension to be served. A file is its own type and no other: a `Path` to
 found.
 
 The slash, `/static/`, is the directory's `index.html` if it has one, and
-else a `<ul>` of links, each named for its file. Its name, `/static.json`, is
+else its index, as Apache's were: a page headed "Index of /static", with a
+link to the parent directory and then one to each of its files. A plain
+dict's or list's slash is the same; as a slot's filling inside a page, a
+listing is its `<ul>` of links alone. Its name, `/static.json`, is
 `{name: URL}`, a subdirectory's URL its own listing, `/static/sub.json`. Only
 what could be fetched is listed, and `RefuseIndex` is how to have no listing
 (see Guards).

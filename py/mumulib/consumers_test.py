@@ -539,14 +539,21 @@ class TestDirectory(DirectorySite):
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
         self.assertEqual(
             body.decode().strip(),
+            "<!doctype html>\n<html>\n<head>\n"
+            '<meta charset="utf-8" />\n'
+            "<title>Index of /static</title>\n"
+            "</head>\n<body>\n"
+            "<h1>Index of /static</h1>\n"
             "<ul>\n"
+            '  <li><a href="/">Parent Directory</a></li>\n'
             '  <li><a href="/static/a%20b%26c.txt">a b&amp;c.txt</a></li>\n'
             '  <li><a href="/static/app.min.js">app.min.js</a></li>\n'
             '  <li><a href="/static/data.json">data.json</a></li>\n'
             '  <li><a href="/static/pixel.png">pixel.png</a></li>\n'
             '  <li><a href="/static/style.css">style.css</a></li>\n'
             '  <li><a href="/static/sub/">sub</a></li>\n'
-            "</ul>",
+            "</ul>\n"
+            "</body>\n</html>",
         )
 
     def test_a_directory_as_json_is_names_to_urls(self):

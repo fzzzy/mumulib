@@ -48,7 +48,7 @@ from mumulib.producers import (
     can_produce,
     container_url,
     custom_serializer,
-    listing_html,
+    listing,
     produce,
 )
 
@@ -751,7 +751,7 @@ async def _produce_container_html(thing: Any, state: State) -> AsyncIterator[Chu
         url = _entry_url(base, str(key), value)
         if url is not None:
             links.append((str(key), url))
-    yield listing_html(links)
+    yield listing(links, state)
 
 
 for _container_type in (dict, MappingProxyType, list, tuple):

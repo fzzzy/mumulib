@@ -595,7 +595,9 @@ async def produce_child(child: Any, state: State) -> AsyncIterator[str]:
     makes of it -- a dict its listing, a Resource its page. With no HTML of
     its own, it is an error naming its type, as in JSON; not its repr."""
     try:
-        async for chunk in producers.produce(child, state):
+        # A fragment of this page, not a page of its own: a listing is its
+        # links alone, and no doctype or heading of its own
+        async for chunk in producers.produce(child, {**state, "fragment": True}):
             if not isinstance(chunk, str):
                 raise TypeError(f"a {type(child).__name__} produced no HTML")
             yield chunk

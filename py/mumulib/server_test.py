@@ -2168,14 +2168,21 @@ class TestTextAndListings(unittest.TestCase):
                 self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
                 self.assertEqual(
                     body.decode().strip(),
+                    "<!doctype html>\n<html>\n<head>\n"
+                    '<meta charset="utf-8" />\n'
+                    "<title>Index of /notes</title>\n"
+                    "</head>\n<body>\n"
+                    "<h1>Index of /notes</h1>\n"
                     "<ul>\n"
+                    '  <li><a href="/">Parent Directory</a></li>\n'
                     '  <li><a href="/notes/motto.txt">motto</a></li>\n'
                     '  <li><a href="/notes/count.txt">count</a></li>\n'
                     '  <li><a href="/notes/a%20b%26c.txt">a b&amp;c</a></li>\n'
                     '  <li><a href="/notes/sub/">sub</a></li>\n'
                     '  <li><a href="/notes/items/">items</a></li>\n'
                     '  <li><a href="/notes/sheet.css">sheet</a></li>\n'
-                    "</ul>",
+                    "</ul>\n"
+                    "</body>\n</html>",
                 )
                 for url in (
                     "/notes/motto.txt",
@@ -2185,6 +2192,16 @@ class TestTextAndListings(unittest.TestCase):
                 ):
                     with self.subTest(url=url):
                         self.assertEqual(asyncio.run(get(root, url))[0], 200)
+
+    def test_a_listing_below_names_its_parent(self):
+        _, _, body = asyncio.run(get({"a": {"b": {"c": 1}}}, "/a/b/"))
+        self.assertIn(b"<h1>Index of /a/b</h1>", body)
+        self.assertIn(b'<li><a href="/a/">Parent Directory</a></li>', body)
+
+    def test_the_root_lists_itself_with_no_parent(self):
+        _, _, body = asyncio.run(get({"a": "x"}, "/"))
+        self.assertIn(b"<title>Index of /</title>", body)
+        self.assertNotIn(b"Parent Directory", body)
 
     def test_a_list_lists_its_indexes(self):
         _, _, body = asyncio.run(get({"items": ["a", "b"]}, "/items/"))

@@ -237,6 +237,28 @@ def listing_html(entries: Iterable[tuple[str, str]]) -> str:
     return f"<ul>\n{items}</ul>"
 
 
+def listing(entries: Iterable[tuple[str, str]], state: State) -> str:
+    """A container's listing as its answer: a page, as Apache's directory
+    indexes were, "Index of /static" its title and heading, and a link to
+    its parent first. As a slot's filling -- state["fragment"], set by the
+    tree it is in -- the list of links alone."""
+    if state.get("fragment"):
+        return listing_html(entries)
+    base = container_url(state.get("url", "/"))
+    name = html.escape(base if base == "/" else base.rstrip("/"))
+    parent = base.rstrip("/").rpartition("/")[0] + "/"
+    links = [("Parent Directory", parent)] if base != "/" else []
+    return (
+        "<!doctype html>\n<html>\n<head>\n"
+        '<meta charset="utf-8" />\n'
+        f"<title>Index of {name}</title>\n"
+        "</head>\n<body>\n"
+        f"<h1>Index of {name}</h1>\n"
+        f"{listing_html([*links, *entries])}\n"
+        "</body>\n</html>"
+    )
+
+
 async def produce_path_html(thing: Path, state: State) -> AsyncGenerator[Chunk]:
     """A file, or a directory as a list of links to what is in it."""
     if not thing.is_dir():
@@ -244,9 +266,12 @@ async def produce_path_html(thing: Path, state: State) -> AsyncGenerator[Chunk]:
             yield chunk
         return
     base = container_url(state.get("url", "/"))
-    yield listing_html(
-        (name, base + quote(name) + ("/" if is_dir else ""))
-        for name, is_dir in _listing(thing)
+    yield listing(
+        [
+            (name, base + quote(name) + ("/" if is_dir else ""))
+            for name, is_dir in _listing(thing)
+        ],
+        state,
     )
 
 
