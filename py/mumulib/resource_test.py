@@ -364,7 +364,7 @@ class TestSlots(unittest.TestCase):
         self.assertIn("A title", repr(PAGE))
         self.assertNotIn("Slots", repr(PAGE))
 
-    def test_a_slot_with_no_html_form_is_an_error(self):
+    def test_a_slot_with_no_html_form_is_an_err(self):
         class Broken(Resource):
             template = PAGE
 

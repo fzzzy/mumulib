@@ -29,7 +29,7 @@ class TestCustomSerializer(unittest.TestCase):
         self.assertEqual(result, original)
         self.assertIsInstance(result, dict)
 
-    def test_anything_else_is_an_error_not_a_quiet_null(self):
+    def test_anything_else_is_an_err_not_a_quiet_null(self):
         """What has no JSON form is refused, naming what it is"""
 
         class Thing:

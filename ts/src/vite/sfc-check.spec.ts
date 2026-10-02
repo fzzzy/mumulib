@@ -25,7 +25,7 @@ function check(...paths: string[]) {
 
 // Node alone; no page, so no browser and no coverage to keep
 test.describe('Mumulib single-file component type checking', () => {
-  test('the examples have no type errors', () => {
+  test('the examples have no type errs', () => {
     const run = check('--project', 'tsconfig.examples.json', 'examples')
     expect(run.stdout).toContain(
       "2 components and tsconfig.examples.json's files, no type errors."
@@ -33,7 +33,7 @@ test.describe('Mumulib single-file component type checking', () => {
     expect(run.status).toBe(0)
   })
 
-  test('errors are reported at their place in the .sfc.html', () => {
+  test('errs are reported at their place in the .sfc.html', () => {
     const run = check(path.join(FIXTURES, 'broken.sfc.html'))
     expect(run.errors).toEqual([
       // const count: number = 'not a number'
@@ -45,7 +45,7 @@ test.describe('Mumulib single-file component type checking', () => {
     expect(run.status).toBe(1)
   })
 
-  test('an error on the <script> line has its column there', () => {
+  test('an err on the <script> line has its column there', () => {
     const run = check(path.join(FIXTURES, 'inline.sfc.html'))
     // <script>const label: string = 42
     expect(run.errors).toEqual([{ line: 2, column: 15, code: 2322 }])

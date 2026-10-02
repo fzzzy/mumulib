@@ -389,7 +389,7 @@ class TestEscaping(unittest.TestCase):
         out = render(t.div[{"a": 1}], accept=("text/html", "*/*"))
         self.assertIn('<a href="/a.html">a</a>', out)
 
-    def test_what_has_no_html_is_an_error_naming_its_type(self):
+    def test_what_has_no_html_is_an_err_naming_its_type(self):
         for child, words in [(object(), "has no HTML form"), (b"raw", "no HTML")]:
             with self.subTest(child=child):
                 with self.assertRaisesRegex(TypeError, words):

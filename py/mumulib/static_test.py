@@ -82,7 +82,7 @@ class TestProduction(StaticCase):
     def test_a_page_is_html_alone(self):
         self.assertEqual(self.call(self.app(), "/page.json")[0], 404)
 
-    def test_a_page_not_built_or_with_nowhere_to_be_is_an_error(self):
+    def test_a_page_not_built_or_with_nowhere_to_be_is_an_err(self):
         (self.vite / "notes" / "index.html").unlink()
         status, _, body = self.call(self.app(), "/")
         self.assertEqual(status, 500)

@@ -2088,7 +2088,7 @@ class TestTextAndListings(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertNotIn(b"repr", body)
 
-    def test_json_of_what_has_no_json_form_is_an_error(self):
+    def test_json_of_what_has_no_json_form_is_an_err(self):
         class Thing:
             pass
 
