@@ -135,12 +135,13 @@ one URL for each representation. So binding is the same for a resource and
 a persist: fetch `<url>.json`, the URL a write to it announces with
 `.json` on it.
 
-### 16. A plain dict of containers answers `.json` with its listing
+### 16. In plain JSON, only a resource or a persist is its URL
 
-A plain dict or list whose entries are resources or persists answers
-`.json` with a listing, as a directory does: each entry's name and the URL
-of its `.json`, `{"c1": "/editors/characters/c1.json"}` -- plain strings,
-not links. A client finds there what to bind.
+A plain dict or list answers `.json` as JSON, nested as it is, at any
+depth: dicts, lists and scalars as themselves. Only a resource or a persist
+in it -- anything Located -- is written as the URL of its `.json`, by where
+it is: `{"c1": "/editors/characters/c1.json"}`, a plain string. A client
+finds there what to bind.
 
 ### 17. The client binds a URL to a path
 

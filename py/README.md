@@ -130,9 +130,10 @@ produced as though it had been published there, of the URL's type: the
 request says which, in `"content_type"` and `"extension"`. The base
 `handle_GET` answers `.html` with the template and `.json` with the state,
 `/profile.json`, read-only -- only the resource's handlers change it -- and
-anything else is not found. In a plain dict or list, as JSON, a resource
-is the URL of its own: `/people.json` is `{"ada": "/people/ada.json"}`, for
-a client to fetch, or bind. A resource's state holds no resource or
+anything else is not found. A plain dict or list is JSON nested as it is,
+at any depth, and only a resource or a persist in it is written as the URL
+of its own: `/people.json` is `{"ada": "/people/ada.json"}`, for a client
+to fetch, or bind. A resource's state holds no resource or
 persist, and a persist's document none either: a container in a container
 is not allowed, yet, and is a `TypeError` naming where it is. A form is read with `self.form(request)`: `form.text("name")`, stripped, and
 `form.texts("tags")`, every value sent as `tags[]` or `tags`. A form with
