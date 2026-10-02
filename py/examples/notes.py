@@ -28,21 +28,19 @@ serves them, and everything Vite built, under /mumulib-vite/.
 The notes are kept in var/data/notes.json. Delete it to start again.
 """
 
-from pathlib import Path
+import pathlib
 
-from mumulib.persist import Persist
-from mumulib.server import EventSource, consumers_app
-from mumulib.static import Page
+from mumulib import persist, server, static
 
 # Where Vite builds the pages: ts/build/pages in the repository
-PAGES = Path(__file__).resolve().parents[2] / "ts" / "build" / "pages"
+PAGES = pathlib.Path(__file__).resolve().parents[2] / "ts" / "build" / "pages"
 
-notes = Persist(["Write the Vite example", "Run it built, in production"])
+notes = persist.Persist(["Write the Vite example", "Run it built, in production"])
 
-app_root = {"index": Page("notes/index.html"), "notes": notes}
+app_root = {"index": static.Page("notes/index.html"), "notes": notes}
 
 # Every change announced on it: the page binds the notes, and fetches them
 # again when a write to them, anyone's, is announced
-changes = EventSource()
+changes = server.EventSource()
 
-app = consumers_app(app_root, changes=changes, vite=PAGES)
+app = server.consumers_app(app_root, changes=changes, vite=PAGES)
