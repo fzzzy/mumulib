@@ -191,7 +191,7 @@ class Located:
 
     It learns the URL from the path walked to reach it, the first time a
     request reaches it, and keeps it: /editors/characters/c1 for
-    /editors/characters/c1.html, .json and /c1/state.json alike, and
+    /editors/characters/c1.html and .json alike, and what is below it, and
     /editors/ for one reached as an index, at its slash. Until then url is
     None. One object has one URL: reaching it by another is Aliased, a 500.
 
@@ -208,6 +208,11 @@ class Located:
     # by it: an ETag from the file, as a Persist's is, and not a Resource's,
     # which computes its answers
     cached = False
+
+    def cached_for(self, segments: list[str], state: State) -> bool:
+        """Whether this request, reaching it with segments remaining, reads
+        what its file holds, and is cached by the file: cached, by default."""
+        return self.cached
 
     async def load(self) -> None:
         """Called once, when a request first reaches it: url and file are set."""
@@ -276,7 +281,7 @@ async def _locate(thing: Located, segments: list[str], state: State) -> None:
     # The deepest walked to or through so far: what a write here changes,
     # and whose file -- if it is cached -- says whether a read is fresh
     state["container"] = url
-    state["etag_file"] = thing.file if thing.cached else None
+    state["etag_file"] = thing.file if thing.cached_for(segments, state) else None
 
 
 def answer(

@@ -121,7 +121,7 @@ class TestEditors(unittest.TestCase):
     def test_each_kind_is_its_states_as_json(self):
         _, _, body = self.request("/editors/parties.json")
         self.assertEqual(json.loads(body)["p1"]["members"], ["c1", "c2"])
-        _, _, body = self.request("/editors/deploys/d1/state.json")
+        _, _, body = self.request("/editors/deploys/d1.json")
         self.assertEqual(json.loads(body)["status"], "running")
 
     def test_an_edit_page_is_a_form_filled_from_the_state(self):

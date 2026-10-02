@@ -47,7 +47,7 @@ a change, and in how they answer a `GET`:
 ### 3a. How a resource is persisted
 
 - **Written by `save()`.** `Resource` has a `save()` method that serializes
-  `self.state` to the resource's file, as its `state.json` answers. A handler
+  `self.state` to the resource's file, as its `.json` answers. A handler
   that changes `self.state` -- `handle_POST`, `handle_PUT`, `handle_PATCH`,
   `handle_DELETE` -- is required to call it, `await self.save()`, for the
   change to be kept. One that does not keeps its change in memory and not on
@@ -110,8 +110,9 @@ Everything addressable today stays addressable, and writable as it is:
 
 - plain dicts and lists are traversed as now, and each entry, element and
   scalar inside them has its URL;
-- a resource's state is read at `state.json`, and each entry below it, as
-  `/state/name.txt`;
+- a resource's state is read at its own `.json`, `/editors/characters/c1.json`
+  (it was a child, `state.json`, until state sync made a resource's `.json`
+  its state: [state-sync.md](state-sync.md), part one);
 - `PUT` and `DELETE` on an entry work as now, a list's tombstones and `last`
   included;
 - a `Path`, a file or a directory, is served as it is now.
@@ -150,8 +151,8 @@ everything not inside a persist.
   changed, a fresh 200 if it has.
 - State in memory that is in no file -- plain dicts and lists outside any
   persist or resource -- has no `ETag`.
-- A resource's `state.json`, and the sub-URLs below it, are its file, and
-  have its `ETag` as a persist's do. Its computed HTML is not cached at all
+- A resource's `.json`, when that is its state -- `Resource`'s own
+  `handle_GET` -- is its file, and has its `ETag` as a persist does. Its computed HTML is not cached at all
   by default -- no `ETag` -- since it can depend on more than its own file
   (the editors index shows every character). Each resource subclass decides
   its own caching, setting its own cache headers; that needs a way for a

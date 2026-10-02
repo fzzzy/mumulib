@@ -8,6 +8,7 @@ import unittest.mock
 from pathlib import Path
 from types import MappingProxyType
 
+from mumulib import static
 from mumulib.consumers import GetOnly, RefuseIndex
 from mumulib.resource import Resource
 from mumulib.server import consumers_app
@@ -94,10 +95,10 @@ class TestRender(unittest.TestCase):
         self.assertEqual((status, body), (200, b"<h1>A profile</h1>"))
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
         # A template is HTML, and only HTML: as anything else, not found
-        for path in ("/profile.json", "/profile.txt", "/profile.xml"):
+        for path in ("/profile.txt", "/profile.xml", "/profile.css"):
             self.assertEqual(call(root, "GET", path)[0], 404)
-        # Its state is a child of its own: none, given none
-        _, _, body = call(root, "GET", "/profile/state.json")
+        # As JSON it is its state: none, given none
+        _, _, body = call(root, "GET", "/profile.json")
         self.assertEqual(json.loads(body), {})
 
     def test_render_sees_the_type_in_state(self):
@@ -432,25 +433,26 @@ class TestState(unittest.TestCase):
         self.root = {"people": {"ada": self.ada}}
 
     def test_a_resource_is_its_state_as_json(self):
-        _, _, body = call(self.root, "GET", "/people/ada/state.json")
+        _, _, body = call(self.root, "GET", "/people/ada.json")
         self.assertEqual(json.loads(body)["name"], "Ada")
-        self.assertEqual(
-            call(self.root, "GET", "/people/ada/state/name.txt")[2], b"Ada"
-        )
+        # At its own URL, and nowhere else: no child state, nor below it
+        for path in ("/people/ada/state.json", "/people/ada/state/name.txt"):
+            with self.subTest(path=path):
+                self.assertEqual(call(self.root, "GET", path)[0], 404)
         # And inside other JSON too
         _, _, body = call(self.root, "GET", "/people.json")
         self.assertEqual(json.loads(body), {"ada": self.ada.state})
 
-    def test_the_state_is_read_only_at_every_depth(self):
-        for method, path in [
-            ("PUT", "/people/ada/state.json"),
-            ("DELETE", "/people/ada/state.json"),
-            ("PUT", "/people/ada/state/name.json"),
-            ("POST", "/people/ada/state/name.json"),
-        ]:
-            with self.subTest(method=method, path=path):
-                status, headers, _ = call(self.root, method, path, "Eve")
-                self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+    def test_the_state_is_written_by_its_handlers_alone(self):
+        # Its own URL is its own to answer: refused, with no handler
+        for method in ("PUT", "DELETE"):
+            with self.subTest(method=method):
+                status, headers, _ = call(self.root, method, "/people/ada.json", "Eve")
+                self.assertEqual(status, 405)
+                self.assertNotIn(b"PUT", headers[b"allow"])
+        # And nothing below it is the state's
+        status, _, _ = call(self.root, "PUT", "/people/ada/name.json", "Eve")
+        self.assertEqual(status, 404)
         self.assertEqual(self.ada.state["name"], "Ada")
 
     def test_a_child_state_of_its_own_is_a_childs(self):
@@ -558,7 +560,7 @@ class TestItsUrl(unittest.TestCase):
         call(root, "GET", "/people/ada.html")
         self.assertEqual(profile.url, "/people/ada")
         # Every type of it, and below it, is the same URL
-        for path in ("/people/ada.html", "/people/ada/state.json"):
+        for path in ("/people/ada.html", "/people/ada.json"):
             self.assertEqual(call(root, "GET", path)[0], 200)
         call(root, "PUT", "/people/ada.json", {})
         self.assertEqual(profile.url, "/people/ada")
@@ -587,9 +589,6 @@ class TestItsUrl(unittest.TestCase):
 
 class Named(Resource):
     """Renamed by a POST, which it saves."""
-
-    async def handle_GET(self, request):
-        return self.state
 
     async def handle_POST(self, request):
         self.state["name"] = request["parsed_body"]
@@ -620,7 +619,7 @@ class TestPersistence(unittest.TestCase):
         saved = json.loads((self.data / "people" / "ada.json").read_text())
         self.assertEqual(saved, {"name": "Grace", "seen": {"a": 1}})
         self.assertEqual(
-            json.loads(self.call(root, "GET", "/people/ada/state.json")[2]), saved
+            json.loads(self.call(root, "GET", "/people/ada.json")[2]), saved
         )
         # Nothing left beside it: the temporary file was renamed into place
         self.assertEqual(list((self.data / "people").iterdir()), [ada.file])
@@ -678,14 +677,21 @@ class TestPersistence(unittest.TestCase):
         ada = Named({"name": "Ada"})
         root = {"ada": ada}
         # No file yet: nothing to say whether a copy is fresh
-        self.assertNotIn(b"etag", self.call(root, "GET", "/ada/state.json")[1])
+        self.assertNotIn(b"etag", self.call(root, "GET", "/ada.json")[1])
         self.call(root, "POST", "/ada.json", "Grace")
-        _, headers, _ = self.call(root, "GET", "/ada/state.json")
+        _, headers, _ = self.call(root, "GET", "/ada.json")
         self.assertEqual(headers[b"cache-control"], b"no-cache")
-        etag = headers[b"etag"]
-        self.assertEqual(
-            self.call(root, "GET", "/ada/state/name.txt")[1][b"etag"], etag
-        )
-        # What it computes, at its own URL, is not the file's to vouch for
-        for path in ("/ada.json", "/ada.html"):
-            self.assertNotIn(b"etag", self.call(root, "GET", path)[1])
+        self.assertEqual(headers[b"etag"], static.file_etag(self.data / "ada.json"))
+        # Its page is computed, and not the file's to vouch for
+        self.assertNotIn(b"etag", self.call(root, "GET", "/ada.html")[1])
+
+    def test_json_of_its_own_is_not_cached_by_the_file(self):
+        class Computed(Named):
+            async def handle_GET(self, request):
+                return {"computed": True}
+
+        thing = Computed({"name": "Ada"})
+        self.call({"c": thing}, "POST", "/c.json", "Grace")
+        _, headers, body = self.call({"c": thing}, "GET", "/c.json")
+        self.assertEqual(json.loads(body), {"computed": True})
+        self.assertNotIn(b"etag", headers)

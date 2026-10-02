@@ -120,17 +120,17 @@ class Site(Resource):
     child_profile = Profile({"name": "Ada"})
 
 
-app = consumers_app(Site())  # /, /profile.html, /profile/state.json, /profile/name.txt
+app = consumers_app(Site())  # /, /profile.html, /profile.json, /profile/name.txt
 ```
 
 `handle_GET` renders `template`; every other method is 405, with `Allow` naming `GET` and whatever the subclass handles.
 Handlers are `async def`, and `render` awaits them. What a handler returns is
 produced as though it had been published there, of the URL's type: the
-request says which, in `"content_type"` and `"extension"`. The state is
-published as a child of its own, read-only: `/profile/state.json`, and
-`/profile/state/name.txt` below it; only the resource's handlers change it,
-and a `child_state` of its own takes its place. Inside any other JSON a
-resource is its state, so a dict of resources is a JSON document of theirs. A form is read with `self.form(request)`: `form.text("name")`, stripped, and
+request says which, in `"content_type"` and `"extension"`. The base
+`handle_GET` answers `.html` with the template and `.json` with the state,
+`/profile.json`, read-only -- only the resource's handlers change it -- and
+anything else is not found. Inside any other JSON a resource is its state,
+so a dict of resources is a JSON document of theirs. A form is read with `self.form(request)`: `form.text("name")`, stripped, and
 `form.texts("tags")`, every value sent as `tags[]` or `tags`. A form with
 `attr="action=url"` posts back to its own page, the `url` slot every
 resource has, and its post is answered with `self.see_other(url)`, 303 See
@@ -173,7 +173,7 @@ class Character(Resource):
         self.see_other("/editors/")
 ```
 
-`save()` writes the state as `state.json` answers it, atomically: to a
+`save()` writes the state as `/<resource>.json` answers it, atomically: to a
 temporary file beside it, then renamed into place, so the file is the state
 before or the state after. Nothing else saves: a change not saved is gone
 when the process is. A resource no request has reached has no file, and
@@ -201,7 +201,7 @@ whole document to the file, atomically, before it is answered. A `PUT
 ### Caching
 
 What a file holds is cached by it. A `GET` of a persist, or of anything
-below it, and of a resource's `state.json` or anything below that, is
+below it, and of a resource's own `.json`, when that is its state, is
 answered with the file's `ETag` -- its modification time and size, so a
 write is a new one -- and `Cache-Control: no-cache`, so the client asks
 each time; asked with `If-None-Match` naming it, the answer is 304 Not

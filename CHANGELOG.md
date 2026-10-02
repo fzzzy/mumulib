@@ -157,8 +157,8 @@ Python package). Breaking changes come first under each release.
   subclass is registered as it is defined. Handlers are `async def`. A parsed
   template is filled from `slot_<name>` methods and values, with
   `pattern(name, **slots)` for copies of its patterns. Its state is a dict
-  given to the constructor: read-only at its child `state.json`, its JSON
-  inside any other JSON, and what slots with no `slot_` are filled from. Handlers are
+  given to the constructor: read-only as its own `.json`, `/profile.json`,
+  its JSON inside any other JSON, and what slots with no `slot_` are filled from. Handlers are
   given the request. `see_other(url)` answers a form post with 303 See Other;
   `form(request)` reads one, with `text(name)` and `texts(name)`; and the
   `url` slot is the request's own URL, for a form that posts back.
@@ -185,7 +185,7 @@ Python package). Breaking changes come first under each release.
   sets the document and writes the file again, atomically; a `PUT` at its
   URL replaces it. JSON only, for now.
 - **Caching by the file**: a `GET` of a persist or below it, or of a
-  resource's `state.json` or below it, has an `ETag` from the file's
+  resource's own `.json` when that is its state, has an `ETag` from the file's
   modification time and size and `Cache-Control: no-cache`, and is 304 Not
   Modified to an `If-None-Match` naming it. What a resource computes is not
   cached.

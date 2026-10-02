@@ -82,7 +82,7 @@ test.describe('The editors example', () => {
     const names = await Promise.all(
       [c, 'c3'].map(async (id) => {
         const r = await page.request.get(
-          `${EDITORS}/editors/characters/${id}/state.json`
+          `${EDITORS}/editors/characters/${id}.json`
         )
         return (await r.json()).name as string
       })
@@ -99,7 +99,7 @@ test.describe('The editors example', () => {
   }, info) => {
     const { d } = OWN[info.project.name]
     const before = await (
-      await page.request.get(`${EDITORS}/editors/deploys/${d}/state.json`)
+      await page.request.get(`${EDITORS}/editors/deploys/${d}.json`)
     ).json()
     await page.goto(INDEX)
     const form = await edit(page, 'deploys', d)
@@ -113,7 +113,7 @@ test.describe('The editors example', () => {
     })
     await expect(row).toContainText(party === 'p1' ? 'Reviewers' : 'Operators')
     const after = await (
-      await page.request.get(`${EDITORS}/editors/deploys/${d}/state.json`)
+      await page.request.get(`${EDITORS}/editors/deploys/${d}.json`)
     ).json()
     expect(after).toEqual({ ...before, party })
   })
@@ -126,7 +126,7 @@ test.describe('The editors example', () => {
     await page.getByRole('link', { name: 'Cancel' }).click()
     await page.waitForURL(INDEX)
     const kept = await (
-      await page.request.get(`${EDITORS}/editors/characters/${c}/state.json`)
+      await page.request.get(`${EDITORS}/editors/characters/${c}.json`)
     ).json()
     expect(kept.agent_args).not.toBe('--cancelled')
   })
@@ -194,7 +194,7 @@ test.describe('The editors example', () => {
     })
     // A change to a deploy: nothing on this page watches it
     const deploy = await (
-      await page.request.get(`${EDITORS}/editors/deploys/${d}/state.json`)
+      await page.request.get(`${EDITORS}/editors/deploys/${d}.json`)
     ).json()
     await page.request.post(`${EDITORS}/editors/deploys/${d}.html`, {
       form: { name: deploy.name, party: deploy.party },

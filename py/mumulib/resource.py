@@ -2,9 +2,9 @@
 
 A subclass of Resource names its children as attributes, child_<name>, and
 answers a request that ends at it with render(request), which calls
-handle_<METHOD>(request): handle_GET renders its template, and every other
-method is refused unless the subclass says how to answer it. Its state is a
-dict given to the constructor, and read at its child state.json.
+handle_<METHOD>(request): handle_GET renders its template as HTML, and its
+state as JSON, and every other method is refused unless the subclass says
+how to answer it. Its state is a dict given to the constructor.
 
     class Profile(Resource):
         template = "<h1>Ada</h1>"
@@ -28,11 +28,9 @@ from collections.abc import AsyncIterator, Iterator
 from typing import Any, NoReturn, cast
 
 from mumulib.consumers import (
-    GetOnly,
     Located,
     add_consumer,
     consume,
-    refuse,
     write_atomically,
 )
 from mumulib.mumutypes import Chunk, NotFoundResponse, Send, SpecialResponse, State
@@ -79,9 +77,9 @@ class Resource(Located):
     registered would not reach a subclass. Resource is registered too.
 
     Its state is a dict, given to the constructor: Resource({"name": "Ada"}).
-    It is published read-only as the child state -- /<resource>/state.json
-    -- and is the resource's JSON inside any other JSON, and what a
-    template's slots are filled from when there is no slot_ for them. The
+    It is the resource's JSON, /<resource>.json, read-only -- written only
+    by its handlers -- and what a template's slots are filled from when
+    there is no slot_ for them. The
     request a handler is given is another thing, and is called request here
     to keep the two apart.
 
@@ -113,7 +111,7 @@ class Resource(Located):
             self.state = json.loads(self.file.read_text(encoding="utf-8"))
 
     async def save(self) -> None:
-        """Write self.state to its file, whole, as its state.json answers.
+        """Write self.state to its file, whole, as its .json answers.
 
         Atomic: the file is the state before or the state after, never part
         of either. A resource no request has reached yet has no file, and
@@ -127,26 +125,23 @@ class Resource(Located):
         write_atomically(self.file, json.dumps(self.state, default=custom_serializer))
 
     async def get_child(self, segments: list[str], request: State, send: Send) -> Any:
-        """The child the next segment names, or None: its child_ attribute,
-        or for state, with no child_state, the resource's state, read-only.
+        """The child the next segment names, its child_ attribute, or None.
 
         The prefix keeps what can be reached to what was meant to be:
-        /__class__.html is child___class__, which is nothing. The state is
-        read at /<resource>/state.json, and below it, /state/name.txt; it is
-        written only by the resource's own handlers, which say what may be.
+        /__class__.html is child___class__, which is nothing.
         """
-        name = segments[0]
-        child = getattr(self, f"child_{name}", None)
-        if child is None and name == "state":
-            if len(segments) == 1 and request.get("method", "GET").upper() != "GET":
-                # The state itself is not replaced: GetOnly guards below it,
-                # and here, its own name in this resource, is refused too
-                return refuse("GET")
-            # The state is what the file holds: it and below it are cached
-            # by the file, as the resource's computed answers are not
-            request["etag_file"] = self.file
-            return GetOnly(self.state)
-        return child
+        return getattr(self, f"child_{segments[0]}", None)
+
+    def cached_for(self, segments: list[str], state: State) -> bool:
+        """A GET of its .json, when that is its state -- Resource's own
+        handle_GET -- is its file's, and cached by it; what it computes, its
+        page and a subclass's own JSON, is not."""
+        return (
+            not segments
+            and state.get("method") == "GET"
+            and state.get("extension") == "json"
+            and type(self).handle_GET is Resource.handle_GET
+        )
 
     async def render(self, request: State) -> Any:
         """The answer to a request that ends here: its method's handler's.
@@ -162,11 +157,13 @@ class Resource(Located):
         return await _settled(handler(request))
 
     async def handle_GET(self, request: State) -> Any:
-        """The template, as HTML and nothing else: a parsed one filled from
+        """Its state, as JSON; as HTML its template, a parsed one filled from
         slot_ names and the state, or a string of it, the resource's own
-        markup. As any other type it is not found -- a page is not JSON, or
-        text. The state as data is a child of its own, state.json."""
-        if request.get("extension", "html") != "html":
+        markup. As anything else it is not found: a page is not text."""
+        extension = request.get("extension", "html")
+        if extension == "json":
+            return self.state
+        if extension != "html":
             raise NotFoundResponse()
         if isinstance(self.template, Stan):
             return await self.fill(self.template, request)
