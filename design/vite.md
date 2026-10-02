@@ -48,12 +48,12 @@ Three reasons, from the review of this doc against the others:
 ### 3. Vite's dev server has a port of its own, always the same
 
 The Vite dev server runs on one fixed port, chosen to be unlikely to collide
-with other projects' servers, and always that one.
+with other projects' servers, and always that one: 5757.
 
 ### 4. Production by default, development by an environment variable
 
 The Python server is in production mode unless an environment variable says
-development.
+development: `MUMULIB_DEVELOPMENT=1`.
 
 ### 5. Bundled and code-split from the start
 
@@ -78,8 +78,8 @@ production by reading Vite's build of it from disk. Python does not fill or
 change it.
 
 `Page`, the class, and `tags.page()`, the Stan function, are different
-things, and differ at least by case. `Page` goes in a new module, for things
-served from disk that are not persists; its name is not chosen yet.
+things, and differ at least by case. `Page` goes in a new module, `static`, for
+things served from disk that are not persists.
 
 ### 7. A Vite page is kept up to date by state sync, not live.js
 
@@ -100,7 +100,6 @@ the change stream.
 
 ## Open questions
 
-1. **The new module's name**, for things served from disk that are not
-   persists.
-2. **Vite's port**: which number.
-3. **The environment variable** that says development: its name.
+1. **How a Page gets its HTML in development.** Python asking Vite's dev
+   server for it, a page linking Vite's client and entry itself, or a
+   redirect to Vite: to be worked out when it is built, by what works.
