@@ -15,7 +15,7 @@ answers 303 See Other, back to /editors/:
     POST /editors/parties/p1.html           name=...&members[]=c1&members[]=c2
     GET  /editors/deploys/d1.html           a deploy's, its status shown
     POST /editors/deploys/d1.html           name=...&party=p2
-    GET  /editors/characters.json           {"c1": {"name": ..., ...}, ...}
+    GET  /editors/characters.json           {"c1": "/editors/characters/c1.json", ...}
     GET  /editors/characters/c1.json        {"name": ..., ...}, read-only
     GET  /editors/style.css                 editors/style.css
     GET  /mumulib/changes.sse               the URL of each change, as it is made

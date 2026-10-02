@@ -756,15 +756,16 @@ def _walked(thing: Any, segments: list[str], state: State) -> None:
 def parent_link(state: State) -> str | None:
     """Where a listing's parent is shown, for its Parent Directory link:
     the last object walked through above the listed one -- a container at
-    its slash, anything else with HTML at its .html, as a resource's page is
-    -- or None, at the root, or when the parent has no page to show."""
+    its slash, and so a resource with a child_index, its page there;
+    anything else with HTML at its .html, as a resource's page is -- or
+    None, at the root, or when the parent has no page to show."""
     listed = container_url(state.get("url", "/")).rstrip("/") or "/"
     if listed == "/":
         return None
     for thing, url in reversed(state.get("walked", [])):
         if url == listed:
             continue
-        if is_container(thing):
+        if is_container(thing) or getattr(thing, "child_index", None) is not None:
             return url if url == "/" else f"{url}/"
         if can_produce(thing, "text/html"):
             return f"{url}.html"

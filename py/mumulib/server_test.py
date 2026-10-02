@@ -2207,14 +2207,22 @@ class TestTextAndListings(unittest.TestCase):
         class Page(Resource):
             child_items = ["a"]
 
+        class Indexed(Resource):
+            child_index = Markup("<h1>Its page</h1>")
+            child_items = ["a"]
+
         root = {
             "page": Page(),
+            "indexed": Indexed(),
             "guarded": GetOnly({"inner": {"x": 1}}),
             "kept": Persist({"sub": {"x": 1}}),
         }
         # A resource is named as a file: its page, not a slash it has not got
         _, _, body = asyncio.run(get(root, "/page/items/"))
         self.assertIn(b'<a href="/page.html">Parent Directory</a>', body)
+        # Unless its page is its index, at its slash
+        _, _, body = asyncio.run(get(root, "/indexed/items/"))
+        self.assertIn(b'<a href="/indexed/">Parent Directory</a>', body)
         # A guard at a container's URL is that container: the parent above it
         _, _, body = asyncio.run(get(root, "/guarded/inner/"))
         self.assertIn(b'<a href="/guarded/">Parent Directory</a>', body)
