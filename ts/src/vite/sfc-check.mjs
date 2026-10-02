@@ -284,7 +284,7 @@ async function main(argv) {
   console.log(
     errors.length
       ? `${errors.length} error${errors.length === 1 ? '' : 's'} in ${files.length} component${s}${where}.`
-      : `${files.length} component${s}${where}, no type errors.`
+      : `${files.length} component${s}${where}, no type errs.`
   )
   if (declarations) {
     const written = await writeDeclarations(files, { project })
