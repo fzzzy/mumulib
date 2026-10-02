@@ -16,8 +16,6 @@ DELETE removes one -- so this one is wrapped in GetOnly, which hands GET on
 to the dict and refuses anything else.
 """
 
-from mumulib.consumers import GetOnly
-from mumulib.server import consumers_app
-from mumulib.tags import Markup
+from mumulib import consumers, server, tags
 
-app = consumers_app(GetOnly({"index": Markup("Hello, world!")}))
+app = server.consumers_app(consumers.GetOnly({"index": tags.Markup("Hello, world!")}))
