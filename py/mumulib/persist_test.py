@@ -6,9 +6,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from mumulib import persist
+from mumulib import persist, static
 from mumulib.persist import Persist
-from mumulib.server import EventSource, _is_fresh, consumers_app
+from mumulib.server import EventSource, consumers_app
+from mumulib.static import is_fresh as _is_fresh
 
 
 class PersistCase(unittest.TestCase):
@@ -69,7 +70,7 @@ class TestPersist(PersistCase):
         # Written by hand: what is served is the file's bytes, not the
         # document's JSON made again
         (self.data / "people.json").write_text('{"spaced" :  1}')
-        with mock.patch.object(persist, "CHUNK_SIZE", 4):
+        with mock.patch.object(static, "CHUNK_SIZE", 4):
             status, headers, bodies, body = self.call("GET", "/people.json")
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")

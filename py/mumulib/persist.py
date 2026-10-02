@@ -29,8 +29,6 @@ import json
 from collections.abc import AsyncIterator
 from typing import Any
 
-import aiofiles
-
 from mumulib.consumers import (
     Located,
     add_consumer,
@@ -42,17 +40,14 @@ from mumulib.consumers import (
 from mumulib.mumutypes import (
     Chunk,
     NotFoundResponse,
-    Receive,
     Send,
     SpecialResponse,
     State,
 )
 from mumulib.producers import add_json_form, add_producer
+from mumulib.static import stream
 
 __all__ = ["Persist"]
-
-# How much of the file each body message carries
-CHUNK_SIZE = 64 * 1024
 
 
 class Persist(Located):
@@ -111,22 +106,13 @@ async def _produce_persist(thing: Persist, state: State) -> AsyncIterator[Chunk]
     if thing.file is None:
         yield json.dumps(thing.document)
         return
-    file = thing.file
-
-    async def stream(send: Send, receive: Receive) -> None:
-        # The file as it is on disk, a chunk at a time
-        async with aiofiles.open(file, "rb") as opened:
-            while chunk := await opened.read(CHUNK_SIZE):
-                await send(
-                    {"type": "http.response.body", "body": chunk, "more_body": True}
-                )
-
     start = {
         "type": "http.response.start",
         "status": 200,
         "headers": [(b"content-type", b"application/json")],
     }
-    yield SpecialResponse(start, b"", stream)
+    # The file as it is on disk, a chunk at a time
+    yield SpecialResponse(start, b"", stream(thing.file))
 
 
 # A persist answers every method at its own URL: the dict or list it is in

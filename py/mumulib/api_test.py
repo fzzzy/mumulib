@@ -32,6 +32,7 @@ PUBLIC = {
     },
     "server": {"consumers_app", "EventSource"},
     "persist": {"Persist"},
+    "static": {"Page", "VITE_DEV_SERVER", "VITE_BASE"},
     "consumers": {
         "consume",
         "add_consumer",

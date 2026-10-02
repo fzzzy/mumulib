@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import signal
 import threading
 import traceback
@@ -21,6 +22,7 @@ from mumulib.mumutypes import (
     content_type_for,
 )
 from mumulib.producers import add_producer, custom_serializer, produce
+from mumulib.static import VITE_BASE, cache_headers, file_of, is_fresh, serve_vite
 
 # The public API: Publishing an object, and streaming events from it. The body
 # parsers and path helpers are the app's own.
@@ -246,27 +248,14 @@ def _announce_changes(send: Send, changes: "EventSource", state: State) -> Send:
     return announcing_send
 
 
-def _cache_headers(state: State) -> list[tuple[bytes, bytes]] | None:
+def _cache_headers(state: State, result: Any) -> list[tuple[bytes, bytes]] | None:
     """ETag and Cache-Control for a GET of something a file holds: a
-    Persist, or below it, or a Resource's state. The ETag is the file's
-    modification time and size, so any write to it is a new one; no-cache
-    has the client ask each time, with If-None-Match. None for anything
-    else -- what is computed, or held in memory alone."""
-    file: Path | None = state.get("etag_file")
+    Persist, or below it, a Resource's state, or a built Vite page. None
+    for anything else -- what is computed, or held in memory alone."""
+    file: Path | None = state.get("etag_file") or file_of(result, state)
     if state.get("method") != "GET" or file is None or not file.exists():
         return None
-    stat = file.stat()
-    etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'.encode()
-    return [(b"etag", etag), (b"cache-control", b"no-cache")]
-
-
-def _is_fresh(etag: bytes, headers: list[tuple[bytes, bytes]]) -> bool:
-    """Whether If-None-Match names etag, or is *: the client has it."""
-    for key, value in headers:
-        if key.lower() == b"if-none-match":
-            tags = [tag.strip().removeprefix(b"W/") for tag in value.split(b",")]
-            return etag in tags or b"*" in tags
-    return False
+    return cache_headers(file)
 
 
 def _with_headers(send: Send, headers: list[tuple[bytes, bytes]]) -> Send:
@@ -281,9 +270,18 @@ def _with_headers(send: Send, headers: list[tuple[bytes, bytes]]) -> Send:
 
 
 def consumers_app(
-    root: Any, changes: "EventSource | None" = None, data: str | Path = "var/data"
+    root: Any,
+    changes: "EventSource | None" = None,
+    data: str | Path = "var/data",
+    vite: str | Path | None = None,
 ) -> ASGIApp:
     """The ASGI app publishing root.
+
+    vite is the directory Vite builds its pages into, for each Page in root
+    and for /vite/, which is then the app's own, ahead of anything in root:
+    in production what Vite built is served from there. With
+    MUMULIB_DEVELOPMENT=1 in the environment as the app is made, it is in
+    development instead, and a Page is asked of Vite's dev server.
 
     data is the directory each Located object -- each Resource -- keeps its
     file in, named by its URL: var/data/editors/characters/c1.json. It is
@@ -298,6 +296,8 @@ def consumers_app(
     to date by it -- a page made with tags.page(..., live=True) links it.
     """
     data_directory = Path(data).resolve()
+    vite_directory = Path(vite).resolve() if vite is not None else None
+    development = os.environ.get("MUMULIB_DEVELOPMENT") == "1"
     mumulib = (
         GetOnly({"changes": changes, "live": LIVE_SCRIPT})
         if changes is not None
@@ -325,6 +325,12 @@ def consumers_app(
 
         state["url"] = scope["path"]
         state["method"] = scope["method"]
+        state["vite"] = vite_directory
+        state["development"] = development
+        # Vite's URLs, not the tree's: no extension names their type
+        if vite_directory is not None and scope["path"].startswith(VITE_BASE):
+            await serve_vite(scope, send, receive, vite_directory, development)
+            return
         parsed = split_path(scope["path"])
         content_type = content_type_for(parsed[1]) if parsed else None
         if parsed is None or content_type is None:
@@ -399,9 +405,9 @@ def consumers_app(
             )
             return
 
-        cache = _cache_headers(state)
+        cache = _cache_headers(state, result)
         if cache is not None:
-            if _is_fresh(cache[0][1], scope["headers"]):
+            if is_fresh(cache[0][1], scope["headers"]):
                 await send(
                     {"type": "http.response.start", "status": 304, "headers": cache}
                 )
