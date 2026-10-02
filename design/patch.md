@@ -1,10 +1,10 @@
 # PATCH
 
-Status: design to come, after the rest of persistence is built. Started
-2026-10-01.
+Status: design to come, and lower priority: a `PUT` to each sub-URL already
+changes one field at a time. Started 2026-10-01.
 
 Changing several fields of a container in one atomic write. Moved here from
-the persistence design, to be designed and built last.
+the persistence design, to be designed and built when it is needed.
 
 ## Decided so far
 

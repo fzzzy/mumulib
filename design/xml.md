@@ -5,12 +5,11 @@ Status: built. Started 2026-10-01.
 An XML representation of the same objects, beside JSON and HTML, for
 consumers that read it best -- language models among them.
 
-## What the code does today
+## What the code did before
 
-- `.xml` names `text/xml`, from Python's `mimetypes`.
-- No type has an XML producer: a dict at `.xml` is not found.
-- A string is text, at `.txt`, and JSON, and not found as anything else, so
-  `/motto.xml` is not found.
+- `.xml` named `text/xml` or `application/xml`, from Python's `mimetypes`,
+  by whether it had yet read the machine's table.
+- No type had an XML producer: a dict at `.xml` was not found.
 
 ## Decisions
 
@@ -28,22 +27,23 @@ look alike, deep in a document. So an agent can ask for `.xml`, the
 TypeScript client `.json` and a browser `.html`, all of the same object --
 each asking by the URL's extension, as everything in mumulib does.
 
-### 3. A convention of mumulib's own, and narrow
+### 3. Narrow, and on a common convention
 
-The XML serializer does not take on JSON-to-XML in general (JsonML,
-BadgerFish, Parker, the W3C `json-to-xml` schema). It serializes the shapes
-mumulib itself produces -- containers, scalars, and the tagged values links
-are -- and mirrors the decisions already made for JSON: a link is a link,
-not inlined.
+The XML serializer does not take on JSON-to-XML in general, XML's
+attributes and mixed content and the rest. It serializes the shapes mumulib
+itself produces -- dicts, lists and scalars -- and mirrors the decisions
+already made for JSON: a resource or persist in a plain dict is its URL,
+not inlined. It invents no convention of its own: it writes the common one
+(decision 5), with the W3C `json-to-xml` form's answer for keys that are no
+names (decision 7).
 
-### 4. Dictionaries only (tentative)
+### 4. Dictionaries only
 
-The XML serializer serializes dictionaries, and nothing else: a scalar at
-`.xml` -- `/motto.xml` -- is not found, as anything with no producer for a
-type is, as a string is at every type but `.txt` and `.json`. A serializer,
-then, may take only some kinds of object.
-
-Tentative: to be confirmed when the XML convention itself is settled.
+The XML serializer serializes dictionaries, and nothing else, so a document
+always has one root: a list or a scalar at `.xml` -- `/motto.xml` -- is not
+found, as anything with no producer for a type is, as a string is at every
+type but `.txt` and `.json`. A serializer, then, may take only some kinds
+of object. Inside a dict, lists and scalars are written as any value is.
 
 ### 5. Each key is an element's name
 

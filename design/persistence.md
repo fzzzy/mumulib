@@ -1,12 +1,12 @@
 # Persistence
 
 Status: built, but for a persist's `.html` (a TODO) and `PATCH`
-([patch.md](patch.md)). Started 2026-10-01.
+([patch.md](patch.md), lower priority). Started 2026-10-01.
 
 How state outlives the process: graduating from objects in RAM to JSON
 documents on disk.
 
-## What the code does today
+## What the code did before
 
 - All state is in memory: plain dicts and lists, and each `Resource`'s
   `self.state`, given to its constructor. Nothing is written to disk, and a
@@ -42,7 +42,7 @@ a change, and in how they answer a `GET`:
   `self.state` in memory and renders from it. It is for what is calculated
   dynamically.
 - A **Persist** is plain durable data, and answers a `GET` with its file as it
-  is, sent with `sendfile`.
+  is, streamed from disk (decision 10).
 
 ### 3a. How a resource is persisted
 
@@ -63,6 +63,9 @@ a change, and in how they answer a `GET`:
   memory, and the first change creates the file.
 - **A resource is a container**, as a persist is: a write to it announces its
   own URL (decision 8), and its file gives it its `ETag` (decision 9).
+- **Its state is plain JSON**: it holds no resource or persist
+  ([state-sync.md](state-sync.md), decision 14). Saving one that does is a
+  `TypeError` naming where.
 - **Where.** Every file is under one data directory, `./var/data` unless
   `consumers_app(..., data=...)` names another -- as tests do, a temporary
   directory of their own -- at the path its URL gives it:
@@ -71,20 +74,24 @@ a change, and in how they answer a `GET`:
 ### 3b. How a persist is persisted
 
 A persist's file is its state, so there is nothing to ask for after a change:
-its mutation implementation writes the file itself. A `PATCH` is applied to
-the loaded document, a sub-URL `PUT` sets one value in it, and the document
-is written (to a temporary file, then renamed over the old).
+its mutation implementation writes the file itself. A sub-URL `PUT` or
+`DELETE` changes one value in the loaded document, and the document is
+written (to a temporary file, then renamed over the old). A `PUT` at the
+persist's own URL replaces the document whole. A `PATCH`, changing several
+values at once, is [patch.md](patch.md)'s. Its document, like a resource's
+state, holds no resource or persist.
 
 A persist can be given its content in Python, as a resource is given its
-state. Since it answers a `GET` with `sendfile`, it needs its file to exist:
+state. Since it answers a `GET` from its file, it needs its file to exist:
 so on its first request -- when it learns its URL, lazily (decision 4) -- a
 persist with no file on disk writes the content it was given to its file
 then and there, and serves the file from then on. If the file is already
 there, a later run, the file is the truth and the content given in Python
 is not used, as a resource's file wins over its constructor's state.
 
-Persist starts with JSON alone: its `.json` is its file as it is. Anything
-that does not fit that is marked TODO for now.
+Persist starts with JSON alone: its `.json` is its file as it is. Its `.xml`,
+when its document is a dict, is the document as XML ([xml.md](xml.md)).
+Anything that does not fit that is marked TODO for now.
 
 - TODO: a persist's `.html`, which has to be rendered from its state, so its
   file parsed -- presumably from a template, as a resource's is.
@@ -92,8 +99,9 @@ that does not fit that is marked TODO for now.
 ### 4. A persist or resource learns its URL on first access, and loads then
 
 A persist's or resource's URL -- and so its file -- is not its own: it is
-where it sits in the tree, which is the path walked to reach it. So it is bound when traversal
-first delivers a request to it, carrying the path walked, and its state is
+where it sits in the tree, which is the path walked to reach it. So it is
+bound when traversal first delivers a request to it, carrying the path
+walked, and its state is
 loaded from its file then: identity and hydration happen together, lazily.
 
 ### 5. One object, one URL
@@ -109,17 +117,20 @@ would be one object with two identities.
 Everything addressable today stays addressable, and writable as it is:
 
 - plain dicts and lists are traversed as now, and each entry, element and
-  scalar inside them has its URL;
+  scalar inside them has its URL -- a scalar's at `.txt` and `.json` alone,
+  never `.html`, where a visitor's text would be markup;
 - a resource's state is read at its own `.json`, `/editors/characters/c1.json`
   (it was a child, `state.json`, until state sync made a resource's `.json`
   its state: [state-sync.md](state-sync.md), part one);
 - `PUT` and `DELETE` on an entry work as now, a list's tombstones and `last`
   included;
-- a `Path`, a file or a directory, is served as it is now.
+- a `Path`, a file or a directory, is served as it is now -- a file at its
+  extension on disk alone.
 
 ### 7. Writing: whole-container commits, PATCH for several fields
 
-- A sub-URL's **container** is the nearest persist above it.
+- A sub-URL's **container** is the nearest resource or persist at or above
+  it.
 - `PATCH` on a container, to change several of its fields in one atomic
   write, is designed in [patch.md](patch.md), and built last.
 - `PUT` on a sub-URL stays, for the convenient one-field change.
@@ -129,13 +140,15 @@ Everything addressable today stays addressable, and writable as it is:
 
 ### 8. Liveness: a write announces its container
 
-A write to a sub-URL inside a persist announces the **container's** URL, not
-the sub-URL: `PUT /characters/c1/name.json`, `c1` being a persist, announces
-`/characters/c1`. So an element watching `/characters/c1` hears every change
-to it, wherever in it the change was made.
+A write announces its **container's** URL, the nearest resource or persist
+at or above what was written, not the sub-URL: `PUT
+/characters/c1/name.json`, `c1` being a persist, announces `/characters/c1`.
+So an element watching `/characters/c1` hears every change to it, wherever
+in it the change was made. A write to a resource, answered by its own
+handler, announces the resource.
 
-A write with no persist above it announces `/`: the root is the container of
-everything not inside a persist.
+A write with neither above it announces `/`: the root is the container of
+everything not inside a resource or a persist.
 
 ### 9. Caching: sub-URLs share their container's ETag
 
@@ -151,8 +164,9 @@ everything not inside a persist.
   changed, a fresh 200 if it has.
 - State in memory that is in no file -- plain dicts and lists outside any
   persist or resource -- has no `ETag`.
-- A resource's `.json`, when that is its state -- `Resource`'s own
-  `handle_GET` -- is its file, and has its `ETag` as a persist does. Its computed HTML is not cached at all
+- A resource's `.json` and `.xml`, when they are its state -- `Resource`'s
+  own `handle_GET` -- are its file, and have its `ETag` as a persist does;
+  so do a persist's. A resource's computed HTML is not cached at all
   by default -- no `ETag` -- since it can depend on more than its own file
   (the editors index shows every character). Each resource subclass decides
   its own caching, setting its own cache headers; that needs a way for a

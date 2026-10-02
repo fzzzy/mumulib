@@ -3,7 +3,9 @@
 Status: built (`live.js`). Started 2026-10-01.
 
 How a page's elements keep themselves up to date when the server's state
-changes, using `consumers_app(changes=...)` and mumulib's `live.js`.
+changes, using `consumers_app(changes=...)` and mumulib's `live.js`. It is
+for pages Python renders, in Stan; a Vite page is kept up to date by state
+sync instead ([vite.md](vite.md), decision 7).
 
 ## What the code did before
 
@@ -34,12 +36,12 @@ So on `/editors/characters/c1.html`, a `data-live` with no value watches
 ### What an event announces
 
 Which URL a change announces is the persistence design's
-([persistence.md](persistence.md), decision 8): a write inside a persist
-announces that persist's URL, wherever in it the write was made, and a write
-with no persist above it announces `/`. So a `PUT` to `/users/42/name`,
-`/users/42` being a persist, announces `/users/42`, and the element watching
-`/users/42` is refreshed: matching stays exact, and the persist is what is
-announced.
+([persistence.md](persistence.md), decision 8): a write announces its
+container, the nearest resource or persist at or above what was written,
+wherever in it the write was made, and a write with neither above it
+announces `/`. So a `PUT` to `/users/42/name.json`, `/users/42` being a
+persist, announces `/users/42`, and the element watching `/users/42` is
+refreshed: matching stays exact, and the container is what is announced.
 
 ### A match refetches the current page
 
@@ -62,11 +64,12 @@ As today: a page with no live element opens no stream.
 ## What it means for the editors example
 
 The index's tables have no URL of their own that an edit announces -- an
-edit announces the persist it is inside -- so each **row** is the live
+edit announces the resource it is made to -- so each **row** is the live
 element, watching its own object: the row for `c1` is
-`<tr id="character-c1" data-live="/editors/characters/c1">`. An edit inside
-the persist `/editors/characters/c1` refetches `/editors/` and replaces that
-row alone.
+`<tr id="characters-c1" data-live="/editors/characters/c1">`. An edit to the
+resource `/editors/characters/c1` refetches `/editors/` and replaces that
+row alone. Each edit page's heading is live with no value, so it watches the
+page's own URL, its object's.
 
 A row shows what it watches, and nothing else is kept up to date by it: a
 party's row lists its members' names but watches the party, so renaming a

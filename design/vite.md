@@ -3,10 +3,11 @@
 Status: built. Started 2026-10-01.
 
 How a page served by the Python server becomes a TypeScript app built by
-Vite: proxied to Vite's dev server, with hot reloading, while developing,
-and read from Vite's build in production.
+Vite: its HTML served by Python, and its modules and hot reloading from
+Vite's dev server directly, while developing; read from Vite's build in
+production.
 
-## What the code does today
+## What the code did before
 
 - The Python server and Vite run separately: `make run` starts Vite on 8000
   for `ts/examples` and a Python example on 5959. Neither serves the other's
@@ -24,8 +25,9 @@ and read from Vite's build in production.
 
 ### 1. Everything Vite serves is under one prefix, /mumulib-vite/
 
-Vite's `base` is `/mumulib-vite/`, so everything it serves is under that one prefix:
-in development its own client and helpers, every source module (which Vite
+Vite's `base` is `/mumulib-vite/`, so everything it serves is under that
+one prefix: in development its own client and helpers, every source module
+(which Vite
 otherwise serves at its file path, `/src/index.ts`, where it could collide
 with the tree) and the HMR websocket; in production the built chunks and
 assets, `/mumulib-vite/assets/...`.
@@ -41,8 +43,9 @@ Three reasons, from the review of this doc against the others:
 - Python reloads, with `--reload`, on every change to its code. A websocket
   through it would be cut each time, and would hold up each reload's
   graceful shutdown, as event streams did, until it was closed.
-- Vite's URLs do not follow the Python server's: `/mumulib-vite/@vite/client` has no
-  extension, others carry queries, and a `.ts` is served as JavaScript.
+- Vite's URLs do not follow the Python server's:
+  `/mumulib-vite/@vite/client` has no extension, others carry queries, and
+  a `.ts` is served as JavaScript.
 - No ASGI proxy for HTTP and websockets is needed.
 
 ### 3. Vite's dev server has a port of its own, always the same
@@ -93,10 +96,10 @@ bound to URLs, fetched again when the change stream announces them.
 ### 8. Past the HTML, the TypeScript world
 
 Once the HTML is served, the page is Vite's and TypeScript's: its modules,
-its `.sfc.html` imports, mumulib's `state` and `patslot`. It talks back to
-the Python server over Ajax -- `GET`, `PUT` and `PATCH`
-([patch.md](patch.md), later) against the published tree -- and listens to
-the change stream.
+its `.sfc.html` imports, mumulib's `state`, `patslot` and `sync`. It talks
+back to the Python server over Ajax -- `GET`, `PUT` and `DELETE`, and
+`PATCH` when [patch.md](patch.md) is built, against the published tree --
+and listens to the change stream, through `sync.bind`.
 
 ### 9. In development, Python serves the HTML, naming Vite's server in it
 
@@ -112,8 +115,10 @@ Tried with Vite 8.3.1, a page served from another origin:
   writes the HTML's URLs root-relative, `/mumulib-vite/src/main.ts`, whatever
   either says, and they would be fetched from Python.
 - A plugin of Vite's own, run only by the dev server, does: a
-  `transformIndexHtml` hook, after Vite's, puts the origin in front of each
-  `src` and `href` starting with `/mumulib-vite/`.
+  `transformIndexHtml` hook, after Vite's, puts the origin in front of the
+  base wherever it appears quoted (decision 10). It ships with the library,
+  `mumulib/vite-plugin-origin`, and also sets `server.origin`, for the asset
+  URLs Vite writes into modules and CSS.
 - Past the HTML, nothing else needs it. Imports inside the modules are
   root-relative and resolve against the module's own URL, on Vite; Vite's
   client opens its websocket to the host it was loaded from; and Vite
@@ -152,3 +157,22 @@ is `Page("notes/settings/index.html")`. Every one under the pages' root is an
 entry, so development and production serve the same pages, and every one is
 checked for relative URLs in the build too. Components, `.sfc.html`, are
 not pages and are not checked: loading one that is wrong fails visibly.
+
+## As built
+
+- `consumers_app(root, vite=...)` names the directory Vite builds the pages
+  into, `ts/build/pages` in this repository, and keeps `/mumulib-vite/` for
+  itself only when it is given one. A `Page` is in `mumulib.static`.
+- In development a `Page` asks Vite's dev server with `urllib`, in a thread;
+  an async client is a TODO. If the dev server does not answer, it is a 502.
+- The pages' Vite project is `ts/vite.pages.config.mts`: its root
+  `ts/pages`, every `index.html` under it an entry, and a dependency cache
+  of its own, `node_modules/.vite-pages`, so it and the examples' dev server
+  do not re-optimize each other's dependencies.
+- `make run` starts the pages' dev server on 5757 and the Python example
+  with `MUMULIB_DEVELOPMENT=1`; `make pages` builds them; `make production`
+  serves a Python example with them built, and no Vite.
+- A built file's content type is mumulib's own table's, or Python's built-in
+  one: never the machine's.
+- `py/examples/notes.py` and `ts/pages/notes` are the example: a Vite page
+  beside a `Persist`, bound with `sync.bind`.
