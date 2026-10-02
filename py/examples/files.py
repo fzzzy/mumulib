@@ -9,6 +9,10 @@ type it is served as. Nothing outside the directory, and nothing hidden in
 it, is found. A directory lists what is in it: /static/ as links, and
 /static.json as {name: URL}.
 
+Its "data" entry is a dict with a dict in it, listed the same way: /data/
+links /data/motto.txt and /data/more/, whose own index links its parent,
+/data/, and /data/more/list/. /data.json is the whole of it, as JSON.
+
 The whole of it is in GetOnly: nothing but GET gets in.
 """
 
@@ -25,6 +29,13 @@ app = server.consumers_app(
             # while the server runs
             "index": open(SITE / "index.html", "rb"),
             "static": SITE / "static",
+            # Plain data, nested: its slash lists it as a directory's is,
+            # each dict its own index, and each string or number its text
+            "data": {
+                "motto": "Served from files, and from a dict",
+                "answer": 42,
+                "more": {"deeper": "Down a level", "list": ["one", "two"]},
+            },
         }
     )
 )

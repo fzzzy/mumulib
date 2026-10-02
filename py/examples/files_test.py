@@ -1,5 +1,6 @@
 # pyright: standard
 import asyncio
+import json
 import unittest
 
 from examples.files import SITE, app
@@ -69,3 +70,33 @@ class TestFiles(unittest.TestCase):
     def test_nothing_but_get(self):
         self.assertEqual(get("/static/hello.txt", "PUT")[0], 405)
         self.assertEqual(get("/", "DELETE")[0], 405)
+
+
+class TestNestedData(unittest.TestCase):
+    def test_a_dict_in_the_site_is_listed_as_a_directory(self):
+        status, content_type, body = get("/data/")
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, b"text/html; charset=UTF-8")
+        self.assertIn(b"<h1>Index of /data</h1>", body)
+        self.assertIn(b'<a href="/">Parent Directory</a>', body)
+        self.assertIn(b'<a href="/data/motto.txt">motto</a>', body)
+        self.assertIn(b'<a href="/data/more/">more</a>', body)
+
+    def test_a_dict_in_it_lists_its_parent_and_its_own(self):
+        _, _, body = get("/data/more/")
+        self.assertIn(b"<h1>Index of /data/more</h1>", body)
+        self.assertIn(b'<a href="/data/">Parent Directory</a>', body)
+        self.assertIn(b'<a href="/data/more/list/">list</a>', body)
+        self.assertIn(
+            b'<a href="/data/more/list/0.txt">0</a>', get("/data/more/list/")[2]
+        )
+
+    def test_its_entries_are_their_text_and_the_whole_is_json(self):
+        self.assertEqual(get("/data/more/deeper.txt")[2].strip(), b"Down a level")
+        self.assertEqual(get("/data/answer.txt")[2].strip(), b"42")
+        status, _, body = get("/data.json")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["more"]["list"], ["one", "two"])
+
+    def test_the_page_links_it(self):
+        self.assertIn(b'href="/data/"', get("/")[2])
