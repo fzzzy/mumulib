@@ -102,7 +102,7 @@ run: node_modules python-sync server-exists declarations
 	@$(call wait_for_port,$(SERVER_PORT),server)
 	@echo "Examples: http://127.0.0.1:$(PORT)/"
 	@echo "Python:   http://127.0.0.1:$(SERVER_PORT)/  (examples/$(SERVER).py)"
-	@echo "Pages:    http://127.0.0.1:$(PAGES_PORT)/vite/  (ts/pages, for Python)"
+	@echo "Pages:    http://127.0.0.1:$(PAGES_PORT)/mumulib-vite/  (ts/pages, for Python)"
 	@echo "Logs:     make tail"
 	@echo "Stop:     make stop"
 
@@ -177,7 +177,7 @@ pages: node_modules
 	cd ts && npx vite build --config vite.pages.config.mts
 
 # A Python example in production, in the foreground: its pages built, served
-# by Python under /vite/, and no Vite running
+# by Python under /mumulib-vite/, and no Vite running
 production: python-sync server-exists pages
 	uv run --project py --extra dev --locked uvicorn --app-dir py \
 		examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT)

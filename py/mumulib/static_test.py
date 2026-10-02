@@ -13,7 +13,9 @@ from mumulib import static
 from mumulib.server import consumers_app
 from mumulib.static import Page
 
-PAGE = b"<!doctype html><script type=module src=/vite/assets/main-1a2b.js></script>"
+BASE = "/mumulib-vite/"
+ASSET = f"{BASE}assets/main-1a2b.js"
+PAGE = f"<!doctype html><script type=module src={ASSET}></script>".encode()
 
 
 class StaticCase(unittest.TestCase):
@@ -92,13 +94,11 @@ class TestProduction(StaticCase):
         self.assertIn(b"no vite directory", body)
 
     def test_what_vite_built_is_served_under_vite(self):
-        status, headers, body = self.call(self.app(), "/vite/assets/main-1a2b.js")
+        status, headers, body = self.call(self.app(), ASSET)
         self.assertEqual((status, body), (200, b"console.log(1)\n"))
         self.assertEqual(headers[b"content-type"], b"text/javascript; charset=UTF-8")
         self.assertEqual(headers[b"cache-control"], b"no-cache")
-        status, _, body = self.call(
-            self.app(), "/vite/assets/main-1a2b.js", match=headers[b"etag"]
-        )
+        status, _, body = self.call(self.app(), ASSET, match=headers[b"etag"])
         self.assertEqual((status, body), (304, b""))
 
     def test_vite_types_by_the_file_and_knows_no_other(self):
@@ -106,35 +106,37 @@ class TestProduction(StaticCase):
         (self.vite / "assets" / "blob.unknownext").write_bytes(b"\0")
         types = {
             path: self.call(self.app(), path)[1][b"content-type"]
-            for path in ("/vite/assets/font.woff2", "/vite/assets/blob.unknownext")
+            for path in (f"{BASE}assets/font.woff2", f"{BASE}assets/blob.unknownext")
         }
         self.assertEqual(
             types,
             {
-                "/vite/assets/font.woff2": b"font/woff2",
-                "/vite/assets/blob.unknownext": b"application/octet-stream",
+                f"{BASE}assets/font.woff2": b"font/woff2",
+                f"{BASE}assets/blob.unknownext": b"application/octet-stream",
             },
         )
 
     def test_vite_is_read_only_and_never_outside_the_build(self):
         (self.vite.parent / "secret.txt").write_text("no")
         self.addCleanup((self.vite.parent / "secret.txt").unlink)
-        for path in ("/vite/missing.js", "/vite/assets", "/vite/../secret.txt"):
+        for path in (f"{BASE}missing.js", f"{BASE}assets", f"{BASE}../secret.txt"):
             with self.subTest(path=path):
                 self.assertEqual(self.call(self.app(), path)[0], 404)
-        status, headers, _ = self.call(self.app(), "/vite/assets/main-1a2b.js", "PUT")
+        status, headers, _ = self.call(self.app(), ASSET, "PUT")
         self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
 
     def test_without_a_vite_directory_vite_is_the_trees(self):
-        app = self.app(vite=False, root={"vite": {"x": "from the tree"}})
-        self.assertEqual(self.call(app, "/vite/x.txt")[2].strip(), b"from the tree")
+        app = self.app(vite=False, root={"mumulib-vite": {"x": "from the tree"}})
+        self.assertEqual(self.call(app, f"{BASE}x.txt")[2].strip(), b"from the tree")
 
 
 class TestDevelopment(StaticCase):
     def test_a_page_is_asked_of_vites_dev_server(self):
         with mock.patch.object(static, "_fetch", return_value=b"<p>dev</p>") as fetch:
             status, headers, body = self.call(self.app(development=True), "/")
-        fetch.assert_called_once_with("http://127.0.0.1:5757/vite/notes/index.html")
+        fetch.assert_called_once_with(
+            "http://127.0.0.1:5757/mumulib-vite/notes/index.html"
+        )
         self.assertEqual((status, body.strip()), (200, b"<p>dev</p>"))
         # What Vite answers with is its own to cache, not a file's
         self.assertNotIn(b"etag", headers)
@@ -147,9 +149,7 @@ class TestDevelopment(StaticCase):
         self.assertIn(b"did not answer", body)
 
     def test_vite_is_not_pythons_in_development(self):
-        status, _, body = self.call(
-            self.app(development=True), "/vite/assets/main-1a2b.js"
-        )
+        status, _, body = self.call(self.app(development=True), ASSET)
         self.assertEqual(status, 404)
         self.assertIn(b"http://127.0.0.1:5757", body)
 
@@ -167,5 +167,5 @@ class TestDevelopment(StaticCase):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
-        url = f"http://127.0.0.1:{server.server_address[1]}/vite/a.html"
-        self.assertEqual(static._fetch(url), b"<p>/vite/a.html</p>")
+        url = f"http://127.0.0.1:{server.server_address[1]}/mumulib-vite/a.html"
+        self.assertEqual(static._fetch(url), b"<p>/mumulib-vite/a.html</p>")

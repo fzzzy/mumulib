@@ -3,7 +3,7 @@ import { test, expect, type Page } from './coverage.fixture'
 // The notes example, py/examples/notes.py: a Vite page, ts/pages/notes,
 // served by Python as Vite made it. Once in development, its TypeScript from
 // the pages' Vite dev server, and once in production, built and served by
-// Python under /vite/ (playwright.config). Chromium and WebKit run at once
+// Python under /mumulib-vite/ (playwright.config). Chromium and WebKit run at once
 // against each, so each adds and removes notes of its own.
 const MODES = {
   development: 'http://127.0.0.1:8125',
@@ -63,11 +63,15 @@ test("in development the TypeScript, and hot reloading, are Vite's", async ({
   await page.goto(`${MODES.development}/`)
   await expect(page.locator('body[data-loaded]')).toBeAttached()
   expect(page.url()).toBe(`${MODES.development}/`)
-  expect(scripts).toContain(`${VITE}/vite/notes/main.ts`)
-  expect(scripts.every((url) => url.startsWith(`${VITE}/vite/`))).toBe(true)
+  expect(scripts).toContain(`${VITE}/mumulib-vite/notes/main.ts`)
+  expect(scripts.every((url) => url.startsWith(`${VITE}/mumulib-vite/`))).toBe(
+    true
+  )
   await expect
     .poll(() => sockets)
-    .toContainEqual(expect.stringMatching(/^ws:\/\/127\.0\.0\.1:5757\/vite\//))
+    .toContainEqual(
+      expect.stringMatching(/^ws:\/\/127\.0\.0\.1:5757\/mumulib-vite\//)
+    )
 })
 
 test("in production it is all Python's, built, and cached", async ({
@@ -83,7 +87,7 @@ test("in production it is all Python's, built, and cached", async ({
   await expect(page.locator('body[data-loaded]')).toBeAttached()
   expect(scripts).toHaveLength(1)
   expect(scripts[0]).toMatch(
-    /^http:\/\/127\.0\.0\.1:8126\/vite\/assets\/.+\.js$/
+    /^http:\/\/127\.0\.0\.1:8126\/mumulib-vite\/assets\/.+\.js$/
   )
   expect(sockets).toEqual([])
   const first = await page.request.get(scripts[0])

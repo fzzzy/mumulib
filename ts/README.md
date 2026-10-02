@@ -383,21 +383,27 @@ this repository's `make check` and `make run` do.
 
 `mumulib/vite-plugin-origin` is for pages another server serves -- mumulib's
 Python server, with `static.Page` -- while Vite's dev server serves their
-modules. In development, Vite writes the URLs in an HTML entry root-relative,
-`/vite/main.ts`, which from the other server's origin would be asked of it.
-`originPlugin(origin)` names the dev server in full in each one under the
-base, and each relative one, so the browser fetches Vite's client and the
-page's modules from Vite, and hot reloading connects to it:
+modules. In development, Vite writes the URLs in an HTML entry
+root-relative, `/mumulib-vite/notes/main.ts`, which from the other server's
+origin would be asked of it. `originPlugin(origin)` puts the dev server's
+origin in front of each, wherever the base appears quoted -- a base as
+distinctive as `/mumulib-vite/` is in nothing else on a page -- so the
+browser fetches Vite's client and the page's modules from Vite, and hot
+reloading connects to it:
 
 ```ts
 import { originPlugin } from 'mumulib/vite-plugin-origin'
 
 export default defineConfig({
-  base: '/vite/',
+  base: '/mumulib-vite/',
   plugins: [originPlugin('http://127.0.0.1:5757')],
   server: { host: '127.0.0.1', port: 5757, strictPort: true },
 })
 ```
 
-It does nothing to a build. This repository's `ts/vite.pages.config.mts` uses
-it, for `ts/pages`.
+An entry loads by root-relative URLs, `<script src="/notes/main.ts">`, which
+Vite puts under the base. A relative `src`, or a relative `href` on a
+`<link>`, would resolve against the other server's page, so the plugin
+refuses the entry, naming it and the URL, in development and in a build
+alike. It changes nothing else in a build. This repository's
+`ts/vite.pages.config.mts` uses it, for `ts/pages`.

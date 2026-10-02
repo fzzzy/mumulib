@@ -22,26 +22,26 @@ and read from Vite's build in production.
 
 ## Decisions
 
-### 1. Everything Vite serves is under one prefix, /vite/
+### 1. Everything Vite serves is under one prefix, /mumulib-vite/
 
-Vite's `base` is `/vite/`, so everything it serves is under that one prefix:
+Vite's `base` is `/mumulib-vite/`, so everything it serves is under that one prefix:
 in development its own client and helpers, every source module (which Vite
 otherwise serves at its file path, `/src/index.ts`, where it could collide
 with the tree) and the HMR websocket; in production the built chunks and
-assets, `/vite/assets/...`.
+assets, `/mumulib-vite/assets/...`.
 
 ### 2. In development, the browser talks to Vite's dev server directly
 
 In development, a page's modules, Vite's client and the HMR websocket come
 straight from the Vite dev server, not through Python. Python does not
-proxy `/vite/`.
+proxy `/mumulib-vite/`.
 
 Three reasons, from the review of this doc against the others:
 
 - Python reloads, with `--reload`, on every change to its code. A websocket
   through it would be cut each time, and would hold up each reload's
   graceful shutdown, as event streams did, until it was closed.
-- Vite's URLs do not follow the Python server's: `/vite/@vite/client` has no
+- Vite's URLs do not follow the Python server's: `/mumulib-vite/@vite/client` has no
   extension, others carry queries, and a `.ts` is served as JavaScript.
 - No ASGI proxy for HTTP and websockets is needed.
 
@@ -58,11 +58,11 @@ development: `MUMULIB_DEVELOPMENT=1`.
 ### 5. Bundled and code-split from the start
 
 Pages are built with Vite's bundling and code splitting from the start. In
-production Python serves `/vite/` from Vite's build directory, as bytes:
+production Python serves `/mumulib-vite/` from Vite's build directory, as bytes:
 Python does not know the graph between the chunks, since the HTML Vite built
 names them, and their hashed file names bust caches.
 
-`/vite/` is handled before `split_path`, as a special case: its URLs are
+`/mumulib-vite/` is handled before `split_path`, as a special case: its URLs are
 Vite's, not the tree's, and are served as the files they name.
 
 Built files are cached as persistence caches a file
@@ -103,20 +103,37 @@ the change stream.
 A `Page` is served by Python in development too, from Python's origin: it
 asks the Vite dev server for the entry and serves what it gets. The URLs
 Vite writes into it -- its client, the entry's modules and stylesheets --
-name the Vite dev server in full, `http://127.0.0.1:5757/vite/...`, so the
+name the Vite dev server in full, `http://127.0.0.1:5757/mumulib-vite/...`, so the
 browser fetches them, and opens the HMR websocket, from Vite directly.
 
 Tried with Vite 8.3.1, a page served from another origin:
 
 - A full-URL `base`, or `server.origin`, does not do it: in development Vite
-  writes the HTML's URLs root-relative, `/vite/src/main.ts`, whatever
+  writes the HTML's URLs root-relative, `/mumulib-vite/src/main.ts`, whatever
   either says, and they would be fetched from Python.
 - A plugin of Vite's own, run only by the dev server, does: a
   `transformIndexHtml` hook, after Vite's, puts the origin in front of each
-  `src` and `href` starting with `/vite/`.
+  `src` and `href` starting with `/mumulib-vite/`.
 - Past the HTML, nothing else needs it. Imports inside the modules are
   root-relative and resolve against the module's own URL, on Vite; Vite's
   client opens its websocket to the host it was loaded from; and Vite
   answers CORS for a page on `127.0.0.1`'s other ports by default.
 - An edit to a module that does not accept hot updates reloads the page,
   from Python's origin.
+
+### 10. The base is distinctive, so it is found by its text
+
+The base is `/mumulib-vite/`, not `/vite/`: a prefix nothing else on a page,
+or in the tree, would have. The origin plugin then needs no pattern for an
+HTML attribute: it replaces the quoted base, `"/mumulib-vite/`, wherever it
+appears, with the dev server's origin in front.
+
+### 11. An entry's URLs are root-relative, and a relative one is an error
+
+An entry loads what it loads by a root-relative URL,
+`<script src="/notes/main.ts">`, which Vite writes under the base. Vite
+leaves a relative one, `./main.ts`, as it is, and it would resolve against
+Python's page; so the origin plugin refuses an entry with a relative `src`,
+or a relative `href` on a `<link>`, naming the entry and the URL, in
+development and in a build alike. A link to another page, `<a href>`, is
+the page's own, and is left alone.

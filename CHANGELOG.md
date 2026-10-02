@@ -180,13 +180,14 @@ Python package). Breaking changes come first under each release.
 - **Vite pages served by Python**: `static.Page("notes/index.html")` serves a
   Vite HTML entry as Vite made it, and `consumers_app(root, vite=...)` names
   the directory Vite builds into. In production, the default, the page and
-  everything Vite built are read from there, under `/vite/`, each with its
-  file's `ETag`. With `MUMULIB_DEVELOPMENT=1`, a page is asked of Vite's dev
+  everything Vite built are read from there, under `/mumulib-vite/`, each
+  with its file's `ETag`. With `MUMULIB_DEVELOPMENT=1`, a page is asked of Vite's dev
   server, always on 5757, and the browser loads its TypeScript, and hot
   reloading, from Vite directly.
 - **`mumulib/vite-plugin-origin`**: `originPlugin(origin)` names the dev
   server in full in each URL Vite writes into an HTML entry, so a page
-  another server serves loads its modules from Vite.
+  another server serves loads its modules from Vite; and refuses an entry
+  that loads anything by a relative URL.
 - **Short names for the template attributes in Stan**: `pat=` for
   `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), `attr=` for
   `data-attr`, as `"href=url"` or `{"href": "url"}`, and `live=` for

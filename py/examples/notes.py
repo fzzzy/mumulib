@@ -16,7 +16,7 @@ make run sets MUMULIB_DEVELOPMENT=1 and starts the pages' Vite dev server on
 5757: the page is then asked of it, and the URLs Vite writes in it name it
 in full, so the browser loads the TypeScript from Vite and reloads as it
 changes. make production builds the pages into ts/build/pages, and Python
-serves them, and everything Vite built, under /vite/.
+serves them, and everything Vite built, under /mumulib-vite/.
 
 The notes are kept in var/data/notes.json. Delete it to start again.
 """

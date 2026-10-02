@@ -11,17 +11,17 @@ past the HTML, the page is Vite's and TypeScript's.
 
 In production -- the default -- the entry is Vite's build of it, read from
 the directory consumers_app is given as vite, and everything else Vite built
-is served from there too, under /vite/, its base: /vite/assets/index-3f2a.js
-is <vite>/assets/index-3f2a.js. Each is cached by its file, as a persist is:
-an ETag from its modification time and size, no-cache, and 304 to an
-If-None-Match naming it.
+is served from there too, under /mumulib-vite/, its base:
+/mumulib-vite/assets/index-3f2a.js is <vite>/assets/index-3f2a.js. Each is
+cached by its file, as a persist is: an ETag from its modification time and
+size, no-cache, and 304 to an If-None-Match naming it.
 
 With MUMULIB_DEVELOPMENT=1 in the environment, the entry is asked of Vite's
 dev server, always at VITE_DEV_SERVER, and served as it answers. The URLs
 in it name that server in full -- mumulib's Vite origin plugin sees to it --
 so the browser fetches the page's modules, and opens the hot reloading
-websocket, from Vite directly. Python's /vite/ is then not found: nothing is
-asked of it.
+websocket, from Vite directly. Python's /mumulib-vite/ is then not found:
+nothing is asked of it.
 """
 
 import asyncio
@@ -52,7 +52,7 @@ __all__ = ["Page", "VITE_DEV_SERVER", "VITE_BASE"]
 VITE_DEV_SERVER = "http://127.0.0.1:5757"
 
 # Vite's base: everything it serves is below it, built or not
-VITE_BASE = "/vite/"
+VITE_BASE = "/mumulib-vite/"
 
 # How much of a file each body message carries
 CHUNK_SIZE = 64 * 1024
@@ -153,10 +153,10 @@ async def _answer(
 async def serve_vite(
     scope: dict[str, Any], send: Send, receive: Receive, vite: Path, development: bool
 ) -> None:
-    """A request under /vite/: in production, the file Vite built there."""
+    """A request under /mumulib-vite/: in production, the file Vite built there."""
     text = [(b"content-type", b"text/plain; charset=UTF-8")]
     if development:
-        message = f"In development /vite/ is Vite's own, at {VITE_DEV_SERVER}\n"
+        message = f"In development /mumulib-vite/ is Vite's own, at {VITE_DEV_SERVER}\n"
         await _answer(send, 404, message.encode(), text)
         return
     if scope["method"] != "GET":

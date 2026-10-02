@@ -278,7 +278,7 @@ def consumers_app(
     """The ASGI app publishing root.
 
     vite is the directory Vite builds its pages into, for each Page in root
-    and for /vite/, which is then the app's own, ahead of anything in root:
+    and for /mumulib-vite/, which is then the app's own, ahead of anything in root:
     in production what Vite built is served from there. With
     MUMULIB_DEVELOPMENT=1 in the environment as the app is made, it is in
     development instead, and a Page is asked of Vite's dev server.

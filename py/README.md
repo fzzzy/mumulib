@@ -243,18 +243,21 @@ app = consumers_app(
 )
 ```
 
-The Vite project's `base` is `/vite/`, which `consumers_app` then keeps for
-itself, ahead of the tree. In production -- the default -- the page is
-Vite's build of it, read from the `vite` directory, and `/vite/` serves
-everything else Vite built there: `/vite/assets/notes-3f2a.js`. Each is
-cached by its file, with an `ETag`.
+The Vite project's `base` is `/mumulib-vite/`, which `consumers_app` then
+keeps for itself, ahead of the tree. In production -- the default -- the
+page is Vite's build of it, read from the `vite` directory, and
+`/mumulib-vite/` serves everything else Vite built there:
+`/mumulib-vite/assets/notes-3f2a.js`. Each is cached by its file, with an
+`ETag`.
 
 With `MUMULIB_DEVELOPMENT=1` in the environment, the page is asked of Vite's
 dev server, always at `http://127.0.0.1:5757`. With mumulib's origin plugin
 in the Vite config, the URLs Vite writes into it name that server in full,
 so the browser loads the page's modules, and opens hot reloading, from Vite
-itself, and `/vite/` is not Python's at all. The page's own requests -- the
-tree, the change stream -- are still to Python, its origin.
+itself, and `/mumulib-vite/` is not Python's at all. The page's own requests
+-- the tree, the change stream -- are still to Python, its origin. An
+entry's own URLs are root-relative, `/notes/main.ts`; the plugin refuses a
+relative one.
 
 ## Files and directories
 

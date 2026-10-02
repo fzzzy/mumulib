@@ -5,76 +5,110 @@
  *     // vite.config.ts
  *     import { originPlugin } from 'mumulib/vite-plugin-origin'
  *     export default defineConfig({
- *       base: '/vite/',
+ *       base: '/mumulib-vite/',
  *       plugins: [originPlugin('http://127.0.0.1:5757')],
  *       server: { host: '127.0.0.1', port: 5757, strictPort: true },
  *     })
  *
  * In development Vite writes the URLs in an HTML entry root-relative,
- * `/vite/src/main.ts`, whatever `base` or `server.origin` say. Served from
- * another origin, they would be asked of that server. This puts the dev
- * server's origin in front of each `src` and `href` starting with the base,
- * after Vite's own transform, and resolves each relative one as the entry's
- * own URL on the dev server would. So the browser fetches Vite's client, the
- * page's modules and its stylesheets from Vite, and the client then opens
+ * `/mumulib-vite/notes/main.ts`, whatever `base` or `server.origin` say.
+ * Served from another origin, they would be asked of that server. After
+ * Vite's own transform, this puts the dev server's origin in front of each:
+ * wherever the base appears quoted, `"/mumulib-vite/`. A base that
+ * distinctive is in nothing else on a page, so the HTML is not parsed, or
+ * matched by pattern, to find them. The browser then fetches Vite's client,
+ * the page's modules and its stylesheets from Vite, and the client opens
  * its hot reloading websocket to Vite, the host it was loaded from. It also
  * sets `server.origin`, so the asset URLs Vite writes into modules and CSS
  * name it too.
  *
+ * An entry's own URLs are root-relative, `<script src="/notes/main.ts">`,
+ * which Vite writes under the base. A relative one, `src="./main.ts"`, Vite
+ * leaves as it is, and it would resolve against the other server's page: so
+ * a relative `src`, or a relative `href` on a `<link>`, is an error, in
+ * development and in a build alike, naming the entry and the URL. Links to
+ * other pages, `<a href>`, are the page's own, and left alone.
+ *
  * Nothing else needs it: imports inside the modules are root-relative and
  * resolve against the module's own URL, and Vite answers CORS for a page on
- * another of localhost's ports by default. It does nothing to a build, whose
- * files the other server serves itself, under the base.
+ * another of localhost's ports by default. It changes nothing in a build,
+ * whose files the other server serves itself, under the base.
  *
  * Plain JavaScript, typed with JSDoc, so that it ships as it is.
  */
 
+// Each src, and each <link>'s href: what a page loads, not where it links
+const LOADS =
+  /<(?:link\b[^>]*?\shref|[a-z][\w-]*\b[^>]*?\ssrc)\s*=\s*["']?([^"'\s>]+)/gi
+
 /**
- * url as the dev server's, in full: one under the base, or relative to the
- * page, as the page reached on the dev server would resolve it. Anything
- * else -- a full URL, another root-relative path, a fragment, data: -- is
- * null, and left as it was written.
+ * The URLs html loads relative to the page: neither root-relative nor with
+ * a scheme of their own, as data: and https: have.
  *
- * @param {string} url
- * @param {URL} page
- * @param {string} base
- * @returns {string | null}
+ * @param {string} html
+ * @returns {string[]}
  */
-function named(url, page, base) {
-  if (url.startsWith(base) && base.startsWith('/')) {
-    return new URL(url, page).href
-  }
-  if (url === '' || url.startsWith('/') || url.startsWith('#')) return null
-  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return null
-  return new URL(url, page).href
+export function relativeLoads(html) {
+  return [...html.matchAll(LOADS)]
+    .map((match) => match[1])
+    .filter((url) => !url.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(url))
+}
+
+/**
+ * html with each quoted URL under base naming origin in full.
+ *
+ * @param {string} html
+ * @param {string} base
+ * @param {string} origin
+ * @returns {string}
+ */
+export function withOrigin(html, base, origin) {
+  // split and join: replaceAll is ES2021, and the library targets ES2020
+  return ['"', "'"].reduce(
+    (text, quote) =>
+      text.split(`${quote}${base}`).join(`${quote}${origin}${base}`),
+    html
+  )
 }
 
 /**
  * @param {string} origin The dev server's origin, as the browser reaches it
- * @returns {import('vite').Plugin}
+ * @returns {import('vite').Plugin[]}
  */
 export function originPlugin(origin = 'http://127.0.0.1:5757') {
   let base = '/'
-  return {
-    name: 'mumulib-origin',
-    apply: 'serve',
-    config: () => ({ server: { origin } }),
-    configResolved(config) {
-      base = config.base
-    },
-    transformIndexHtml: {
-      order: 'post',
-      handler(html, { path }) {
-        // The entry's own URL on the dev server: path is without the base
-        const page = new URL(base.replace(/\/$/, '') + path, origin)
-        return html.replace(
-          /(\s(?:src|href)=)(["'])([^"']*)\2/g,
-          (attribute, name, quote, url) => {
-            const full = named(url, page, base)
-            return full === null ? attribute : `${name}${quote}${full}${quote}`
+  return [
+    {
+      name: 'mumulib-origin:root-relative',
+      // Before Vite's transform, on the entry as it was written
+      transformIndexHtml: {
+        order: 'pre',
+        handler(html, { filename }) {
+          const relative = relativeLoads(html)
+          if (relative.length) {
+            throw new Error(
+              `${filename} loads ${relative.join(', ')} by a relative URL: ` +
+                'write it root-relative, /<page>/<file>, which Vite puts ' +
+                'under the base'
+            )
           }
-        )
+          return html
+        },
       },
     },
-  }
+    {
+      name: 'mumulib-origin',
+      apply: 'serve',
+      config: () => ({ server: { origin } }),
+      configResolved(config) {
+        base = config.base
+      },
+      // After Vite's transform, which has written them under the base
+      transformIndexHtml: {
+        order: 'post',
+        handler: (html) =>
+          base.startsWith('/') ? withOrigin(html, base, origin) : html,
+      },
+    },
+  ]
 }

@@ -112,7 +112,7 @@ export default defineConfig({
     {
       // The pages' Vite dev server, always on 5757, as make run starts it
       command: 'npx vite --config vite.pages.config.mts',
-      url: 'http://127.0.0.1:5757/vite/notes/index.html',
+      url: 'http://127.0.0.1:5757/mumulib-vite/notes/index.html',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
