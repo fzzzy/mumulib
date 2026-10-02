@@ -118,9 +118,11 @@ class TestEditors(unittest.TestCase):
         self.assertEqual(headers[b"content-type"], b"text/javascript; charset=UTF-8")
         self.assertIn("new EventSource('/mumulib/changes.sse')", js)
 
-    def test_each_kind_is_its_states_as_json(self):
+    def test_each_kind_lists_its_objects_and_each_is_its_state(self):
         _, _, body = self.request("/editors/parties.json")
-        self.assertEqual(json.loads(body)["p1"]["members"], ["c1", "c2"])
+        self.assertEqual(json.loads(body)["p1"], "/editors/parties/p1.json")
+        _, _, body = self.request("/editors/parties/p1.json")
+        self.assertEqual(json.loads(body)["members"], ["c1", "c2"])
         _, _, body = self.request("/editors/deploys/d1.json")
         self.assertEqual(json.loads(body)["status"], "running")
 

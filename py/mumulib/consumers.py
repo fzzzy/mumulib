@@ -24,6 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import json
 import os
 import sys
 import tempfile
@@ -46,6 +47,7 @@ from mumulib.producers import (
     add_producer,
     can_produce,
     container_url,
+    custom_serializer,
     listing_html,
     produce,
 )
@@ -754,3 +756,58 @@ async def _produce_container_html(thing: Any, state: State) -> AsyncIterator[Chu
 
 for _container_type in (dict, MappingProxyType, list, tuple):
     add_producer(_container_type, _produce_container_html, "text/html")
+
+
+def _entries(value: Any) -> Iterable[tuple[str, Any]] | None:
+    """A plain container's entries, keyed as their URLs name them, or None
+    for anything else."""
+    if isinstance(value, (dict, MappingProxyType)):
+        return ((str(k), v) for k, v in cast(dict[Any, Any], value).items())
+    if isinstance(value, (list, tuple)):
+        items = cast(list[Any] | tuple[Any, ...], value)
+        return ((str(i), v) for i, v in enumerate(items))
+    return None
+
+
+def plain(value: Any, where: str) -> None:
+    """Refuse a resource's state, or a persist's document, that holds a
+    resource or a persist: it is plain JSON, and a container in a container
+    is not, yet (design/state-sync.md, decision 14). A TypeError names the
+    place, as where/key/key."""
+    if isinstance(value, Located):
+        raise TypeError(
+            f"{where} is a {type(value).__name__}: a resource's state, or a "
+            "persist's document, holds no resource or persist"
+        )
+    entries = _entries(value)
+    for key, entry in entries or ():
+        plain(entry, f"{where}/{key}")
+
+
+def _linked(value: Any, base: str) -> Any:
+    """value with each resource or persist in it its .json's URL, a plain
+    string, by where it is below base."""
+    entries = _entries(value)
+    if entries is None:
+        return value
+    linked = {
+        key: f"{base}{quote(key)}.json"
+        if isinstance(entry, Located)
+        else _linked(entry, f"{base}{quote(key)}/")
+        for key, entry in entries
+    }
+    if isinstance(value, (list, tuple)):
+        return list(linked.values())
+    return linked
+
+
+async def _produce_container_json(thing: Any, state: State) -> AsyncIterator[Chunk]:
+    """A plain container as JSON: its entries, and each resource or persist
+    in it as its URL -- /editors/characters.json is
+    {"c1": "/editors/characters/c1.json", ...} -- for a client to bind."""
+    base = container_url(state.get("url", "/"))
+    yield json.dumps(_linked(thing, base), default=custom_serializer)
+
+
+for _container_type in (dict, MappingProxyType, list, tuple):
+    add_producer(_container_type, _produce_container_json, "application/json")

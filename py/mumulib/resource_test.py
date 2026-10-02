@@ -439,9 +439,27 @@ class TestState(unittest.TestCase):
         for path in ("/people/ada/state.json", "/people/ada/state/name.txt"):
             with self.subTest(path=path):
                 self.assertEqual(call(self.root, "GET", path)[0], 404)
-        # And inside other JSON too
+        # Inside a plain container, the URL of its own, for a client to bind
         _, _, body = call(self.root, "GET", "/people.json")
-        self.assertEqual(json.loads(body), {"ada": self.ada.state})
+        self.assertEqual(json.loads(body), {"ada": "/people/ada.json"})
+
+    def test_a_plain_container_lists_each_resource_by_where_it_is(self):
+        root = {"site": {"kept": [Person(), None], "deep": {"x": Person()}, "n": 1}}
+        _, _, body = call(root, "GET", "/site.json")
+        self.assertEqual(
+            json.loads(body),
+            {
+                "kept": ["/site/kept/0.json", None],
+                "deep": {"x": "/site/deep/x.json"},
+                "n": 1,
+            },
+        )
+
+    def test_its_state_holds_no_resource_or_persist(self):
+        holder = Person({"friend": Person()})
+        with unittest.mock.patch("traceback.print_exc"):
+            status, _, _ = call({"h": holder}, "GET", "/h.json")
+        self.assertEqual(status, 500)
 
     def test_the_state_is_written_by_its_handlers_alone(self):
         # Its own URL is its own to answer: refused, with no handler

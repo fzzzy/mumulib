@@ -34,6 +34,7 @@ from mumulib.consumers import (
     add_consumer,
     answer,
     consume,
+    plain,
     refuse,
     write_atomically,
 )
@@ -44,7 +45,7 @@ from mumulib.mumutypes import (
     SpecialResponse,
     State,
 )
-from mumulib.producers import add_json_form, add_producer
+from mumulib.producers import add_producer
 from mumulib.static import stream
 
 __all__ = ["Persist"]
@@ -73,6 +74,7 @@ class Persist(Located):
     def write(self) -> None:
         """The whole document, to its file, atomically. With no file -- no
         data directory -- it is kept in memory alone."""
+        plain(self.document, self.url or type(self).__name__)
         if self.file is not None:
             write_atomically(self.file, json.dumps(self.document))
 
@@ -119,4 +121,3 @@ async def _produce_persist(thing: Persist, state: State) -> AsyncIterator[Chunk]
 # hands it a PUT, rather than replacing it with what was sent
 add_consumer(Persist, _consume_persist, own_methods=True)
 add_producer(Persist, _produce_persist)
-add_json_form(Persist, lambda persist: persist.document)

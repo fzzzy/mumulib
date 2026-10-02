@@ -6,6 +6,7 @@ from types import MappingProxyType
 
 from mumulib import mumutypes
 from mumulib.producers import (
+    add_json_form,
     add_producer,
     custom_serializer,
     produce,
@@ -39,6 +40,14 @@ class TestCustomSerializer(unittest.TestCase):
             with self.subTest(thing=type(thing).__name__):
                 with self.assertRaisesRegex(TypeError, type(thing).__name__):
                     custom_serializer(thing)
+
+    def test_a_type_given_a_json_form_is_that_form(self):
+        class Point:
+            def __init__(self, x, y):
+                self.x, self.y = x, y
+
+        add_json_form(Point, lambda p: [p.x, p.y])
+        self.assertEqual(custom_serializer(Point(1, 2)), [1, 2])
 
 
 class TestAddProducer(unittest.TestCase):

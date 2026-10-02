@@ -158,7 +158,8 @@ Python package). Breaking changes come first under each release.
   template is filled from `slot_<name>` methods and values, with
   `pattern(name, **slots)` for copies of its patterns. Its state is a dict
   given to the constructor: read-only as its own `.json`, `/profile.json`,
-  its JSON inside any other JSON, and what slots with no `slot_` are filled from. Handlers are
+  the URL of its `.json` inside a plain dict or list, and what slots with no
+  `slot_` are filled from. A state holds no resource or persist. Handlers are
   given the request. `see_other(url)` answers a form post with 303 See Other;
   `form(request)` reads one, with `text(name)` and `texts(name)`; and the
   `url` slot is the request's own URL, for a form that posts back.

@@ -116,11 +116,18 @@ class TestPersist(PersistCase):
             self.call("PUT", "/people.json", {}, changes=changes)
         self.assertEqual([c.args[0] for c in put.call_args_list], ["/people"] * 2)
 
-    def test_inside_json_it_is_its_document(self):
+    def test_inside_a_plain_container_it_is_its_url(self):
         _, _, _, body = self.call("GET", "/all.json", root={"all": {"p": self.people}})
-        self.assertEqual(
-            json.loads(body)["p"], {"ada": {"name": "Ada"}, "list": [1, 2]}
-        )
+        self.assertEqual(json.loads(body), {"p": "/all/p.json"})
+
+    def test_its_document_holds_no_resource_or_persist(self):
+        inner = Persist()
+        nested = Persist({"a": [inner]})
+        with mock.patch("traceback.print_exc"):
+            status = self.call("GET", "/n.json", root={"n": nested})[0]
+        self.assertEqual(status, 500)
+        with self.assertRaisesRegex(TypeError, "/n/a/0 is a Persist"):
+            nested.write()
 
     def test_with_no_data_directory_it_is_kept_in_memory(self):
         thing = Persist()

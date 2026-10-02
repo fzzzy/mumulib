@@ -31,11 +31,11 @@ from mumulib.consumers import (
     Located,
     add_consumer,
     consume,
+    plain,
     write_atomically,
 )
 from mumulib.mumutypes import Chunk, NotFoundResponse, Send, SpecialResponse, State
 from mumulib.producers import (
-    add_json_form,
     add_producer,
     can_produce,
     custom_serializer,
@@ -122,6 +122,7 @@ class Resource(Located):
                 f"{type(self).__name__} has no file to be saved in: a request "
                 "has not reached it, or the app has no data directory"
             )
+        plain(self.state, self.url or type(self).__name__)
         write_atomically(self.file, json.dumps(self.state, default=custom_serializer))
 
     async def get_child(self, segments: list[str], request: State, send: Send) -> Any:
@@ -162,6 +163,7 @@ class Resource(Located):
         markup. As anything else it is not found: a page is not text."""
         extension = request.get("extension", "html")
         if extension == "json":
+            plain(self.state, self.url or type(self).__name__)
             return self.state
         if extension != "html":
             raise NotFoundResponse()
@@ -336,7 +338,6 @@ def _register(cls: type[Resource]) -> None:
     add_consumer(cls, consume_resource, own_methods=True)
     add_producer(cls, produce_resource)
     # Inside any JSON, a resource is its state
-    add_json_form(cls, lambda resource: resource.state)
 
 
 _register(Resource)
