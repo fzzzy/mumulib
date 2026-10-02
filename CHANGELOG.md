@@ -197,6 +197,9 @@ Python package). Breaking changes come first under each release.
   with its file's `ETag`. With `MUMULIB_DEVELOPMENT=1`, a page is asked of Vite's dev
   server, always on 5757, and the browser loads its TypeScript, and hot
   reloading, from Vite directly.
+- **`sync.bind(path, url)`** (TypeScript): a path in the state bound to a
+  resource or persist on mumulib's Python server, fetched as `<url>.json`
+  and fetched again whenever the change stream announces it.
 - **`mumulib/vite-plugin-origin`**: `originPlugin(origin)` names the dev
   server in full in each URL Vite writes into an HTML entry, so a page
   another server serves loads its modules from Vite; and refuses an entry

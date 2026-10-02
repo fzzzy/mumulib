@@ -1,13 +1,15 @@
 mumulib
 =====
 
-mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.
+mumulib is a simple typescript state management, html templating, and form processing library. It contains four modules: state, patslot, dialog, and sync.
 
 state provides a simple method for managing state and a way to register onstate callbacks to react to state changes.
 
 patslot provides a simple html templating api, with html templates that can be filled with sample data and all logic being performed in normal TypeScript or JavaScript code.
 
 dialog provides functionality to show html dialog elements populated with state from the state module, and automatically update the state when form inputs in the dialog change.
+
+sync binds a path in the state to a URL on mumulib's Python server, and keeps it the same as the server's, as anyone changes it.
 
 Node
 =====
@@ -319,6 +321,34 @@ type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
 type FormArgs = { [key: string]: string | string[] };
 
 do_dialog(dialog_id: string, path: string, render: RenderFunc) => HTMLElement: Fetch the state at path, call the render function, set the contents of the &lt;dialog&gt; element with the id dialog_id to the result of the render function, and display the dialog.
+
+sync
+=====
+
+`sync.bind(path, url)` fetches `<url>.json` from mumulib's Python server -- a
+resource's state, or a persist's document -- and puts it in the state at
+`path`, with `set_path`. It fetches it again whenever the server's change
+stream, `/mumulib/changes.sse`, announces `url`: every page open shows each
+change, anyone's, without reloading. URLs are compared as paths, without an
+extension, a query or a fragment, so `/notes` and `/notes.json` are one.
+
+The page never changes a bound path itself. It writes with a request -- a
+`PUT` or a `DELETE` inside a persist, or what a resource's handler answers
+-- and its own change comes back as anyone's does, announced and fetched.
+
+```typescript
+import { state, sync } from 'mumulib'
+
+await state.onstate(async (current) => render(current.notes ?? []))
+await sync.bind('notes', '/notes')
+
+// Adding one: the server writes it, announces /notes, and the page fetches
+await fetch('/notes/last.json', { method: 'PUT', body: JSON.stringify('Milk') })
+```
+
+A page has one change stream, opened by its first `bind`. A bound URL is a
+resource or a persist: a slash is refused. `ts/pages/notes`, served by
+`py/examples/notes.py`, is a whole page bound this way.
 
 single-file components
 =====
