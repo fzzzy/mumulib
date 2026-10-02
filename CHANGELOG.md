@@ -7,6 +7,18 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **A string is text, never HTML.** Strings and numbers answer `.txt` and
+  `.json` alone, and are not found as `.html`, `.js`, `.css` or anything
+  else: a string at `.html` was served as markup, so a visitor's note was a
+  page they wrote. HTML of your own is `tags.Markup`, which now has an HTML
+  producer; a resource's template, string or Stan, is HTML alone, and not
+  found as `.json` or `.txt`. A listing links a string as `.txt`. An
+  attribute is its value's text, whatever the page is asked for as, and one
+  with no text is an error naming it.
+- **A file is its own type alone.** An open file or a `Path` is served only
+  at its extension on disk: `style.css` as `/style.html` is not found, and a
+  file with no extension is not listed.
+
 - **Python server: a URL's extension is its type, and nothing else.**
   `consumers_app` serves every response with the type its URL names:
   `.json`, `.html`, `.txt`, `.sse` (server-sent events), or any extension
@@ -36,8 +48,8 @@ Python package). Breaking changes come first under each release.
   `import *`, `all` shadowed the builtin; there is no alias.
 - **Nothing is served as its `str()`.** What has no producer for the URL's
   type is 404; it had been served as its Python repr -- a dict's
-  `{'a': 1}` as HTML, an object's `<Thing at 0x…>`. Strings and numbers have
-  producers of their own, as text of any type; `True` and `False` are JSON
+  `{'a': 1}` as HTML, an object's `<Thing at 0x…>`. Strings and numbers are
+  text, at `.txt`, and JSON; `True` and `False` are JSON
   alone, and `None` is `null` in a JSON document but not found as a URL's own
   answer.
 - **Deleting from a list leaves `None` in the element's place,** so no other

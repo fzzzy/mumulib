@@ -620,14 +620,22 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
             if v is False or v is None:
                 continue
             attrpartchunks: list[str] = []
-            async for chunk in producers.produce(v, state):
-                # An attribute is text: bytes or a SpecialResponse here is a
-                # mistake to report, not something to write out as its repr.
-                if not isinstance(chunk, str):
-                    raise TypeError(
-                        f"attribute {k!r} produced {type(chunk).__name__}, not str"
-                    )
-                attrpartchunks.append(chunk)
+            # An attribute is text, whatever type the page is asked for as:
+            # produced as text/plain, not as the URL's HTML or JSON
+            as_text = {**state, "accept": ["text/plain", "*/*"]}
+            try:
+                async for chunk in producers.produce(v, as_text):
+                    # An attribute is text: bytes or a SpecialResponse here is
+                    # a mistake to report, not something to write as its repr.
+                    if not isinstance(chunk, str):
+                        raise TypeError(
+                            f"attribute {k!r} produced {type(chunk).__name__}, not str"
+                        )
+                    attrpartchunks.append(chunk)
+            except mumutypes.NotFoundResponse:
+                raise TypeError(
+                    f"attribute {k!r} is a {type(v).__name__}, which has no text"
+                ) from None
             # Escaped whole, quotes and all: an attribute is never markup
             attrpartval = html.escape("".join(attrpartchunks), quote=True)
             attrpart = f' {k}="{attrpartval}"'
@@ -651,3 +659,12 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
 
 
 producers.add_producer(Stan, produce_html)
+
+
+async def produce_markup(thing: Markup, state: State) -> AsyncIterator[str]:
+    """Markup at .html: HTML already, written out as it is."""
+    yield str(thing)
+
+
+# HTML of your own, and only as HTML: a plain string is text, never markup
+producers.add_producer(Markup, produce_markup, "text/html")

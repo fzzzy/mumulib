@@ -9,8 +9,8 @@ consumers that read it best -- language models among them.
 
 - `.xml` names `text/xml`, from Python's `mimetypes`.
 - No type has an XML producer: a dict at `.xml` is not found.
-- A string is its own content as any type, so `/motto.xml` answers the raw
-  text `mumu` -- which is not an XML document.
+- A string is text, at `.txt`, and JSON, and not found as anything else, so
+  `/motto.xml` is not found.
 
 ## Decisions
 
@@ -40,8 +40,8 @@ not inlined.
 
 The XML serializer serializes dictionaries, and nothing else: a scalar at
 `.xml` -- `/motto.xml` -- is not found, as anything with no producer for a
-type is. That is an exception to a string being its own content as any type:
-for XML, it is not. A serializer, then, may take only some kinds of object.
+type is, as a string is at every type but `.txt` and `.json`. A serializer,
+then, may take only some kinds of object.
 
 Tentative: to be confirmed when the XML convention itself is settled.
 

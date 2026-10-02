@@ -707,23 +707,25 @@ add_producer(RefuseIndex, _produce_refuse_index)
 def _entry_url(base: str, name: str, value: Any) -> str | None:
     """Where a container's entry is, for its listing -- or None, if nowhere.
 
-    A container is at its slash. A file keeps its own extension, as the type
-    to serve it as; anything else is linked as HTML. What would not be found
-    is not listed.
+    A container is at its slash. A file is at its own extension, the only
+    type it is served as, and one with none is nowhere; text, a string or a
+    number, is linked as .txt, where it is; anything else as HTML. What
+    would not be found is not listed.
     """
     if not name or "/" in name or name == "index":
         return None
     if is_container(value):
         return f"{base}{quote(name)}/"
     if not can_produce(value, "text/html"):
+        if can_produce(value, "text/plain"):
+            return f"{base}{quote(name)}.txt"
         return None
     filename = getattr(value, "name", None)
     if isinstance(value, (TextIOWrapper, BufferedReader, Path)) and isinstance(
         filename, str
     ):
         suffix = Path(filename).suffix
-        if suffix:
-            return f"{base}{quote(name)}{suffix}"
+        return f"{base}{quote(name)}{suffix}" if suffix else None
     return f"{base}{quote(name)}.html"
 
 

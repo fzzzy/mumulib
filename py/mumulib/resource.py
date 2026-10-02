@@ -11,7 +11,7 @@ dict given to the constructor, and read at its child state.json.
         child_name = "Ada"
 
     class Site(Resource):
-        child_index = "<h1>Home</h1>"
+        child_index = Markup("<h1>Home</h1>")
         child_profile = Profile()
 
     app = consumers_app(Site())      # /, /profile.html, /profile/name.txt
@@ -35,7 +35,7 @@ from mumulib.consumers import (
     refuse,
     write_atomically,
 )
-from mumulib.mumutypes import Chunk, Send, SpecialResponse, State
+from mumulib.mumutypes import Chunk, NotFoundResponse, Send, SpecialResponse, State
 from mumulib.producers import (
     add_json_form,
     add_producer,
@@ -43,7 +43,7 @@ from mumulib.producers import (
     custom_serializer,
     produce,
 )
-from mumulib.tags import Stan
+from mumulib.tags import Markup, Stan
 
 # The public API: the class to subclass.
 __all__ = ["Resource", "Form"]
@@ -162,10 +162,16 @@ class Resource(Located):
         return await _settled(handler(request))
 
     async def handle_GET(self, request: State) -> Any:
-        """The template: as it is, or a parsed one filled from slot_ names and
-        the state. The state as data is a child of its own, state.json."""
+        """The template, as HTML and nothing else: a parsed one filled from
+        slot_ names and the state, or a string of it, the resource's own
+        markup. As any other type it is not found -- a page is not JSON, or
+        text. The state as data is a child of its own, state.json."""
+        if request.get("extension", "html") != "html":
+            raise NotFoundResponse()
         if isinstance(self.template, Stan):
             return await self.fill(self.template, request)
+        if isinstance(self.template, str):
+            return Markup(self.template)
         return self.template
 
     async def fill(self, template: Stan, request: State) -> Stan:

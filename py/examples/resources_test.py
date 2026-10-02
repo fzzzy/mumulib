@@ -57,11 +57,13 @@ class TestResources(unittest.TestCase):
         self.assertIn(b'action="/todos.html"', body)
 
     def test_a_template_is_all_about_needs(self):
-        status, _, body = self.request("/about.txt")
+        status, _, body = self.request("/about.html")
         self.assertEqual(
             (status, body), (200, b"A to-do list, published as resources.")
         )
-        status, headers, _ = self.request("/about.txt", "POST", "x")
+        # A template is HTML, and only HTML
+        self.assertEqual(self.request("/about.txt")[0], 404)
+        status, headers, _ = self.request("/about.html", "POST", "x")
         self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
 
     def test_the_list_answers_by_the_urls_type(self):

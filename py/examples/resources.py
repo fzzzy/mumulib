@@ -10,7 +10,7 @@ for is 405, with Allow naming the ones it has. What a handler returns is
 produced as though it had been published there, of the URL's type.
 
     GET    /                                  the page: a form, and the list
-    GET    /about.txt                         About's template, as text
+    GET    /about.html                        About's template, as HTML
     GET    /todos.json                        [{"text": ..., "done": ..., "url": ...}]
     GET    /todos.html                        the list's page, from a template,
                                               with a checkbox that PUTs each item
@@ -44,9 +44,9 @@ from typing import Any, cast
 from mumulib.mumutypes import HTTPResponse, State
 from mumulib.resource import Resource
 from mumulib.server import EventSource, consumers_app
-from mumulib.tags import Stan, parse_template
+from mumulib.tags import Markup, Stan, parse_template
 
-INDEX = """<!doctype html>
+INDEX = Markup("""<!doctype html>
 <title>Resources</title>
 <form method="post" action="/todos.html">
   <label>To do <input name="text" value="Milk" /></label>
@@ -54,7 +54,7 @@ INDEX = """<!doctype html>
 </form>
 <p><a href="/todos.html">The list</a>, <a href="/todos.json">as JSON</a>,
 and <a href="/todos/items/">each item</a>.</p>
-"""
+""")
 
 
 # The list's page. The <li> is a pattern, data-pat: copied for each item,
@@ -127,7 +127,7 @@ class Todo(Resource):
         if request["extension"] == "html":
             # The text is a visitor's: escaped, as anything they send must be
             mark = "done" if self.done else "to do"
-            return f"<p>{html.escape(self.text)} ({mark})</p>"
+            return Markup(f"<p>{html.escape(self.text)} ({mark})</p>")
         return {"text": self.text, "done": self.done}
 
     async def handle_PUT(self, request: State) -> Any:

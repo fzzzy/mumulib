@@ -465,6 +465,6 @@ class TestFilesOverHttp(unittest.TestCase):
     def test_the_url_names_a_files_type(self):
         path = HERE.parent / "README.md"
         with open(path) as file:
-            _, headers, body = self.serve({"readme": file}, "/readme.txt")
-        self.assertEqual(headers[b"content-type"], b"text/plain; charset=UTF-8")
+            _, headers, body = self.serve({"readme": file}, "/readme.md")
+        self.assertEqual(headers[b"content-type"], b"text/markdown; charset=UTF-8")
         self.assertTrue(body.startswith(path.read_bytes()))

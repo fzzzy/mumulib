@@ -18,6 +18,7 @@ from mumulib.consumers import (
     url_of,
 )
 from mumulib.server import consumers_app
+from mumulib.tags import Markup
 
 
 async def request(asgi_app, method, path, body):
@@ -101,7 +102,7 @@ ROOT = {
     "list": ["this", "is", "a", "list"],
     "immutable": MappingProxyType({"cannot": "touch this"}),
     "immutable_with_index": MappingProxyType(
-        {"index": "index_value", "other": "other_value"}
+        {"index": Markup("index_value"), "other": "other_value"}
     ),
     "not_found": Foo(),
     "nested_list": [["asdf"], ["qwer"]],
@@ -432,7 +433,7 @@ class TestGetOnly(unittest.TestCase):
     """GetOnly hands GET on to what it wraps, and refuses anything else."""
 
     def test_get_goes_through_at_any_depth(self):
-        root = GetOnly({"index": "home", "notes": {"a": "first"}})
+        root = GetOnly({"index": Markup("home"), "notes": {"a": "first"}})
         status, _, body = call(root, "GET", "/")
         self.assertEqual((status, body.strip()), (200, b"home"))
         status, _, body = call(root, "GET", "/notes/a.json")

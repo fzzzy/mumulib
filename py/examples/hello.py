@@ -1,8 +1,10 @@
-"""The smallest mumulib server: a dict whose index is one string.
+"""The smallest mumulib server: a dict whose index is one piece of HTML.
 
     make server                       # this one; SERVER=<name> for another
 
-The dict is the site, and its "index" entry is what / serves, as HTML:
+The dict is the site, and its "index" entry is what / serves, as HTML. It
+is Markup, HTML of its own: a plain string is text, at .txt and .json, and
+never served as HTML, where a visitor's could be markup.
 
     /             Hello, world!       text/html
 
@@ -16,5 +18,6 @@ to the dict and refuses anything else.
 
 from mumulib.consumers import GetOnly
 from mumulib.server import consumers_app
+from mumulib.tags import Markup
 
-app = consumers_app(GetOnly({"index": "Hello, world!"}))
+app = consumers_app(GetOnly({"index": Markup("Hello, world!")}))

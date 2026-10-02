@@ -115,7 +115,7 @@ def can_produce(thing: object, content_type: str) -> bool:
 
 
 async def produce_text(thing: object, state: State) -> AsyncGenerator[str]:
-    """A string, as it is, or a number's digits: its own content, any type."""
+    """A string, as it is, or a number's digits: its own content, as text."""
     yield str(thing)
 
 
@@ -168,6 +168,12 @@ async def produce_path(
 async def _produce_filename(
     filename: str, state: State
 ) -> AsyncGenerator[mumutypes.SpecialResponse]:
+    # A file is its own type, by its extension on disk, and only that: a
+    # .css asked for as .html, or as .js, is not found. With no extension
+    # of its own, no URL names it.
+    extension = state.get("extension")
+    if extension is not None and PurePath(filename).suffix != f".{extension}":
+        raise mumutypes.NotFoundResponse()
     # Bytes, whatever the file holds: nothing is decoded, so an image or a
     # font goes out exactly as it is on disk, and text as its own bytes
     async with aiofiles.open(filename, "rb") as file:
@@ -286,10 +292,13 @@ for typ in JSON_TYPES:
 # Add bytes producer for binary data (using */* to match all content types)
 add_producer(bytes, produce_bytes)
 
-# Text is its own content, whatever the URL's type; a number's is its digits.
-# True, False and None have no text but Python's, so they are JSON alone.
+# Text is text/plain, and a number's text is its digits: a string at .html
+# would be served as markup -- a visitor's, in a note, as anyone's page --
+# and at .js or .css as code. As those, and anything but .txt and .json, a
+# scalar is not found; HTML of your own is a tags.Markup. True, False and
+# None have no text but Python's, so they are JSON alone.
 for _text_type in (str, int, float):
-    add_producer(_text_type, produce_text)
+    add_producer(_text_type, produce_text, "text/plain")
 
 # A method -- bound, built in, or a wrapper like "abc".__str__ -- is not a
 # function to call for a request, and its repr is no answer: not found

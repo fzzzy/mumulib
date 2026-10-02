@@ -5,6 +5,7 @@ import os
 import signal
 import threading
 import unittest
+from pathlib import Path
 from types import MappingProxyType
 from unittest import mock
 
@@ -19,6 +20,7 @@ from mumulib.server import (
     parse_multipart,
     parse_urlencoded,
 )
+from mumulib.tags import Markup
 
 
 class TestParseJson(unittest.TestCase):
@@ -239,7 +241,7 @@ class TestConsumersAppRouting(unittest.TestCase):
 
     async def async_test_request_content_type_does_not_choose_the_response(self):
         """A JSON request body is parsed, but the URL alone sets the reply's type"""
-        root = {"data": "success"}
+        root = {"data": Markup("success")}
         app = consumers_app(root)
 
         json_body = json.dumps({"key": "value"})
@@ -316,7 +318,7 @@ class TestConsumersAppRouting(unittest.TestCase):
 
     async def async_test_html_path_extension(self):
         """Test that .html paths set HTML accept headers"""
-        root = {"message": "hello"}
+        root = {"message": Markup("hello")}
         app = consumers_app(root)
 
         sent_messages = []
@@ -1833,9 +1835,11 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"application/json; charset=UTF-8")
         self.assertEqual(json.loads(body), "write it")
-        status, headers, _ = asyncio.run(get(root, "/motto.html"))
-        self.assertEqual(status, 200)
-        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+        status, headers, body = asyncio.run(get(root, "/motto.txt"))
+        self.assertEqual((status, body.strip()), (200, b"write it"))
+        self.assertEqual(headers[b"content-type"], b"text/plain; charset=UTF-8")
+        # Text is never HTML: a string there could be anyone's markup
+        self.assertEqual(asyncio.run(get(root, "/motto.html"))[0], 404)
 
     def test_a_container_has_one_url_per_type(self):
         root = {"todos": ["write it"]}
@@ -1858,27 +1862,27 @@ class TestUrlNamesTheType(unittest.TestCase):
 
     def test_the_index_entry_is_the_slash_and_only_the_slash(self):
         # A dict with a front page still has its data by name
-        root = {"todos": {"index": "<p>my todos</p>", "a": 1}}
+        root = {"todos": {"index": Markup("<p>my todos</p>"), "a": 1}}
         _, _, body = asyncio.run(get(root, "/todos/"))
         self.assertEqual(body.strip(), b"<p>my todos</p>")
         _, _, body = asyncio.run(get(root, "/todos.json"))
         self.assertEqual(json.loads(body), {"index": "<p>my todos</p>", "a": 1})
 
     def test_the_root_has_its_slash_and_no_other_name(self):
-        root = {"index": "<p>home</p>"}
+        root = {"index": Markup("<p>home</p>")}
         self.assertEqual(asyncio.run(get(root, "/"))[0], 200)
         for path in ("/index.html", "/index.json", "/index.txt"):
             with self.subTest(path=path):
                 self.assertEqual(asyncio.run(get(root, path))[0], 404)
 
     def test_the_site_root_is_index_html(self):
-        status, headers, body = asyncio.run(get({"index": "<p>home</p>"}, "/"))
+        status, headers, body = asyncio.run(get({"index": Markup("<p>home</p>")}, "/"))
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
         self.assertEqual(body.strip(), b"<p>home</p>")
 
     def test_a_trailing_slash_is_the_index_as_html(self):
-        root = {"todos": {"index": "<ul></ul>", "a": 1}}
+        root = {"todos": {"index": Markup("<ul></ul>"), "a": 1}}
         status, headers, body = asyncio.run(get(root, "/todos/"))
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
@@ -1909,8 +1913,10 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(asyncio.run(put()), 204)
         # What was put is what comes back, and nothing else was written
         self.assertEqual(root, {"index": "new"})
-        _, _, body = asyncio.run(get(root, "/"))
-        self.assertEqual(body.strip(), b"new")
+        # What a client writes is text, and never served as HTML: a visitor's
+        # string at / would be anyone's page
+        status, _, _ = asyncio.run(get(root, "/"))
+        self.assertEqual(status, 404)
 
     def test_index_is_only_special_last(self):
         # In the middle of a path it is a key like any other
@@ -1950,7 +1956,7 @@ class TestUrlNamesTheType(unittest.TestCase):
         self.assertEqual(root, {})
 
     def test_other_extensions_take_their_type_from_mimetypes(self):
-        status, headers, _ = asyncio.run(get({"site": "p {}"}, "/site.css"))
+        status, headers, _ = asyncio.run(get({"site": b"p {}"}, "/site.css"))
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"text/css; charset=UTF-8")
         _, headers, _ = asyncio.run(get({"logo": b"\x89PNG"}, "/logo.png"))
@@ -2051,18 +2057,56 @@ class TestFunctionsInTheTree(unittest.TestCase):
 class TestTextAndListings(unittest.TestCase):
     """Text is its own content; a container's slash lists what is in it."""
 
-    def test_strings_and_numbers_are_text_as_any_type(self):
+    def test_strings_and_numbers_are_text_and_json_alone(self):
         root = {"motto": "mumu", "count": 3, "ratio": 0.5}
         for path, expected in [
             ("/motto.txt", b"mumu"),
-            ("/motto.html", b"mumu"),
             ("/count.txt", b"3"),
-            ("/ratio.html", b"0.5"),
+            ("/ratio.txt", b"0.5"),
             ("/count.json", b"3"),
+            ("/motto.json", b'"mumu"'),
         ]:
             with self.subTest(path=path):
                 status, _, body = asyncio.run(get(root, path))
                 self.assertEqual((status, body.strip()), (200, expected))
+        # As markup, or code, a string could be anyone's: not found
+        for path in (
+            "/motto.html",
+            "/ratio.html",
+            "/motto.js",
+            "/motto.css",
+            "/motto.xml",
+            "/motto.svg",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(asyncio.run(get(root, path))[0], 404)
+
+    def test_markup_is_html_and_nothing_else(self):
+        root = {"page": Markup("<p>mine</p>")}
+        status, headers, body = asyncio.run(get(root, "/page.html"))
+        self.assertEqual((status, body.strip()), (200, b"<p>mine</p>"))
+        self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
+        for path in ("/page.txt", "/page.json"):
+            with self.subTest(path=path):
+                self.assertEqual(asyncio.run(get(root, path))[0], 404)
+
+    def test_a_file_is_its_own_type_alone(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            sheet = Path(directory) / "style.css"
+            sheet.write_text("p {}")
+            root = {"style": sheet, "static": Path(directory)}
+            for path, status in [
+                ("/style.css", 200),
+                ("/style.html", 404),
+                ("/style.js", 404),
+                ("/style.txt", 404),
+                ("/static/style.css", 200),
+                ("/static/style.html", 404),
+            ]:
+                with self.subTest(path=path):
+                    self.assertEqual(asyncio.run(get(root, path))[0], status)
 
     def test_true_and_false_are_json_alone(self):
         # (None is not found at all: a consumer's None is "not found")
@@ -2125,28 +2169,32 @@ class TestTextAndListings(unittest.TestCase):
                 self.assertEqual(
                     body.decode().strip(),
                     "<ul>\n"
-                    '  <li><a href="/notes/motto.html">motto</a></li>\n'
-                    '  <li><a href="/notes/count.html">count</a></li>\n'
-                    '  <li><a href="/notes/a%20b%26c.html">a b&amp;c</a></li>\n'
+                    '  <li><a href="/notes/motto.txt">motto</a></li>\n'
+                    '  <li><a href="/notes/count.txt">count</a></li>\n'
+                    '  <li><a href="/notes/a%20b%26c.txt">a b&amp;c</a></li>\n'
                     '  <li><a href="/notes/sub/">sub</a></li>\n'
                     '  <li><a href="/notes/items/">items</a></li>\n'
                     '  <li><a href="/notes/sheet.css">sheet</a></li>\n'
-                    '  <li><a href="/notes/plain.html">plain</a></li>\n'
                     "</ul>",
                 )
-                for url in ("/notes/motto.html", "/notes/sub/", "/notes/items/"):
+                for url in (
+                    "/notes/motto.txt",
+                    "/notes/sheet.css",
+                    "/notes/sub/",
+                    "/notes/items/",
+                ):
                     with self.subTest(url=url):
                         self.assertEqual(asyncio.run(get(root, url))[0], 200)
 
     def test_a_list_lists_its_indexes(self):
         _, _, body = asyncio.run(get({"items": ["a", "b"]}, "/items/"))
-        self.assertIn(b'<a href="/items/0.html">0</a>', body)
-        self.assertIn(b'<a href="/items/1.html">1</a>', body)
+        self.assertIn(b'<a href="/items/0.txt">0</a>', body)
+        self.assertIn(b'<a href="/items/1.txt">1</a>', body)
 
     def test_the_root_and_a_guarded_dict_list_too(self):
         _, _, body = asyncio.run(get({"a": "x"}, "/"))
-        self.assertIn(b'<a href="/a.html">a</a>', body)
+        self.assertIn(b'<a href="/a.txt">a</a>', body)
         from mumulib.consumers import GetOnly
 
         _, _, body = asyncio.run(get({"g": GetOnly({"a": "x"})}, "/g/"))
-        self.assertIn(b'<a href="/g/a.html">a</a>', body)
+        self.assertIn(b'<a href="/g/a.txt">a</a>', body)

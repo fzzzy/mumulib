@@ -321,9 +321,14 @@ class TestProduceHtml(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "attribute 'title' produced bytes"):
             render(t.br(title=b"raw"))
 
-    def test_attribute_values_go_through_producers(self):
-        rendered = render(t.div(data=[1, 2]), accept=("application/json", "*/*"))
-        self.assertIn('data="[1, 2]"', rendered)
+    def test_attribute_values_are_text_whatever_the_page_is(self):
+        # Asked for as JSON or not, an attribute is its value's text
+        rendered = render(t.meta(charset="utf-8"), accept=("application/json", "*/*"))
+        self.assertIn('charset="utf-8"', rendered)
+        self.assertIn('n="3"', render(t.div(n=3)))
+        # And what has no text is an error naming the attribute, not its repr
+        with self.assertRaisesRegex(TypeError, "attribute 'data' is a list"):
+            render(t.div(data=[1, 2]))
 
     def test_registered_as_producer(self):
         async def collect():
@@ -387,7 +392,8 @@ class TestEscaping(unittest.TestCase):
         import mumulib.consumers  # noqa: F401
 
         out = render(t.div[{"a": 1}], accept=("text/html", "*/*"))
-        self.assertIn('<a href="/a.html">a</a>', out)
+        # Its entries linked where they are: a number, as text
+        self.assertIn('<a href="/a.txt">a</a>', out)
 
     def test_what_has_no_html_is_an_err_naming_its_type(self):
         for child, words in [(object(), "has no HTML form"), (b"raw", "no HTML")]:

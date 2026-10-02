@@ -11,7 +11,7 @@ from types import MappingProxyType
 from mumulib.consumers import GetOnly, RefuseIndex
 from mumulib.resource import Resource
 from mumulib.server import consumers_app
-from mumulib.tags import parse_template
+from mumulib.tags import Markup, parse_template
 
 
 def call(root, method, path, body=None, data: str | Path = "var/data"):
@@ -42,7 +42,7 @@ class Profile(Resource):
 
 
 class Site(Resource):
-    child_index = "<h1>Home</h1>"
+    child_index = Markup("<h1>Home</h1>")
     child_profile = Profile()
     child_notes = {"a": 1}
 
@@ -93,8 +93,9 @@ class TestRender(unittest.TestCase):
         status, headers, body = call(root, "GET", "/profile.html")
         self.assertEqual((status, body), (200, b"<h1>A profile</h1>"))
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
-        _, _, body = call(root, "GET", "/profile.json")
-        self.assertEqual(json.loads(body), "<h1>A profile</h1>")
+        # A template is HTML, and only HTML: as anything else, not found
+        for path in ("/profile.json", "/profile.txt", "/profile.xml"):
+            self.assertEqual(call(root, "GET", path)[0], 404)
         # Its state is a child of its own: none, given none
         _, _, body = call(root, "GET", "/profile/state.json")
         self.assertEqual(json.loads(body), {})
@@ -238,10 +239,18 @@ class TestRegistration(unittest.TestCase):
         class Deeper(Profile):
             template = "deeper"
 
-        self.assertEqual(call({"d": Deeper()}, "GET", "/d.txt")[2], b"deeper")
+        self.assertEqual(call({"d": Deeper()}, "GET", "/d.html")[2], b"deeper")
+
+    def test_a_template_of_anything_else_is_its_html(self):
+        class Listed(Resource):
+            template = {"a": 1}
+
+        status, _, body = call({"l": Listed()}, "GET", "/l.html")
+        self.assertEqual(status, 200)
+        self.assertIn(b"<ul>", body)
 
     def test_resource_itself_is_registered(self):
-        status, _, body = call({"r": Resource()}, "GET", "/r.txt")
+        status, _, body = call({"r": Resource()}, "GET", "/r.html")
         self.assertEqual((status, body), (200, b""))
 
 
@@ -343,8 +352,9 @@ class TestSlots(unittest.TestCase):
 
     def test_anything_else_is_the_html_a_producer_makes_of_it(self):
         body = self.body()
-        # A dict as its listing, a resource as its own page
-        self.assertIn('<a href="/page/a.html">a</a>', body)
+        # A dict as its listing -- its text linked as text -- and a resource
+        # as its own page
+        self.assertIn('<a href="/page/a.txt">a</a>', body)
         self.assertIn("<b>a card</b>", body)
 
     def test_a_slot_sees_the_request(self):
@@ -548,7 +558,7 @@ class TestItsUrl(unittest.TestCase):
         call(root, "GET", "/people/ada.html")
         self.assertEqual(profile.url, "/people/ada")
         # Every type of it, and below it, is the same URL
-        for path in ("/people/ada.json", "/people/ada/state.json"):
+        for path in ("/people/ada.html", "/people/ada/state.json"):
             self.assertEqual(call(root, "GET", path)[0], 200)
         call(root, "PUT", "/people/ada.json", {})
         self.assertEqual(profile.url, "/people/ada")

@@ -67,8 +67,12 @@ extension alone decides what comes back.
   `int()` would take them for some element.
 - The root is the one exception: it has no name in a parent, so `/` is its
   only URL, and it cannot be replaced whole. Its data is its entries'.
-- A string is its own content as any type, and a number its digits; `True`
-  and `False` are JSON alone. What has no producer for the URL's type is 404,
+- A string is text: its own content at `.txt`, and a JSON string at `.json`,
+  and a number its digits at both. As anything else -- `.html`, `.js`,
+  `.css`, `.xml` -- it is not found, since a string, a visitor's included,
+  served as markup or code is anyone's page. HTML of your own is a
+  `tags.Markup`, served at `.html` alone; a resource's template is its
+  markup. `True` and `False` are JSON alone. What has no producer for the URL's type is 404,
   never its `str()`; and in JSON, a value with no JSON form is an error, not a
   quiet `null`. A `None` is `null` in a JSON document, but is not found as a
   URL's own answer: a consumer's `None` means not found.
@@ -82,7 +86,7 @@ extension alone decides what comes back.
 `make run` at the repository root runs one (`SERVER=<name>`, default
 `hello`) on port 5959, in the background, and `make server` in the
 foreground. The smallest, `hello.py`, publishes
-`{"index": "Hello, world!"}`: `/` is the string as HTML, and the only URL
+`{"index": Markup("Hello, world!")}`: `/` is that HTML, and the only URL
 there is, since the root has no name of its own. It is wrapped in `GetOnly`,
 read-only (see Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
 stylesheet, text and image from a directory, `functions.py`
@@ -112,7 +116,7 @@ class Profile(Resource):
 
 
 class Site(Resource):
-    child_index = "<h1>Home</h1>"
+    child_index = Markup("<h1>Home</h1>")
     child_profile = Profile({"name": "Ada"})
 
 
@@ -266,7 +270,9 @@ on each request. A `pathlib.Path` is too, and a `Path` to a directory is walked
 into: `{"static": Path("static")}` serves `static/style.css` at
 `/static/style.css`. The URL's extension is put back on the last segment as
 part of the file's name, and is the type it is served as, so a file needs an
-extension to be served.
+extension to be served. A file is its own type and no other: a `Path` to
+`style.css`, published as `style`, is `/style.css`, and `/style.html` is not
+found.
 
 The slash, `/static/`, is the directory's `index.html` if it has one, and
 else a `<ul>` of links, each named for its file. Its name, `/static.json`, is

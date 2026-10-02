@@ -30,14 +30,15 @@ from typing import Any, cast
 
 from mumulib.mumutypes import State
 from mumulib.server import consumers_app
+from mumulib.tags import Markup
 
-INDEX = """<!doctype html>
+INDEX = Markup("""<!doctype html>
 <title>Functions</title>
 <form method="post" action="/greet.html">
   <label>Name <input name="name" value="Ada" /></label>
   <button>Greet</button>
 </form>
-"""
+""")
 
 
 async def greet(state: State) -> AsyncIterator[str]:
