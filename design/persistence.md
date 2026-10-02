@@ -34,8 +34,8 @@ The next step from RAM is a JSON document on disk for each persisted object.
 
 ### 3. Two kinds of node with identity, both persistent: Resource and Persist
 
-Both keep their state in a JSON file, written by one generic mechanism; they
-differ in how they answer a `GET`:
+Both keep their state in a JSON file; they differ in how they write it after
+a change, and in how they answer a `GET`:
 
 - A **Resource** has behaviour of its own and answers by computing: it keeps
   `self.state` in memory and renders from it. It is for what is calculated
@@ -45,10 +45,17 @@ differ in how they answer a `GET`:
 
 ### 3a. How a resource is persisted
 
-- **Written after every change.** On any mutating request to a resource --
-  `POST`, `PUT`, `PATCH`, `DELETE` -- an ASGI wrapper makes a `GET` of the
-  resource's `state.json` immediately after, and writes what it answers to
-  the resource's file: the file is `self.state` as JSON.
+- **Written by the base class's handlers.** `Resource` has a handler for each
+  mutating method -- `handle_POST`, `handle_PUT`, `handle_PATCH`,
+  `handle_DELETE` -- that serializes `self.state` to the resource's file, as
+  its `state.json` answers. A subclass handling one of them changes
+  `self.state` and **must call the base class's method**, `await
+super().handle_POST(request)`, for the change to be kept.
+- Since the base handlers now save, they no longer refuse: a method the
+  subclass does not override is refused with 405 by `render`, before any
+  handler runs, as `allowed()` already reports it.
+- A subclass that forgets to call `super()` changes its state in memory and
+  not on disk, silently.
 - **Loaded lazily, on its first request.** A resource does not know where it is
   stored until a request first reaches it -- its file follows from its URL,
   as a persist's does (decision 4) -- and then `self.state` is loaded from
@@ -61,8 +68,13 @@ differ in how they answer a `GET`:
 - **Where.** Every file is under one data directory, `./var/data`, at the path
   its URL gives it: `/editors/characters/c1` is
   `./var/data/editors/characters/c1.json`.
-- How a persist's file is written after a change may not be the same:
-  _open question 1._
+
+### 3b. How a persist is persisted
+
+A persist's file is its state, so there is nothing to ask for after a change:
+its mutation implementation writes the file itself. A `PATCH` is applied to
+the loaded document, a sub-URL `PUT` sets one value in it, and the document
+is written (to a temporary file, then renamed over the old).
 
 Persist starts with JSON alone: its `.json` is its file as it is. Anything
 that does not fit that is marked TODO for now.
@@ -134,12 +146,3 @@ everything not inside a persist.
   changed, a fresh 200 if it has.
 - State in memory that is in no file -- plain dicts and lists outside any
   persist or resource -- has no `ETag`. _(A resource's: open question 3.)_
-
-## Open questions
-
-1. **How a persist is written after a change.** A resource's wrapper `GET`s
-   its `state.json`; a persist's file is its state, so there may be nothing
-   to `GET`. Perhaps the write itself has the new document in hand -- a
-   `PATCH` applied to the loaded document, a sub-URL `PUT` setting one value
-   in it -- and writes it (to a temporary file, then renamed), so the two
-   wrappers are not one generic wrapper. Is that it?
