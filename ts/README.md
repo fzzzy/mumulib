@@ -378,3 +378,26 @@ the component, so leave them out of git -- `*.sfc.html.d.ts` in
 this repository's `make check` and `make run` do.
 
 [http://127.0.0.1:8000/examples/use_sfc/](http://127.0.0.1:8000/examples/use_sfc/)
+
+## The origin plugin
+
+`mumulib/vite-plugin-origin` is for pages another server serves -- mumulib's
+Python server, with `static.Page` -- while Vite's dev server serves their
+modules. In development, Vite writes the URLs in an HTML entry root-relative,
+`/vite/main.ts`, which from the other server's origin would be asked of it.
+`originPlugin(origin)` names the dev server in full in each one under the
+base, and each relative one, so the browser fetches Vite's client and the
+page's modules from Vite, and hot reloading connects to it:
+
+```ts
+import { originPlugin } from 'mumulib/vite-plugin-origin'
+
+export default defineConfig({
+  base: '/vite/',
+  plugins: [originPlugin('http://127.0.0.1:5757')],
+  server: { host: '127.0.0.1', port: 5757, strictPort: true },
+})
+```
+
+It does nothing to a build. This repository's `ts/vite.pages.config.mts` uses
+it, for `ts/pages`.

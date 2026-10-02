@@ -1,6 +1,6 @@
 # Vite
 
-Status: decided, not yet built. Started 2026-10-01.
+Status: built. Started 2026-10-01.
 
 How a page served by the Python server becomes a TypeScript app built by
 Vite: proxied to Vite's dev server, with hot reloading, while developing,

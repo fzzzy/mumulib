@@ -94,7 +94,9 @@ and `editors.py` (`SERVER=editors`, then `/editors/`) a character, party and
 deploy editor: every page built in Stan, each object a `Resource` whose state
 fills its edit form, each form a plain post its resource checks and answers
 with 303 See Other, and one small script that fetches the tables again when
-anything changes.
+anything changes. `notes.py` (`SERVER=notes`) is a Vite page, `ts/pages/notes`,
+served by Python beside a `Persist` it reads and writes; `make production
+SERVER=notes` serves it built.
 
 ## Resources
 
@@ -226,6 +228,33 @@ a slot, and a slot with neither a `slot_` nor a state entry keeps what the
 template has there. A slot
 inside a pattern is the pattern's, filled when it is copied. A value with no
 HTML form is a `TypeError` naming its slot, before anything is sent.
+
+## Vite pages
+
+A page written in TypeScript and built by Vite is published as a
+`mumulib.static.Page`, naming its HTML entry in the Vite project, and served
+exactly as Vite made it: Python does not fill it. Past the HTML the page is
+TypeScript's, asking the tree for what it shows.
+
+```python
+app = consumers_app(
+    {"index": Page("notes/index.html"), "notes": Persist([])},
+    vite="ts/build/pages",
+)
+```
+
+The Vite project's `base` is `/vite/`, which `consumers_app` then keeps for
+itself, ahead of the tree. In production -- the default -- the page is
+Vite's build of it, read from the `vite` directory, and `/vite/` serves
+everything else Vite built there: `/vite/assets/notes-3f2a.js`. Each is
+cached by its file, with an `ETag`.
+
+With `MUMULIB_DEVELOPMENT=1` in the environment, the page is asked of Vite's
+dev server, always at `http://127.0.0.1:5757`. With mumulib's origin plugin
+in the Vite config, the URLs Vite writes into it name that server in full,
+so the browser loads the page's modules, and opens hot reloading, from Vite
+itself, and `/vite/` is not Python's at all. The page's own requests -- the
+tree, the change stream -- are still to Python, its origin.
 
 ## Files and directories
 

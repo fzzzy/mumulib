@@ -25,14 +25,18 @@ TypeScript; everything runs from here, through the Makefile.
   the coverage of `ts/src/` they reach.
 - `make fix` applies the linters' fixes and formatting.
 - `make build` writes the npm package to `ts/dist`: the browser bundle, the
-  Node ESM and CommonJS bundles, and the type declarations.
-- `make run` starts both example servers in the background and returns:
-  Vite on port 8000, serving `ts/examples` from source, and a Python example
-  from `py/examples` on port 5959 -- `hello` unless `SERVER` names another, as
-  in `make run SERVER=resources`. Each reloads as its code changes. `make tail`
-  follows their logs, `var/log/vite.log` and `var/log/server.log`; `make stop`
-  stops whatever holds either port; and `make dev` is run and tail together.
-- `make server` runs the Python example alone, in the foreground.
+  Node ESM and CommonJS bundles, and the type declarations; and builds the
+  pages Python serves, `ts/pages`, into `ts/build/pages`, as `make pages`
+  does alone.
+- `make run` starts the example servers in the background and returns: Vite
+  on port 8000, serving `ts/examples` from source; a Python example from
+  `py/examples` on port 5959 -- `hello` unless `SERVER` names another, as in
+  `make run SERVER=notes` -- in development, `MUMULIB_DEVELOPMENT=1`; and the
+  Vite dev server of the pages it serves, on 5757. Each reloads as its code
+  changes. `make tail` follows their logs, in `var/log`; `make stop` stops
+  whatever holds any of the ports; and `make dev` is run and tail together.
+- `make server` runs the Python example alone, in the foreground, and
+  `make production` runs it in production, its pages built, with no Vite.
 - `make check` and `make run` write each example component's declarations,
   `<name>.sfc.html.d.ts`, so tsc and editors know its class. They are made
   from the components, and git ignores them.
