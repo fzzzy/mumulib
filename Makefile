@@ -1,9 +1,13 @@
 .PHONY: check lint fix typecheck test py-test browser-test node-test build dist \
 	python-sync \
-	node_modules run stop tail dev server server-exists declarations clean tags
+	node_modules run stop tail dev server server-exists declarations clean tags \
+	pages production
 
 # The examples' dev server, and where its output goes
 PORT := 8000
+# The dev server of the pages Python serves, ts/pages: always on this port,
+# which a page served in development names in full
+PAGES_PORT := 5757
 LOG := $(CURDIR)/var/log
 
 # make run and make server run one of py/examples: SERVER=<name> for another
@@ -24,6 +28,8 @@ UV := uv run --directory py --extra dev --locked
 # importing from py/, and reloading as py/ changes
 SERVE := uv run --project py --extra dev --locked uvicorn --app-dir py \
 	--reload-dir py
+# Its pages from Vite's dev server, not from their build
+DEVELOPMENT := MUMULIB_DEVELOPMENT=1
 NPM := cd ts && npm
 
 
@@ -61,7 +67,7 @@ node-test: dist
 	cd ts && node scripts/node-check.mjs
 
 
-build: python-sync dist
+build: python-sync dist pages
 
 dist: node_modules
 	$(NPM) run build
@@ -78,30 +84,36 @@ ts/node_modules: ts/package.json ts/package-lock.json
 
 # The examples in the background: the TypeScript ones from Vite at
 # http://127.0.0.1:$(PORT)/, and a Python one (SERVER=<name>) from uvicorn at
-# http://127.0.0.1:$(SERVER_PORT)/, each reloading as its code changes and
-# logging to var/log. A service is whatever holds its port: run frees both
+# http://127.0.0.1:$(SERVER_PORT)/ in development, with the pages it serves
+# from their own Vite on $(PAGES_PORT), each reloading as its code changes and
+# logging to var/log. A service is whatever holds its port: run frees the
 # ports first, stop signals whatever holds them, and neither needs a pidfile.
 run: node_modules python-sync server-exists declarations
 	@mkdir -p "$(LOG)"
 	@$(MAKE) --no-print-directory stop > /dev/null
 	@cd ts && exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
-	@PYTHONUNBUFFERED=1 exec $(SERVE) examples.$(SERVER):app \
+	@cd ts && exec npx vite --config vite.pages.config.mts \
+		> "$(LOG)/vite-pages.log" 2>&1 < /dev/null &
+	@PYTHONUNBUFFERED=1 $(DEVELOPMENT) exec $(SERVE) examples.$(SERVER):app \
 		--host 127.0.0.1 --port $(SERVER_PORT) $(UVICORN_FLAGS) \
 		> "$(LOG)/server.log" 2>&1 < /dev/null &
 	@$(call wait_for_port,$(PORT),vite)
+	@$(call wait_for_port,$(PAGES_PORT),vite-pages)
 	@$(call wait_for_port,$(SERVER_PORT),server)
 	@echo "Examples: http://127.0.0.1:$(PORT)/"
 	@echo "Python:   http://127.0.0.1:$(SERVER_PORT)/  (examples/$(SERVER).py)"
+	@echo "Pages:    http://127.0.0.1:$(PAGES_PORT)/vite/  (ts/pages, for Python)"
 	@echo "Logs:     make tail"
 	@echo "Stop:     make stop"
 
 stop:
 	@$(call stop_port,$(PORT),Vite)
+	@$(call stop_port,$(PAGES_PORT),The pages' Vite)
 	@$(call stop_port,$(SERVER_PORT),The Python server)
 
 # -F rather than -f: a log run truncates is followed from its new start
 tail:
-	@tail -F "$(LOG)/vite.log" "$(LOG)/server.log"
+	@tail -F "$(LOG)/vite.log" "$(LOG)/vite-pages.log" "$(LOG)/server.log"
 
 dev: run tail
 
@@ -154,10 +166,21 @@ endef
 declarations: node_modules
 	-@cd ts && node src/vite/sfc-check.mjs --declarations examples > /dev/null
 
-# A Python example, in the foreground, reloading as its code changes
+# A Python example, in the foreground, reloading as its code changes; its
+# pages from their Vite dev server, which make run starts
 server: python-sync server-exists
-	$(SERVE) examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) \
-		$(UVICORN_FLAGS)
+	$(DEVELOPMENT) $(SERVE) examples.$(SERVER):app --host 127.0.0.1 \
+		--port $(SERVER_PORT) $(UVICORN_FLAGS)
+
+# The pages Python serves, bundled and code-split, into ts/build/pages
+pages: node_modules
+	cd ts && npx vite build --config vite.pages.config.mts
+
+# A Python example in production, in the foreground: its pages built, served
+# by Python under /vite/, and no Vite running
+production: python-sync server-exists pages
+	uv run --project py --extra dev --locked uvicorn --app-dir py \
+		examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT)
 
 server-exists:
 	@test -f py/examples/$(SERVER).py || { \
@@ -167,7 +190,8 @@ server-exists:
 
 
 clean:
-	rm -rf var ts/node_modules ts/dist ts/.nyc_output ts/coverage-frontend py/.venv
+	rm -rf var ts/node_modules ts/dist ts/build ts/.nyc_output ts/coverage-frontend \
+		py/.venv
 	find py -name __pycache__ -prune -exec rm -rf {} +
 
 

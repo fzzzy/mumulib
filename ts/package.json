@@ -33,6 +33,10 @@
       "types": "./dist/esm/types/vite/sfc.d.mts",
       "import": "./dist/vite/sfc.mjs"
     },
+    "./vite-plugin-origin": {
+      "types": "./dist/esm/types/vite/origin.d.mts",
+      "import": "./dist/vite/origin.mjs"
+    },
     "./sfc-client": {
       "types": "./dist/types/vite/sfc-client.d.ts"
     },

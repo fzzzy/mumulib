@@ -14,6 +14,15 @@ import { defineConfig, devices } from '@playwright/test'
 // The Python editors example, py/examples/editors.py, for its browser tests:
 // a server of their own, not whatever make run is serving on 5959
 const EDITORS_PORT = process.env.PLAYWRIGHT_EDITORS_PORT || '8124'
+// The notes example, py/examples/notes.py, a Vite page: once in development,
+// from the pages' Vite dev server on 5757, and once in production, built
+const NOTES_DEVELOPMENT_PORT = '8125'
+const NOTES_PRODUCTION_PORT = '8126'
+
+// A Python example in a directory of its own, emptied first: it keeps its
+// objects in var/data there, and each run starts from none
+const pythonExample = (name: string, directory: string, port: string) =>
+  `rm -rf ../var/e2e/${directory} && mkdir -p ../var/e2e/${directory} && cd ../var/e2e/${directory} && uv run --project ../../../py --extra dev --locked uvicorn --app-dir ../../../py examples.${name}:app --host 127.0.0.1 --port ${port}`
 
 export default defineConfig({
   // Each spec sits beside the module it tests
@@ -95,12 +104,36 @@ export default defineConfig({
       },
     },
     {
-      // In a directory of its own, emptied first: the example keeps its
-      // objects in var/data there, and each run starts from none
-      command: `rm -rf ../var/e2e/editors && mkdir -p ../var/e2e/editors && cd ../var/e2e/editors && uv run --project ../../../py --extra dev --locked uvicorn --app-dir ../../../py examples.editors:app --host 127.0.0.1 --port ${EDITORS_PORT}`,
+      command: pythonExample('editors', 'editors', EDITORS_PORT),
       url: `http://127.0.0.1:${EDITORS_PORT}/editors/characters.json`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+    },
+    {
+      // The pages' Vite dev server, always on 5757, as make run starts it
+      command: 'npx vite --config vite.pages.config.mts',
+      url: 'http://127.0.0.1:5757/vite/notes/index.html',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: pythonExample(
+        'notes',
+        'notes-development',
+        NOTES_DEVELOPMENT_PORT
+      ),
+      url: `http://127.0.0.1:${NOTES_DEVELOPMENT_PORT}/notes.json`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: { MUMULIB_DEVELOPMENT: '1' },
+    },
+    {
+      // Built first: production serves the pages from ts/build/pages
+      command: `npx vite build --config vite.pages.config.mts && ${pythonExample('notes', 'notes-production', NOTES_PRODUCTION_PORT)}`,
+      url: `http://127.0.0.1:${NOTES_PRODUCTION_PORT}/notes.json`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: { MUMULIB_DEVELOPMENT: '' },
     },
   ],
 })
