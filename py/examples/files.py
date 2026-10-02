@@ -6,7 +6,8 @@ The dict's index is a file object, as open() gives it, so / is index.html.
 Its "static" entry is a pathlib.Path to a directory, so /static/style.css is
 the file static/style.css -- the URL's extension part of the name, and the
 type it is served as. Nothing outside the directory, and nothing hidden in
-it, is found, and a directory lists nothing.
+it, is found. A directory lists what is in it: /static/ as links, and
+/static.json as {name: URL}.
 
 The whole of it is in GetOnly: nothing but GET gets in.
 """
