@@ -1,6 +1,6 @@
 # State sync
 
-Status: design in progress. Started 2026-10-01.
+Status: decided, not yet built. Started 2026-10-01.
 
 How the server's state tree and the TypeScript `state` module are kept the
 same, automatically.
@@ -48,13 +48,14 @@ and there, rather than waiting until it is needed.
 A link to another document has to be told apart from a field whose value is
 a string that looks like a URL, so it is not a bare string.
 
-### 6. One tagged-value shape for every richer type
+### 6. One tagged-value shape for every richer type: JSON-LD's
 
 JSON has no type for a link, a date or anything else beyond its own, so
-richer types are carried by one general mechanism: an object of a reserved
-shape that says which type it is and carries its value. A link is its first
-type; others, dates among them, come through the same shape when they are
-needed.
+richer types are carried by one general mechanism, borrowed from JSON-LD:
+an object whose keys start with `@`. A link is a node reference,
+`{"@id": "/users/42"}`. Others come the same way when they are needed --
+JSON-LD's typed value, `{"@value": "2026-10-01", "@type": "..."}`, for a
+date, say. Every key starting with `@` is reserved for these.
 
 ### 7. The shape is reserved, and only the serializer makes it
 
@@ -62,21 +63,21 @@ The tagged shape is never user content. The JSON serializer is the only thing
 that produces it, so a tagged value in the output always came from the
 serializer and means what its tag says.
 
-### 8. Writes that contain it are refused
+### 8. Writes that contain it are refused, everywhere
 
-A write whose content contains the reserved shape is refused, with a 400 --
-not escaped. Escaping would let user data use the shape too, at the cost of
-a transform on every read and write; refusing is much simpler.
+A write whose content contains the reserved shape -- any key starting with
+`@`, at any depth -- is refused, with a 400, not escaped. Escaping would let
+user data use the shape too, at the cost of a transform on every read and
+write; refusing is much simpler.
 
-## Open questions
+It is checked on every write: `PUT`, `PATCH` and a sub-URL `PUT`, into a
+persist and into plain dicts and lists in memory alike. Allowing it anywhere
+would let the shape into stored content.
 
-1. **The reserved shape.** Which keys make an object a tagged value? For
-   example: a link as `{"@id": "/users/42"}`, as JSON-LD has it, a date as
-   `{"@date": "2026-10-01"}`, and every key starting with `@` reserved; or
-   one tag key for every type, `{"@type": "link", "@value": "/users/42"}`.
-2. **Where the ban is checked.** On every write into a persist -- `PUT`,
-   `PATCH` and a sub-URL `PUT` -- at any depth of what is written? And into
-   plain dicts and lists in memory too, or persists alone?
-3. **The same shape on both sides.** Is a bound client path the server
-   document's own shape -- the same keys, the same structure -- so that a
-   path means the same thing on each side and binding needs no translation?
+### 9. The same shape on both sides
+
+A bound client path holds the server document's own shape -- the same keys,
+the same structure -- so a path means the same thing on each side, and
+binding one to the other needs no translation. That holds as long as it
+works without unforeseen problems; if building it turns some up, this is
+revisited.
