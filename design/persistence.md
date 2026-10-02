@@ -73,6 +73,14 @@ its mutation implementation writes the file itself. A `PATCH` is applied to
 the loaded document, a sub-URL `PUT` sets one value in it, and the document
 is written (to a temporary file, then renamed over the old).
 
+A persist can be given its content in Python, as a resource is given its
+state. Since it answers a `GET` with `sendfile`, it needs its file to exist:
+so on its first request -- when it learns its URL, lazily (decision 4) -- a
+persist with no file on disk writes the content it was given to its file
+then and there, and serves the file from then on. If the file is already
+there, a later run, the file is the truth and the content given in Python
+is not used, as a resource's file wins over its constructor's state.
+
 Persist starts with JSON alone: its `.json` is its file as it is. Anything
 that does not fit that is marked TODO for now.
 
