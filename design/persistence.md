@@ -45,17 +45,14 @@ a change, and in how they answer a `GET`:
 
 ### 3a. How a resource is persisted
 
-- **Written by the base class's handlers.** `Resource` has a handler for each
-  mutating method -- `handle_POST`, `handle_PUT`, `handle_PATCH`,
-  `handle_DELETE` -- that serializes `self.state` to the resource's file, as
-  its `state.json` answers. A subclass handling one of them changes
-  `self.state` and **must call the base class's method**, `await
-super().handle_POST(request)`, for the change to be kept.
-- Since the base handlers now save, they no longer refuse: a method the
-  subclass does not override is refused with 405 by `render`, before any
-  handler runs, as `allowed()` already reports it.
-- A subclass that forgets to call `super()` changes its state in memory and
-  not on disk, silently.
+- **Written by `save()`.** `Resource` has a `save()` method that serializes
+  `self.state` to the resource's file, as its `state.json` answers. A handler
+  that changes `self.state` -- `handle_POST`, `handle_PUT`, `handle_PATCH`,
+  `handle_DELETE` -- is required to call it, `await self.save()`, for the
+  change to be kept. One that does not keeps its change in memory and not on
+  disk: that is the subclass's own mistake to make.
+- The base class's handlers stay as they are: a mutating method a subclass
+  does not handle is refused with 405.
 - **Loaded lazily, on its first request.** A resource does not know where it is
   stored until a request first reaches it -- its file follows from its URL,
   as a persist's does (decision 4) -- and then `self.state` is loaded from
