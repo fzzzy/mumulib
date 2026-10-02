@@ -110,6 +110,59 @@ Links in a saved file would have to be hydrated back into the objects they
 name when it is loaded, which needs more design. To start, no resource or
 persist contains another container.
 
+## Part one: no container in a container
+
+State sync is built in two parts. Part one has no container -- a resource
+or a persist, anything Located -- inside another, so it has no links:
+decisions 4 to 9, the `@` shape and links, and decisions 11 and 12, are part
+two's.
+
+### 14. A bound document holds no resource or persist
+
+A resource's state and a persist's document are plain JSON: dicts, lists
+and scalars, nested as deep as they like. A resource or a persist anywhere
+inside one is not allowed. Plain dicts and lists still hold resources and
+persists, to build the tree, as the editors example's `characters` does;
+they are never bound (decision 10).
+
+### 15. A resource's `.json` is its state
+
+A resource is named as a file: `/editors/characters/c1.html` is its page,
+its template, and `/editors/characters/c1.json` is its state, as
+`Resource`'s own `handle_GET` answers. It is not also a child, `state.json`:
+one URL for each representation. So binding is the same for a resource and
+a persist: fetch `<url>.json`, the URL a write to it announces with
+`.json` on it.
+
+### 16. A plain dict of containers answers `.json` with its listing
+
+A plain dict or list whose entries are resources or persists answers
+`.json` with a listing, as a directory does: each entry's name and the URL
+of its `.json`, `{"c1": "/editors/characters/c1.json"}` -- plain strings,
+not links. A client finds there what to bind.
+
+### 17. The client binds a URL to a path
+
+`bind(path, url)` fetches `<url>.json`, puts it at `path` with `set_path`,
+and fetches it again whenever the change stream announces `url`, compared
+as live updates compare URLs. A page has one change stream. With no links,
+nothing is fetched eagerly.
+
+### 18. Writes stay explicit REST
+
+A client changes the server's state with a `PUT` or a `DELETE` on a URL
+inside a persist, or with a request a resource's own handler answers. Its
+own change comes back to it through the announcement, as anyone's does
+(decision 3).
+
+### 19. Text is text, and a template is HTML
+
+Built first, as part of part one: a string or a number answers `.txt` and
+`.json` alone, and is not found as anything else -- as `.html` it would be
+served as markup, a visitor's included. HTML of a program's own is a
+`tags.Markup`, served at `.html`. A resource's template is HTML alone, not
+found as `.txt`. A file is served at its extension on disk alone.
+
 ## Open questions
 
 1. **Links to objects not yet located.** A link needs the object's URL,
