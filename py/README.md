@@ -148,8 +148,11 @@ A resource keeps its state in a file named by its URL, in the app's data
 directory: `var/data` beside where the server runs, or the one
 `consumers_app(root, data=...)` names. `/editors/characters/c1` keeps
 `var/data/editors/characters/c1.json`, and an index, `/editors/`,
-`var/data/editors/index.json`. The process is one, on one thread, so a
-resource's state in memory is the state.
+`var/data/editors/index.json`. The root is a dict, as it is anywhere else: a
+resource at `/` is its `"index"` entry, keeping `var/data/index.json`.
+Don't publish a resource as the root, with another as its `child_index`:
+the index would be `/` as well, and share its file. The process is one, on
+one thread, so a resource's state in memory is the state.
 
 The first request to reach a resource loads its file, if there is one, as
 `self.state` -- an existing file wins over the state it was made with.
