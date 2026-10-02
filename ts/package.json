@@ -49,8 +49,8 @@
     "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
     "test:browser": "rm -rf .nyc_output && playwright test",
     "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --extension=.html --reporter=text --reporter=html --report-dir coverage-frontend",
-    "lint": "eslint . && prettier --config .prettierrc --check . ../README.md ../CHANGELOG.md ../.github",
-    "format": "eslint . --fix && prettier --config .prettierrc --write . ../README.md ../CHANGELOG.md ../.github"
+    "lint": "eslint . && prettier --config .prettierrc --check . ../README.md ../CHANGELOG.md ../design ../.github",
+    "format": "eslint . --fix && prettier --config .prettierrc --write . ../README.md ../CHANGELOG.md ../design ../.github"
   },
   "keywords": [
     "html templating",
