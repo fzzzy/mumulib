@@ -32,14 +32,29 @@ asyncio. Threads and processes come later, and are designed when they do.
 
 The next step from RAM is a JSON document on disk for each persisted object.
 
-### 3. Two kinds of node with identity: Resource and Persist
+### 3. Two kinds of node with identity, both persistent: Resource and Persist
 
-- A **Resource** keeps its state in memory, has behaviour of its own, and
-  renders from `self.state`.
-- A **Persist** keeps its state on disk, as a file that is the truth, and
-  serves it straight from disk.
+Both keep their state in a JSON file, written by one generic mechanism; they
+differ in how they answer a `GET`:
 
-Behaviour and hot: a resource. Plain durable data: a persist.
+- A **Resource** has behaviour of its own and answers by computing: it keeps
+  `self.state` in memory and renders from it. It is for what is calculated
+  dynamically.
+- A **Persist** is plain durable data, and answers a `GET` with its file as it
+  is, sent with `sendfile`.
+
+### 3a. How a resource is persisted
+
+- **Written after every change.** On any mutating request to a resource --
+  `POST`, `PUT`, `PATCH`, `DELETE` -- an ASGI wrapper makes a `GET` of the
+  resource immediately after, and writes what it answers to the resource's
+  file. _(Which `GET`: open question 1.)_
+- **Loaded lazily, on its first request.** A resource does not know where it is
+  stored until a request first reaches it -- its file follows from its URL,
+  as a persist's does (decision 4) -- and then `self.state` is loaded from
+  its file. _(Where files are, and a first load with no file: open questions
+  2 and 4.)_
+- The same generic writing serves a persist's JSON file too.
 
 Persist starts with JSON alone: its `.json` is its file as it is. Anything
 that does not fit that is marked TODO for now.
@@ -47,10 +62,10 @@ that does not fit that is marked TODO for now.
 - TODO: a persist's `.html`, which has to be rendered from its state, so its
   file parsed -- presumably from a template, as a resource's is.
 
-### 4. A persist learns its URL on first access, and loads then
+### 4. A persist or resource learns its URL on first access, and loads then
 
-A persist's URL -- and so its file -- is not its own: it is where it sits in
-the tree, which is the path walked to reach it. So it is bound when traversal
+A persist's or resource's URL -- and so its file -- is not its own: it is
+where it sits in the tree, which is the path walked to reach it. So it is bound when traversal
 first delivers a request to it, carrying the path walked, and its state is
 loaded from its file then: identity and hydration happen together, lazily.
 
@@ -109,5 +124,18 @@ everything not inside a persist.
   -- kept, but revalidated before every use -- so each use sends
   `If-None-Match` with the container's `ETag`: 304 if the container has not
   changed, a fresh 200 if it has.
-- State in memory, with no file, has no `ETag` for now. The final persist
-  design persists state in memory too; that comes later.
+- State in memory that is in no file -- plain dicts and lists outside any
+  persist or resource -- has no `ETag`. _(A resource's: open question 3.)_
+
+## Open questions
+
+1. **Which `GET` the wrapper makes.** The resource's `state.json`, so that its
+   file is `self.state` as JSON?
+2. **Where the files are.** Under one data directory, mirroring the URL --
+   `/editors/characters/c1` as `<data>/editors/characters/c1.json` -- and where
+   is the data directory set?
+3. **A resource as a container.** Is a persistent resource a container, as a
+   persist is: a write to it announcing its own URL (decision 8), and its file
+   giving it an `ETag` (decision 9)?
+4. **A first load with no file.** Is the state the constructor was given the
+   starting state, written out on the first change?
