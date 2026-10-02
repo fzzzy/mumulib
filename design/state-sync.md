@@ -83,3 +83,35 @@ the same structure -- so a path means the same thing on each side, and
 binding one to the other needs no translation. That holds as long as it
 works without unforeseen problems; if building it turns some up, this is
 revisited.
+
+### 10. A bound URL is a resource or a persist, on purpose
+
+A write announces the nearest resource or persist at or above it
+([persistence.md](persistence.md), decision 8), so a plain dict or list
+inside one is never announced itself. Only a resource or a persist is
+bound.
+
+### 11. A link is expanded, on the client, into the state it names
+
+Links follow decision 6: a resource or persist inside other JSON is a link,
+`{"@id": url}`, not its state inlined. On the client a link is the special
+case: it is expanded, recursively, into the state its URL names, and that
+is what keeps the client's tree in the server's shape.
+
+### 12. Clients do not write links
+
+Every `@` key is refused in a write (decision 8), so a client cannot make a
+link: a reference it writes is plain data, an id, as the editors example's
+party members are, and a persist never holds a link.
+
+### 13. To start, no resource or persist holds another
+
+Links in a saved file would have to be hydrated back into the objects they
+name when it is loaded, which needs more design. To start, no resource or
+persist contains another container.
+
+## Open questions
+
+1. **Links to objects not yet located.** A link needs the object's URL,
+   which it learns when a request first reaches it; until then it has none.
+2. **Hydrating links in a saved file**, when it is loaded: to be refined.
