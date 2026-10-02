@@ -45,13 +45,15 @@ import typing
 from mumulib import mumutypes, resource, server, tags
 
 STYLESHEET = "/editors/style.css"
-NAV = tags.every.p[tags.every.a(href="/editors/")["Editors"]]
+NAV = tags.text_content.p[tags.inline_text_semantics.a(href="/editors/")["Editors"]]
 
 
 def buttons() -> tags.Stan:
     """Save posts the form; Cancel goes back, saving nothing."""
-    return tags.every.p[
-        tags.every.button["Save"], " ", tags.every.a(href="/editors/")["Cancel"]
+    return tags.text_content.p[
+        tags.forms.button["Save"],
+        " ",
+        tags.inline_text_semantics.a(href="/editors/")["Cancel"],
     ]
 
 
@@ -63,9 +65,9 @@ def edit_page(title: str, *fields: typing.Any) -> tags.Stan:
     return tags.page(
         title,
         NAV,
-        tags.every.h1(id="heading", live=True, slt="name")["A name"],
-        tags.every.form(attr="action=url", method="post")[
-            tags.every.h2[title], *fields, buttons()
+        tags.content_sectioning.h1(id="heading", live=True, slt="name")["A name"],
+        tags.forms.form(attr="action=url", method="post")[
+            tags.content_sectioning.h2[title], *fields, buttons()
         ],
         stylesheets=[STYLESHEET],
         live=True,
@@ -73,9 +75,9 @@ def edit_page(title: str, *fields: typing.Any) -> tags.Stan:
 
 
 def name_field() -> tags.Stan:
-    return tags.every.label[
+    return tags.forms.label[
         "Name",
-        tags.every.input(attr="value=name", type="text", name="name", required=True),
+        tags.forms.input(attr="value=name", type="text", name="name", required=True),
     ]
 
 
@@ -85,13 +87,13 @@ class Character(resource.Resource):
     template = edit_page(
         "Edit character",
         name_field(),
-        tags.every.label[
+        tags.forms.label[
             "System prompt",
-            tags.every.textarea(slt="prompt", name="prompt")["A prompt"],
+            tags.forms.textarea(slt="prompt", name="prompt")["A prompt"],
         ],
-        tags.every.label[
+        tags.forms.label[
             "Agent args",
-            tags.every.input(attr="value=agent_args", type="text", name="agent_args"),
+            tags.forms.input(attr="value=agent_args", type="text", name="agent_args"),
         ],
     )
 
@@ -114,16 +116,16 @@ class Party(resource.Resource):
     template = edit_page(
         "Edit party",
         name_field(),
-        tags.every.label[
+        tags.forms.label[
             "Members",
-            tags.every.select(slt="member_options", name="members[]", multiple=True),
+            tags.forms.select(slt="member_options", name="members[]", multiple=True),
         ],
     )
 
     def slot_member_options(self, request: mumutypes.State) -> list[tags.Stan]:
         # One option for each character, chosen if it is a member
         return [
-            tags.every.option(value=cid, selected=cid in self.state["members"])[
+            tags.forms.option(value=cid, selected=cid in self.state["members"])[
                 c.state["name"]
             ]
             for cid, c in characters.items()
@@ -150,13 +152,15 @@ class Deploy(resource.Resource):
     template = edit_page(
         "Edit deploy",
         name_field(),
-        tags.every.label["Party", tags.every.select(slt="party_options", name="party")],
-        tags.every.p["Status: ", tags.every.span(slt="status")["running"]],
+        tags.forms.label["Party", tags.forms.select(slt="party_options", name="party")],
+        tags.text_content.p[
+            "Status: ", tags.inline_text_semantics.span(slt="status")["running"]
+        ],
     )
 
     def slot_party_options(self, request: mumutypes.State) -> list[tags.Stan]:
         return [
-            tags.every.option(value=pid, selected=pid == self.state["party"])[
+            tags.forms.option(value=pid, selected=pid == self.state["party"])[
                 p.state["name"]
             ]
             for pid, p in parties.items()
@@ -226,55 +230,65 @@ class Editors(resource.Resource):
     template = tags.page(
         "Editors",
         NAV,
-        tags.every.table(id="characters")[
-            tags.every.caption["Characters"],
-            tags.every.thead[
-                tags.every.tr[
-                    tags.every.th["Name"],
-                    tags.every.th["Prompt"],
-                    tags.every.th["Agent args"],
+        tags.table_content.table(id="characters")[
+            tags.table_content.caption["Characters"],
+            tags.table_content.thead[
+                tags.table_content.tr[
+                    tags.table_content.th["Name"],
+                    tags.table_content.th["Prompt"],
+                    tags.table_content.th["Agent args"],
                 ]
             ],
-            tags.every.tbody(slt="character_rows")[
-                tags.every.tr(
+            tags.table_content.tbody(slt="character_rows")[
+                tags.table_content.tr(
                     pat="character_row", attr={"id": "row_id", "data-live": "watch"}
                 )[
-                    tags.every.td[tags.every.a(slt="name", attr="href=edit")],
-                    tags.every.td(slt="prompt"),
-                    tags.every.td[tags.every.code(slt="agent_args")],
+                    tags.table_content.td[
+                        tags.inline_text_semantics.a(slt="name", attr="href=edit")
+                    ],
+                    tags.table_content.td(slt="prompt"),
+                    tags.table_content.td[
+                        tags.inline_text_semantics.code(slt="agent_args")
+                    ],
                 ]
             ],
         ],
-        tags.every.table(id="parties")[
-            tags.every.caption["Parties"],
-            tags.every.thead[
-                tags.every.tr[tags.every.th["Name"], tags.every.th["Members"]]
+        tags.table_content.table(id="parties")[
+            tags.table_content.caption["Parties"],
+            tags.table_content.thead[
+                tags.table_content.tr[
+                    tags.table_content.th["Name"], tags.table_content.th["Members"]
+                ]
             ],
-            tags.every.tbody(slt="party_rows")[
-                tags.every.tr(
+            tags.table_content.tbody(slt="party_rows")[
+                tags.table_content.tr(
                     pat="party_row", attr={"id": "row_id", "data-live": "watch"}
                 )[
-                    tags.every.td[tags.every.a(slt="name", attr="href=edit")],
-                    tags.every.td(slt="members"),
+                    tags.table_content.td[
+                        tags.inline_text_semantics.a(slt="name", attr="href=edit")
+                    ],
+                    tags.table_content.td(slt="members"),
                 ]
             ],
         ],
-        tags.every.table(id="deploys")[
-            tags.every.caption["Deploys"],
-            tags.every.thead[
-                tags.every.tr[
-                    tags.every.th["Name"],
-                    tags.every.th["Party"],
-                    tags.every.th["Status"],
+        tags.table_content.table(id="deploys")[
+            tags.table_content.caption["Deploys"],
+            tags.table_content.thead[
+                tags.table_content.tr[
+                    tags.table_content.th["Name"],
+                    tags.table_content.th["Party"],
+                    tags.table_content.th["Status"],
                 ]
             ],
-            tags.every.tbody(slt="deploy_rows")[
-                tags.every.tr(
+            tags.table_content.tbody(slt="deploy_rows")[
+                tags.table_content.tr(
                     pat="deploy_row", attr={"id": "row_id", "data-live": "watch"}
                 )[
-                    tags.every.td[tags.every.a(slt="name", attr="href=edit")],
-                    tags.every.td(slt="party"),
-                    tags.every.td(slt="status"),
+                    tags.table_content.td[
+                        tags.inline_text_semantics.a(slt="name", attr="href=edit")
+                    ],
+                    tags.table_content.td(slt="party"),
+                    tags.table_content.td(slt="status"),
                 ]
             ],
         ],
