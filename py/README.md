@@ -80,7 +80,7 @@ extension alone decides what comes back.
 
 `py/examples` holds servers built on mumulib, each a module with an ASGI `app`;
 `make run` at the repository root runs one (`SERVER=<name>`, default
-`hello`) on port 8001, in the background, and `make server` in the
+`hello`) on port 5959, in the background, and `make server` in the
 foreground. The smallest, `hello.py`, publishes
 `{"index": "Hello, world!"}`: `/` is the string as HTML, and the only URL
 there is, since the root has no name of its own. It is wrapped in `GetOnly`,

@@ -9,7 +9,7 @@ LOG := $(CURDIR)/var/log
 # make run and make server run one of py/examples: SERVER=<name> for another
 # than hello
 SERVER ?= hello
-SERVER_PORT ?= 8001
+SERVER_PORT ?= 5959
 # Reloading as the code changes; and on stop, waiting at most two seconds
 # for open responses. Event streams end themselves on a signal; this is for
 # anything else that would keep a stop waiting.

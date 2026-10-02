@@ -1,6 +1,6 @@
 """Editors: characters, parties and deploys, each edited in a plain HTML form.
 
-    make run SERVER=editors      then http://127.0.0.1:8001/editors/
+    make run SERVER=editors      then http://127.0.0.1:5959/editors/
 
 Every page is built here, in Stan, with tags.page, and each object is a
 Resource whose state is its data -- the JSON of it, and what its edit page's

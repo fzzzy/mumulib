@@ -12,7 +12,7 @@ import { defineConfig, devices } from '@playwright/test'
  * See https://playwright.dev/docs/test-configuration.
  */
 // The Python editors example, py/examples/editors.py, for its browser tests:
-// a server of their own, not whatever make run is serving on 8001
+// a server of their own, not whatever make run is serving on 5959
 const EDITORS_PORT = process.env.PLAYWRIGHT_EDITORS_PORT || '8124'
 
 export default defineConfig({

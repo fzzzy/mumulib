@@ -28,7 +28,7 @@ TypeScript; everything runs from here, through the Makefile.
   Node ESM and CommonJS bundles, and the type declarations.
 - `make run` starts both example servers in the background and returns:
   Vite on port 8000, serving `ts/examples` from source, and a Python example
-  from `py/examples` on port 8001 -- `hello` unless `SERVER` names another, as
+  from `py/examples` on port 5959 -- `hello` unless `SERVER` names another, as
   in `make run SERVER=resources`. Each reloads as its code changes. `make tail`
   follows their logs, `var/log/vite.log` and `var/log/server.log`; `make stop`
   stops whatever holds either port; and `make dev` is run and tail together.
