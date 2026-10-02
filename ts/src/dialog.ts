@@ -18,7 +18,8 @@
 
 import { set, get } from 'object-path'
 import morphdom from 'morphdom'
-import { set_state, state } from './state.js'
+import { set_state } from './state.js'
+import { tree as state } from './tree.js'
 
 // May fill the dialog in place and return it, and may be async: it is awaited
 type RenderFunc = (

@@ -7,6 +7,14 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **TypeScript: the state tree is not exported.** `state.state` is gone: a
+  page reads the state as `onstate` gives it, and changes it with
+  `set_state` and `set_path`, never by reaching in and mutating it.
+- **TypeScript: `patslot.template(url)`, a promise, in place of
+  `new patslot.Template(url)`.** The class is a type alone now. Resolving
+  at once for now, it leaves room to fetch the page before it does.
+- **TypeScript: `sync.watched` is private**, the comparison `bind` makes.
+
 - **The Python package requires Python 3.14.** It had allowed 3.12, which
   CI ran -- the runner's own -- while development was on 3.14, and the two
   differ: 3.12's own table of types has no `.md` or `.ttf`, and its

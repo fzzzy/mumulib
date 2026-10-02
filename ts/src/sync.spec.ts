@@ -41,30 +41,41 @@ test.describe('Mumulib sync', () => {
     await expect(page.locator('#doc')).toHaveText('{"version":2}')
   })
 
-  test('URLs are compared as paths, without extension, query or fragment', async ({
+  test('an announcement matches as a path, without extension, query or fragment', async ({
     page,
   }) => {
-    await page.route('**/docs/a.json', (route) => route.fulfill({ json: {} }))
+    // Each fetch of /docs/a.json counted, its count the version answered
+    let fetches = 0
+    await page.route('**/docs/a.json', (route) =>
+      route.fulfill({ json: { version: ++fetches } })
+    )
+    await page.route('**/docs/missing.json', (route) =>
+      route.fulfill({ status: 404, body: 'not here' })
+    )
     await page.route('**/mumulib/changes.sse', (route) =>
       route.fulfill({
         headers: { 'content-type': 'text/event-stream' },
-        body: 'retry: 600000\n\n',
+        body:
+          'retry: 600000\n\n' +
+          [
+            // Not /docs/a: a slash is another URL, and so is a longer name,
+            // and a relative URL is the page's directory's
+            '/docs/a/',
+            '/docs/ab',
+            'a.json',
+            // /docs/a, whatever it is asked as
+            '/docs/a.html?x=1#y',
+            '/docs/a',
+          ]
+            .map((url) => `data: ${JSON.stringify(url)}\n\n`)
+            .join(''),
       })
     )
     await page.goto('examples/use_sync/')
     await expect(page.locator('body[data-bound]')).toBeAttached()
-    const compared = await page.evaluate(async () => {
-      const { sync } = await import('/src/index.ts')
-      return ['/a/b.json', '/a/b?x=1#y', '/a/b/', 'b.json', '/a/.hidden'].map(
-        (url) => sync.watched(url)
-      )
-    })
-    expect(compared).toEqual([
-      '/a/b',
-      '/a/b',
-      '/a/b/',
-      '/examples/use_sync/b',
-      '/a/.hidden',
-    ])
+    // The first fetch, and one for each of the two that match
+    await expect(page.locator('#doc')).toHaveText('{"version":3}')
+    await page.waitForTimeout(300)
+    expect(fetches).toBe(3)
   })
 })

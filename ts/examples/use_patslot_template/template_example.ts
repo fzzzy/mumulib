@@ -1,7 +1,7 @@
 import { patslot } from 'mumulib'
 
 window.onload = async () => {
-  const template = new patslot.Template('template.html')
+  const template = await patslot.template('template.html')
   const node = await template.clone_pat('person', {
     name: 'Jane Smith',
     age: 12,

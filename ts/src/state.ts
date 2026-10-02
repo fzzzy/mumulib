@@ -14,8 +14,7 @@
  * - set_state(newstate: State)
  *   Updates the application state with the provided new state and notifies registered callbacks. The new top level keys are merged with the old top level keys.
  *
- * - state: State
- *   The current application state.
+ * The state itself is not exported: it is read as onstate gives it.
  *
  * - debug(mode: boolean)
  *   Whether or not to log the current application state on changes.
@@ -23,6 +22,7 @@
  */
 
 import { set, get } from 'object-path'
+import { tree as state } from './tree.js'
 
 // The caller's own data, whatever its shape: the published type says so, and
 // narrowing it here would break code that reads its state as it likes.
@@ -33,7 +33,6 @@ type OnStateChange = (state: State) => Promise<void>
 const initialValues: { [key: string]: string } = {}
 const obs: OnStateChange[] = []
 let loaded = false
-const state: State = {}
 let setting = 0
 let dirty = false
 let debug_mode: boolean = false
@@ -248,5 +247,5 @@ async function update_dom_state(state: State) {
   })
 }
 
-export { onstate, set_state, set_path, state, debug }
+export { onstate, set_state, set_path, debug }
 export type { State, OnStateChange }

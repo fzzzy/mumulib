@@ -8,12 +8,9 @@
  * - bind(path: string, url: string)
  *   Fetches <url>.json -- a resource's state, or a persist's document --
  *   puts it at path with state.set_path, and fetches it again whenever the
- *   change stream, /mumulib/changes.sse, announces url. Resolves once the
- *   first fetch is in place.
- *
- * - watched(url: string)
- *   A URL as the change stream compares them: its path on this origin,
- *   without an extension, a query or a fragment, a trailing slash kept.
+ *   change stream, /mumulib/changes.sse, announces url -- compared as paths
+ *   on this origin, without an extension, a query or a fragment, a trailing
+ *   slash kept. Resolves once the first fetch is in place.
  *
  * The client never changes a bound path itself. It writes with a PUT or a
  * DELETE, or a request a resource's handler answers, and its own change
@@ -30,6 +27,7 @@ type Binding = { path: string; url: string; fetches: number }
 const bindings: Binding[] = []
 let stream: EventSource | undefined
 
+// A URL as the change stream compares them
 function watched(url: string): string {
   const path = new URL(url, location.href).pathname
   if (path.endsWith('/')) return path
@@ -75,4 +73,4 @@ async function bind(path: string, url: string): Promise<void> {
   await refresh(binding)
 }
 
-export { bind, watched }
+export { bind }

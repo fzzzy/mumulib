@@ -115,6 +115,14 @@ set_path(path: string, new_substate: State): Promise<void>
 
 Traverses the given path and sets the substate to new_substate. If the state has changed, calls all the onstate handlers.
 
+```ts
+debug(mode: boolean): void
+```
+
+Whether to log the state, and write it to the body's `data-state`, on each change.
+
+The state itself is not exported. A page reads it as `onstate` gives it, as it changes, and changes it with `set_state` and `set_path` -- never by reaching into the tree and mutating it.
+
 ## patslot
 
 Patterns and Slots provide a very simple html templating mechanism with templates that can be edited with sample data in them in a graphical html editor. There are only three tag attributes: data-pat, data-slot, and data-attr. All logic is delegated to normal TypeScript or JavaScript code.
@@ -276,6 +284,12 @@ clone_pat(pattern_name: string, slot_values: { [key: string]: Pattern }): Promis
 Clone a pattern in the current html page and fill any slots with the given values. Return the filled HTMLElement.
 
 ```ts
+template(url: string): Promise<Template>
+```
+
+The template at url: another page, whose patterns its `clone_pat(pattern_name, slot_values)` clones and fills, as `clone_pat` does the current page's. A promise, so how it is had can change -- fetched before it resolves, say -- without changing a caller.
+
+```ts
 fill(element: HTMLElement, slot_values: { [key: string]: Pattern }): Promise<void>
 ```
 
@@ -397,13 +411,7 @@ resource or a persist: a slash is refused. `ts/pages/notes`, served by
 bind(path: string, url: string): Promise<void>
 ```
 
-Fetch `<url>.json` into the state at path, and fetch it again whenever the change stream announces url. Resolves once the first fetch is in place.
-
-```ts
-watched(url: string): string
-```
-
-A URL as the change stream compares them: its path on this origin, without an extension, a query or a fragment, a trailing slash kept.
+Fetch `<url>.json` into the state at path, and fetch it again whenever the change stream announces url -- compared as paths on this origin, without an extension, a query or a fragment, a trailing slash kept. Resolves once the first fetch is in place.
 
 ## single-file components
 

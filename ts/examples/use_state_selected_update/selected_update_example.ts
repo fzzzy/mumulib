@@ -1,24 +1,26 @@
 import { state } from 'mumulib'
+import type { State } from 'mumulib'
 
-let counter = 0
+// The state as onstate last gave it: read from there, as it changes, never
+// by reaching into the state module
+let seen: State = {}
 
+// Each second, the selected person's number, one more than it was seen
 function update() {
-  const selected = state.state[state.state['selected']]
-  selected['number'] = counter
-  state.set_state(null)
-  counter++
+  const selected = seen['selected']
+  state.set_path(`${selected}.number`, seen[selected].number + 1)
   setTimeout(update, 1000)
 }
 
 state.onstate(async (new_state) => {
+  seen = new_state
   if (Object.keys(new_state).length === 0) {
-    state.set_state({
+    await state.set_state({
       selected: 'person1',
       person1: { number: 0 },
       person2: { number: 0 },
     })
-    console.log(state.state)
-    update()
+    setTimeout(update, 1000)
   }
   const node = document.createElement('div')
   node.className = 'output'

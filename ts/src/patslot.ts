@@ -19,8 +19,8 @@
  * - clone_pat(patname: string, slots: { [key: string]: Pattern }): Promise<HTMLElement>
  *   Clones the specified pattern and fills its slots with the provided patterns, returning the cloned element.
  *
- * Classes:
- * - Template: A class that takes a URL parameter pointing to an HTML file and provides a clone_pat method.
+ * - template(url: string): Promise<Template>
+ *   The template at url, another page whose patterns its clone_pat clones.
  */
 
 import morphdom from 'morphdom'
@@ -85,6 +85,16 @@ class Template {
     }
     return clone
   }
+}
+
+/**
+ * The template at url, another page's patterns to clone: a promise, so that
+ * how it is had can change -- fetched before it resolves, say -- without
+ * changing a caller. For now it resolves at once, and each clone_pat fetches
+ * the page.
+ */
+async function template(url: string): Promise<Template> {
+  return new Template(url)
 }
 
 async function fill_body(slots: { [key: string]: Pattern }) {
@@ -253,5 +263,6 @@ async function clone_pat(
   return await template.clone_pat(patname, slots)
 }
 
-export { clone_pat, fill, fill_slots, fill_body, append_to_slots, Template }
-export type { Pattern }
+export { clone_pat, fill, fill_slots, fill_body, append_to_slots, template }
+// The class is not exported, only its type: a template is had from template()
+export type { Pattern, Template }
