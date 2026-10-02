@@ -172,6 +172,11 @@ Python package). Breaking changes come first under each release.
   file yet; `GET` at its URL streams the file; a `PUT` or `DELETE` below it
   sets the document and writes the file again, atomically; a `PUT` at its
   URL replaces it. JSON only, for now.
+- **Caching by the file**: a `GET` of a persist or below it, or of a
+  resource's `state.json` or below it, has an `ETag` from the file's
+  modification time and size and `Cache-Control: no-cache`, and is 304 Not
+  Modified to an `If-None-Match` naming it. What a resource computes is not
+  cached.
 - **Short names for the template attributes in Stan**: `pat=` for
   `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), `attr=` for
   `data-attr`, as `"href=url"` or `{"href": "url"}`, and `live=` for

@@ -246,6 +246,40 @@ def _announce_changes(send: Send, changes: "EventSource", state: State) -> Send:
     return announcing_send
 
 
+def _cache_headers(state: State) -> list[tuple[bytes, bytes]] | None:
+    """ETag and Cache-Control for a GET of something a file holds: a
+    Persist, or below it, or a Resource's state. The ETag is the file's
+    modification time and size, so any write to it is a new one; no-cache
+    has the client ask each time, with If-None-Match. None for anything
+    else -- what is computed, or held in memory alone."""
+    file: Path | None = state.get("etag_file")
+    if state.get("method") != "GET" or file is None or not file.exists():
+        return None
+    stat = file.stat()
+    etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'.encode()
+    return [(b"etag", etag), (b"cache-control", b"no-cache")]
+
+
+def _is_fresh(etag: bytes, headers: list[tuple[bytes, bytes]]) -> bool:
+    """Whether If-None-Match names etag, or is *: the client has it."""
+    for key, value in headers:
+        if key.lower() == b"if-none-match":
+            tags = [tag.strip().removeprefix(b"W/") for tag in value.split(b",")]
+            return etag in tags or b"*" in tags
+    return False
+
+
+def _with_headers(send: Send, headers: list[tuple[bytes, bytes]]) -> Send:
+    """send, with headers added to a 200's start."""
+
+    async def adding_send(message: Message) -> None:
+        if message["type"] == "http.response.start" and message["status"] == 200:
+            message = {**message, "headers": [*message.get("headers", []), *headers]}
+        await send(message)
+
+    return adding_send
+
+
 def consumers_app(
     root: Any, changes: "EventSource | None" = None, data: str | Path = "var/data"
 ) -> ASGIApp:
@@ -364,6 +398,16 @@ def consumers_app(
                 send, 404, "Not Found", f"Resource not found: {scope['path']}"
             )
             return
+
+        cache = _cache_headers(state)
+        if cache is not None:
+            if _is_fresh(cache[0][1], scope["headers"]):
+                await send(
+                    {"type": "http.response.start", "status": 304, "headers": cache}
+                )
+                await send({"type": "http.response.body", "body": b""})
+                return
+            send = _with_headers(send, cache)
 
         if isinstance(result, SpecialResponse):
             await send(result.asgi_send_dict)

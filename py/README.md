@@ -189,6 +189,16 @@ whole document to the file, atomically, before it is answered. A `PUT
 /people.json` replaces the document. Every write inside it announces
 `/people`. It is JSON only for now: `/people.html` is not found.
 
+### Caching
+
+What a file holds is cached by it. A `GET` of a persist, or of anything
+below it, and of a resource's `state.json` or anything below that, is
+answered with the file's `ETag` -- its modification time and size, so a
+write is a new one -- and `Cache-Control: no-cache`, so the client asks
+each time; asked with `If-None-Match` naming it, the answer is 304 Not
+Modified, and nothing else. A resource's own answers, what its handlers
+compute, have neither, and neither does anything held in memory alone.
+
 ### Slots
 
 When `template` is a parsed template, `handle_GET` fills a copy of it: each

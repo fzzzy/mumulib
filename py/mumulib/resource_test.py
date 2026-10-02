@@ -663,3 +663,19 @@ class TestPersistence(unittest.TestCase):
             json.loads((self.data / "ada.json").read_text()), {"name": "Grace"}
         )
         self.assertEqual(list(self.data.iterdir()), [ada.file])
+
+    def test_its_state_is_cached_by_its_file_and_its_answers_are_not(self):
+        ada = Named({"name": "Ada"})
+        root = {"ada": ada}
+        # No file yet: nothing to say whether a copy is fresh
+        self.assertNotIn(b"etag", self.call(root, "GET", "/ada/state.json")[1])
+        self.call(root, "POST", "/ada.json", "Grace")
+        _, headers, _ = self.call(root, "GET", "/ada/state.json")
+        self.assertEqual(headers[b"cache-control"], b"no-cache")
+        etag = headers[b"etag"]
+        self.assertEqual(
+            self.call(root, "GET", "/ada/state/name.txt")[1][b"etag"], etag
+        )
+        # What it computes, at its own URL, is not the file's to vouch for
+        for path in ("/ada.json", "/ada.html"):
+            self.assertNotIn(b"etag", self.call(root, "GET", path)[1])

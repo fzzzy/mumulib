@@ -58,6 +58,9 @@ CHUNK_SIZE = 64 * 1024
 class Persist(Located):
     """A JSON document, kept in its file, and served from it."""
 
+    # Everything read at or below it is its file's: the file's ETag is theirs
+    cached = True
+
     def __init__(self, document: Any = None) -> None:
         # What it was made with: the document until its file says otherwise
         self.document: Any = {} if document is None else document

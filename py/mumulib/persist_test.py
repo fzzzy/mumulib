@@ -8,10 +8,12 @@ from unittest import mock
 
 from mumulib import persist
 from mumulib.persist import Persist
-from mumulib.server import EventSource, consumers_app
+from mumulib.server import EventSource, _is_fresh, consumers_app
 
 
-class TestPersist(unittest.TestCase):
+class PersistCase(unittest.TestCase):
+    """A persist, its root and its data directory, and a request to them."""
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -19,7 +21,7 @@ class TestPersist(unittest.TestCase):
         self.people = Persist({"ada": {"name": "Ada"}, "list": [1, 2]})
         self.root = {"people": self.people}
 
-    def call(self, method, path, body=None, root=None, changes=None):
+    def call(self, method, path, body=None, root=None, changes=None, match=None):
         """The status, headers, body messages and body of one request."""
         sent = []
 
@@ -31,6 +33,8 @@ class TestPersist(unittest.TestCase):
             return {"type": "http.request", "body": data, "more_body": False}
 
         headers = [(b"content-type", b"application/json")] if body is not None else []
+        if match is not None:
+            headers.append((b"if-none-match", match))
         scope = {"type": "http", "method": method, "path": path, "headers": headers}
         app = consumers_app(
             self.root if root is None else root, changes=changes, data=self.data
@@ -46,6 +50,8 @@ class TestPersist(unittest.TestCase):
     def saved(self):
         return json.loads((self.data / "people.json").read_text())
 
+
+class TestPersist(PersistCase):
     def test_its_first_request_writes_what_it_was_made_with(self):
         self.assertFalse((self.data / "people.json").exists())
         self.call("GET", "/people/ada/name.txt")
@@ -126,3 +132,53 @@ class TestPersist(unittest.TestCase):
             return [c async for c in persist._produce_persist(thing, {})]
 
         self.assertEqual(asyncio.run(go()), ["{}"])
+
+
+class TestCaching(PersistCase):
+    def etag(self, path):
+        status, headers, _, _ = self.call("GET", path)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers[b"cache-control"], b"no-cache")
+        return headers[b"etag"]
+
+    def test_it_and_everything_below_it_have_its_files_etag(self):
+        etag = self.etag("/people.json")
+        stat = (self.data / "people.json").stat()
+        self.assertEqual(etag, f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'.encode())
+        self.assertEqual(self.etag("/people/ada/name.txt"), etag)
+        self.assertEqual(self.etag("/people/list.json"), etag)
+
+    def test_if_none_match_it_is_a_304_with_nothing_in_it(self):
+        etag = self.etag("/people.json")
+        for match in (etag, b"W/" + etag, b'"other", ' + etag, b"*"):
+            with self.subTest(match=match):
+                status, headers, _, body = self.call(
+                    "GET", "/people/ada.json", match=match
+                )
+                self.assertEqual((status, body), (304, b""))
+                self.assertEqual(headers[b"etag"], etag)
+        status, _, _, body = self.call("GET", "/people.json", match=b'"other"')
+        self.assertEqual(status, 200)
+        self.assertTrue(body)
+
+    def test_a_write_is_a_new_etag(self):
+        etag = self.etag("/people.json")
+        status, headers, _, _ = self.call("PUT", "/people/ada/name.json", "Ada L")
+        # A write's own answer is not cached
+        self.assertEqual(status, 204)
+        self.assertNotIn(b"etag", headers)
+        self.assertNotEqual(self.etag("/people.json"), etag)
+        status, _, _, _ = self.call("GET", "/people.json", match=etag)
+        self.assertEqual(status, 200)
+
+    def test_what_is_in_memory_alone_has_no_etag(self):
+        root = {"plain": {"a": 1}}
+        _, headers, _, _ = self.call("GET", "/plain.json", root=root)
+        self.assertNotIn(b"etag", headers)
+        self.assertNotIn(b"cache-control", headers)
+
+    def test_if_none_match_is_found_among_the_headers(self):
+        headers = [(b"accept", b"*/*"), (b"If-None-Match", b'"a"')]
+        self.assertTrue(_is_fresh(b'"a"', headers))
+        self.assertFalse(_is_fresh(b'"b"', headers))
+        self.assertFalse(_is_fresh(b'"a"', headers[:1]))

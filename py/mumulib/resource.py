@@ -142,6 +142,9 @@ class Resource(Located):
                 # The state itself is not replaced: GetOnly guards below it,
                 # and here, its own name in this resource, is refused too
                 return refuse("GET")
+            # The state is what the file holds: it and below it are cached
+            # by the file, as the resource's computed answers are not
+            request["etag_file"] = self.file
             return GetOnly(self.state)
         return child
 

@@ -204,6 +204,10 @@ class Located:
 
     url: str | None = None
     file: Path | None = None
+    # Whether what is read at and below it is its file's, and so is cached
+    # by it: an ETag from the file, as a Persist's is, and not a Resource's,
+    # which computes its answers
+    cached = False
 
     async def load(self) -> None:
         """Called once, when a request first reaches it: url and file are set."""
@@ -269,8 +273,10 @@ async def _locate(thing: Located, segments: list[str], state: State) -> None:
         await thing.load()
     elif thing.url != url:
         raise Aliased(thing, url)
-    # The deepest walked to or through so far: what a write here changes
+    # The deepest walked to or through so far: what a write here changes,
+    # and whose file -- if it is cached -- says whether a read is fresh
     state["container"] = url
+    state["etag_file"] = thing.file if thing.cached else None
 
 
 def answer(

@@ -1,6 +1,7 @@
 # Persistence
 
-Status: design in progress. Started 2026-10-01.
+Status: built, but for a persist's `.html` (a TODO) and `PATCH`
+([patch.md](patch.md)). Started 2026-10-01.
 
 How state outlives the process: graduating from objects in RAM to JSON
 documents on disk.
