@@ -1,6 +1,6 @@
 # Live updates
 
-Status: design in progress. Started 2026-10-01.
+Status: decided, not yet built. Started 2026-10-01.
 
 How a page's elements keep themselves up to date when the server's state
 changes, using `consumers_app(changes=...)` and mumulib's `live.js`.
@@ -19,72 +19,53 @@ changes, using `consumers_app(changes=...)` and mumulib's `live.js`.
   page's own URL again and replaces each `data-live` element by the element
   with the same `id` in the fresh page. `data-live` carries no value.
 
-## Decisions
+## The design
 
-### 1. `data-live` with no URL: the current page's URL
+### Each live element watches one URL
 
-An element marked `data-live` with no value is refreshed only when the
-**current page's URL** is seen on the stream. When it is, it is refreshed as
-today: the page is fetched again, and the element is replaced by the element
-with the same `id` in it.
+A live element is marked `data-live`, and has an `id`. It watches one URL:
 
-The page's URL is compared without its extension, as events carry it: on
-`/editors/characters/c1.html` the element is refreshed by
-`/editors/characters/c1`. _(To confirm: see open questions 1 and 2.)_
+- `data-live="<url>"` watches that URL;
+- `data-live` with no value watches the **current page's URL**.
 
-### 2. `data-live="<url>"`: that URL
+### URLs are compared exactly, as paths
 
-An element marked `data-live="<url>"` is refreshed only when **that URL** is
-seen on the stream, matched exactly. When it is, it is replaced by the
-version of it fetched from the server. _(What is fetched, and what replaces
-the element: see open questions 3 and 4.)_
+Both the watched URL and the URL an event carries are compared as paths on
+the page's origin, without an extension, a query or a fragment. A trailing
+slash is kept, so `/editors/` and `/editors` are different URLs. A match is
+exact: no prefixes and no hierarchy, so a change to `/users/42/name` does not
+match an element watching `/users/42`, nor one watching `/users`.
 
-Matching is exact on purpose: no prefixes, no hierarchy. A change to
-`/users/42/name` does not refresh an element bound to `/users/42`, nor one
-bound to `/users`. Push exact matching as far as it goes, and add anything
-more only when a real use case forces it.
+So on `/editors/characters/c1.html`, a `data-live` with no value watches
+`/editors/characters/c1`, the URL an edit of that character announces.
 
-## Open questions
+### A match refetches the current page
 
-1. **How URLs compare.** Proposed: both sides as paths, without the
-   extension, query or fragment, on the same origin; a trailing slash is
-   kept, so `/editors/` is not `/editors`. Is a page at `/editors/` refreshed
-   by `/editors/` alone?
+When an event's URL matches what one or more live elements watch:
 
-2. **The editors example under rule 1.** Its index tables have no URL, so
-   they would be refreshed only when `/editors/` is announced -- and an edit
-   announces the object it changed, `/editors/characters/c1`. Under these
-   rules the index no longer updates. Options:
-   - bind each table to a URL that is announced (rule 2), which needs one of
-     the next two;
-   - announce more than one URL per change: `Character.handle_POST` also
-     announces `/editors/characters`, and the characters table binds to it
-     (the "composite resource" route -- more announcements per change, which
-     we had wanted to put off);
-   - bind each row to its own object (`data-live="/editors/characters/c1"`),
-     each row fetched alone -- though the parties table also shows character
-     names, so it depends on every character too.
+1. the **current page** is fetched again, once for the event, whatever URL
+   the elements watch -- the watched URL says when to refresh, not where
+   from;
+2. each **matching** element is replaced by the element with the same `id`
+   in the fetched page; an element with no counterpart there is left as it
+   is;
+3. elements that did not match are left as they are.
 
-3. **What rule 2 fetches.** The event carries a URL without an extension;
-   something has to choose the representation. Proposed: `<url>.html`, or the
-   slash as it is.
+An event that matches nothing fetches nothing.
 
-4. **What replaces the element.** The fetched document could be a whole page
-   (an edit page is) or a fragment. Proposed: the element in the fetched
-   document with the same `id` as the live one, as rule 1 does; failing that,
-   nothing. Alternative: the fetched body's first element, so a resource can
-   serve just the fragment.
+### The stream opens only when there is something to watch
 
-5. **Several elements, one URL.** If many elements are bound to the same URL,
-   fetch it once and replace them all from the one response.
+As today: a page with no live element opens no stream.
 
-6. **When the stream opens.** As today, only when the page has a live
-   element.
+## What it means for the editors example
 
-## Later, not now
+The index's tables have no URL of their own that an edit announces -- an
+edit announces the object it changed -- so each **row** is the live element,
+watching its own object: the row for `c1` is
+`<tr id="character-c1" data-live="/editors/characters/c1">`. Editing `c1`
+refetches `/editors/` and replaces that row alone.
 
-- More than one URL per change (a handler announcing a list).
-- Conditional writes (a version or ETag) for when last-write-wins is wrong.
-- State shared between server processes: today state lives in one process's
-  memory, so a mumulib app runs as one worker.
-- Transitions when an element is replaced.
+A row shows what it watches, and nothing else is kept up to date by it: a
+party's row lists its members' names but watches the party, so renaming a
+character refreshes that character's row, and the party's row only when the
+party itself next changes.
