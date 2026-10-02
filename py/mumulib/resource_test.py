@@ -95,7 +95,7 @@ class TestRender(unittest.TestCase):
         self.assertEqual((status, body), (200, b"<h1>A profile</h1>"))
         self.assertEqual(headers[b"content-type"], b"text/html; charset=UTF-8")
         # A template is HTML, and only HTML: as anything else, not found
-        for path in ("/profile.txt", "/profile.xml", "/profile.css"):
+        for path in ("/profile.txt", "/profile.css"):
             self.assertEqual(call(root, "GET", path)[0], 404)
         # As JSON it is its state: none, given none
         _, _, body = call(root, "GET", "/profile.json")

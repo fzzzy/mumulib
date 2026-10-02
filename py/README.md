@@ -268,6 +268,29 @@ itself, and `/mumulib-vite/` is not Python's at all. The page's own requests
 entry's own URLs are root-relative, `/notes/main.ts`; the plugin refuses a
 relative one.
 
+## XML
+
+At `.xml`, a dict is XML, for the readers that read it best -- language
+models among them: a resource's state, a persist's document, a plain dict.
+Each key is an element named by it, and each element says its type, by
+JSON's name for it; the root is named by the document's class:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Character type="object">
+  <name type="string">Code Reviewer</name>
+  <tags type="array">
+    <item type="string">review</item>
+  </tags>
+  <archived type="boolean">false</archived>
+  <parent type="null"/>
+</Character>
+```
+
+A key that is no element name -- `1st`, `a b` -- is
+`<entry key="1st">`. Only a dict is XML: a list, or a string, at `.xml` is
+not found. It is read alone; writes stay JSON and forms.
+
 ## Files and directories
 
 A file object -- what `open()` returns -- is served as its bytes, read afresh

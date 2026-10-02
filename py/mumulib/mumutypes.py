@@ -125,6 +125,10 @@ CONTENT_TYPES = {
     "html": "text/html",
     "txt": "text/plain",
     "sse": "text/event-stream",
+    # Here, not from mimetypes: Python's own table has text/xml, and the
+    # system's, which mimetypes reads the first time it is asked to guess,
+    # application/xml -- so it was either, by what had run before
+    "xml": "application/xml",
 }
 
 
@@ -134,6 +138,10 @@ def content_type_for(extension: str) -> str | None:
     mime = CONTENT_TYPES.get(extension) or mimetypes.types_map.get(f".{extension}")
     if mime is None:
         return None
-    if mime.startswith("text/") or mime in ("application/json", "text/javascript"):
+    if mime.startswith("text/") or mime in (
+        "application/json",
+        "application/xml",
+        "text/javascript",
+    ):
         return f"{mime}; charset=UTF-8"
     return mime

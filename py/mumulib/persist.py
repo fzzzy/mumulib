@@ -47,6 +47,7 @@ from mumulib.mumutypes import (
 )
 from mumulib.producers import add_producer
 from mumulib.static import stream
+from mumulib.xml_producer import to_xml
 
 __all__ = ["Persist"]
 
@@ -96,7 +97,16 @@ async def _consume_persist(
 
 async def _produce_persist(thing: Persist, state: State) -> AsyncIterator[Chunk]:
     """The persist at its own URL: GET is its file, PUT replaces it."""
-    if state.get("extension", "json") != "json":
+    extension = state.get("extension", "json")
+    if extension == "xml" and state.get("method", "GET").upper() == "GET":
+        # Its document as XML, from memory -- the same as its file -- when it
+        # is a dict, as only a dict is XML
+        document: Any = thing.document
+        if not isinstance(document, dict):
+            raise NotFoundResponse()
+        yield to_xml(document, type(thing).__name__)
+        return
+    if extension != "json":
         raise NotFoundResponse()
     method = state.get("method", "GET").upper()
     if method == "PUT":

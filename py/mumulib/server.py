@@ -10,6 +10,8 @@ from types import FrameType
 from typing import Any
 from urllib import parse
 
+# Registers XML for dicts, at .xml
+from mumulib import xml_producer  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from mumulib.consumers import GetOnly, consume, is_container
 from mumulib.mumutypes import (
     ASGIApp,

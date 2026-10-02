@@ -42,6 +42,7 @@ from mumulib.producers import (
     produce,
 )
 from mumulib.tags import Markup, Stan
+from mumulib.xml_producer import XmlOf
 
 # The public API: the class to subclass.
 __all__ = ["Resource", "Form"]
@@ -140,7 +141,7 @@ class Resource(Located):
         return (
             not segments
             and state.get("method") == "GET"
-            and state.get("extension") == "json"
+            and state.get("extension") in ("json", "xml")
             and type(self).handle_GET is Resource.handle_GET
         )
 
@@ -158,12 +159,15 @@ class Resource(Located):
         return await _settled(handler(request))
 
     async def handle_GET(self, request: State) -> Any:
-        """Its state, as JSON; as HTML its template, a parsed one filled from
+        """Its state, as JSON or XML; as HTML its template, a parsed one filled from
         slot_ names and the state, or a string of it, the resource's own
         markup. As anything else it is not found: a page is not text."""
         extension = request.get("extension", "html")
-        if extension == "json":
+        if extension in ("json", "xml"):
             plain(self.state, self.url or type(self).__name__)
+            # As XML, named by what it is: <Character type="object">
+            if extension == "xml":
+                return XmlOf(self.state, type(self).__name__)
             return self.state
         if extension != "html":
             raise NotFoundResponse()

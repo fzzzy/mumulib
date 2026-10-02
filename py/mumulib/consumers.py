@@ -784,21 +784,21 @@ def plain(value: Any, where: str) -> None:
         plain(entry, f"{where}/{key}")
 
 
-def _linked(value: Any, base: str) -> Any:
-    """value with each resource or persist in it its .json's URL, a plain
-    string, by where it is below base."""
+def linked(value: Any, base: str, extension: str = "json") -> Any:
+    """value with each resource or persist in it the URL of its own, as
+    extension -- a plain string -- by where it is below base."""
     entries = _entries(value)
     if entries is None:
         return value
-    linked = {
-        key: f"{base}{quote(key)}.json"
+    result = {
+        key: f"{base}{quote(key)}.{extension}"
         if isinstance(entry, Located)
-        else _linked(entry, f"{base}{quote(key)}/")
+        else linked(entry, f"{base}{quote(key)}/", extension)
         for key, entry in entries
     }
     if isinstance(value, (list, tuple)):
-        return list(linked.values())
-    return linked
+        return list(result.values())
+    return result
 
 
 async def _produce_container_json(thing: Any, state: State) -> AsyncIterator[Chunk]:
@@ -806,7 +806,7 @@ async def _produce_container_json(thing: Any, state: State) -> AsyncIterator[Chu
     in it as its URL -- /editors/characters.json is
     {"c1": "/editors/characters/c1.json", ...} -- for a client to bind."""
     base = container_url(state.get("url", "/"))
-    yield json.dumps(_linked(thing, base), default=custom_serializer)
+    yield json.dumps(linked(thing, base), default=custom_serializer)
 
 
 for _container_type in (dict, MappingProxyType, list, tuple):

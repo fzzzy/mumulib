@@ -197,6 +197,11 @@ Python package). Breaking changes come first under each release.
   with its file's `ETag`. With `MUMULIB_DEVELOPMENT=1`, a page is asked of Vite's dev
   server, always on 5757, and the browser loads its TypeScript, and hot
   reloading, from Vite directly.
+- **XML** at `.xml`: a dict -- a resource's state, a persist's document, a
+  plain dict -- each key an element named by it, each element with its
+  `type`, and the root named by the document's class. `application/xml`,
+  whatever Python's `mimetypes` has read: it had been `text/xml` or
+  `application/xml` by what ran first.
 - **`sync.bind(path, url)`** (TypeScript): a path in the state bound to a
   resource or persist on mumulib's Python server, fetched as `<url>.json`
   and fetched again whenever the change stream announces it.
