@@ -137,3 +137,9 @@ Python's page; so the origin plugin refuses an entry with a relative `src`,
 or a relative `href` on a `<link>`, naming the entry and the URL, in
 development and in a build alike. A link to another page, `<a href>`, is
 the page's own, and is left alone.
+
+Refusing is a trial: to see whether, and when, root-relative URLs become
+annoying to write. The alternative, if they do, is to rewrite a relative URL
+to root-relative, resolved against the entry's own path, before Vite's
+transform, with a check after it that every URL a page loads is under the
+base or has a scheme of its own, so a mistake stays loud.
