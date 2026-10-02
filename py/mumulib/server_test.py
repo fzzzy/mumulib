@@ -2199,6 +2199,39 @@ class TestTextAndListings(unittest.TestCase):
         self.assertIn(b"<h1>Index of /a/b</h1>", body)
         self.assertIn(b'<li><a href="/a/">Parent Directory</a></li>', body)
 
+    def test_a_listings_parent_is_where_its_parent_is_shown(self):
+        from mumulib.consumers import GetOnly
+        from mumulib.persist import Persist
+        from mumulib.resource import Resource
+
+        class Page(Resource):
+            child_items = ["a"]
+
+        root = {
+            "page": Page(),
+            "guarded": GetOnly({"inner": {"x": 1}}),
+            "kept": Persist({"sub": {"x": 1}}),
+        }
+        # A resource is named as a file: its page, not a slash it has not got
+        _, _, body = asyncio.run(get(root, "/page/items/"))
+        self.assertIn(b'<a href="/page.html">Parent Directory</a>', body)
+        # A guard at a container's URL is that container: the parent above it
+        _, _, body = asyncio.run(get(root, "/guarded/inner/"))
+        self.assertIn(b'<a href="/guarded/">Parent Directory</a>', body)
+        # A persist's slash is its document's listing
+        _, _, body = asyncio.run(get(root, "/kept/sub/"))
+        self.assertIn(b'<a href="/kept/">Parent Directory</a>', body)
+
+    def test_a_parent_with_no_page_to_show_is_no_link(self):
+        from mumulib.consumers import parent_link
+
+        # Walked through something that is neither a container nor has HTML
+        state = {"url": "/x/y/", "walked": [(object(), "/x"), ({}, "/x/y")]}
+        self.assertIsNone(parent_link(state))
+        # And the root has none, nor a listing reached with nothing walked
+        self.assertIsNone(parent_link({"url": "/"}))
+        self.assertIsNone(parent_link({"url": "/x/y/"}))
+
     def test_the_root_lists_itself_with_no_parent(self):
         _, _, body = asyncio.run(get({"a": "x"}, "/"))
         self.assertIn(b"<title>Index of /</title>", body)

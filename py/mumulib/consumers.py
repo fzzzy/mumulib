@@ -48,8 +48,10 @@ from mumulib.producers import (
     can_produce,
     container_url,
     custom_serializer,
+    directory_listing,
     listing,
     produce,
+    produce_path,
 )
 
 # The public API: Walking into an object, teaching it a new type of object to
@@ -325,6 +327,7 @@ async def consume(
     """
     if isinstance(parent, Located):
         await _locate(parent, segments, state)
+    _walked(parent, segments, state)
     if not segments:
         return parent
     state["remaining"] = segments
@@ -741,6 +744,51 @@ def _entry_url(base: str, name: str, value: Any) -> str | None:
     return f"{base}{quote(name)}.html"
 
 
+def _walked(thing: Any, segments: list[str], state: State) -> None:
+    # Each object a request walks to or through, with its URL: what a
+    # listing's parent is
+    walked = state.get("segments")
+    if walked is not None:
+        url = url_of(walked[: len(walked) - len(segments)]).rstrip("/") or "/"
+        state.setdefault("walked", []).append((thing, url))
+
+
+def parent_link(state: State) -> str | None:
+    """Where a listing's parent is shown, for its Parent Directory link:
+    the last object walked through above the listed one -- a container at
+    its slash, anything else with HTML at its .html, as a resource's page is
+    -- or None, at the root, or when the parent has no page to show."""
+    listed = container_url(state.get("url", "/")).rstrip("/") or "/"
+    if listed == "/":
+        return None
+    for thing, url in reversed(state.get("walked", [])):
+        if url == listed:
+            continue
+        if is_container(thing):
+            return url if url == "/" else f"{url}/"
+        if can_produce(thing, "text/html"):
+            return f"{url}.html"
+        return None
+    return None
+
+
+async def _produce_path_html(thing: Path, state: State) -> AsyncIterator[Chunk]:
+    """A file, or a directory as a list of links to what is in it."""
+    if not thing.is_dir():
+        async for chunk in produce_path(thing, state):
+            yield chunk
+        return
+    base = container_url(state.get("url", "/"))
+    links = [
+        (name, base + quote(name) + ("/" if is_dir else ""))
+        for name, is_dir in directory_listing(thing)
+    ]
+    yield listing(links, state, parent_link(state))
+
+
+add_producer(type(Path()), _produce_path_html, "text/html")
+
+
 async def _produce_container_html(thing: Any, state: State) -> AsyncIterator[Chunk]:
     """A container at its slash, with no "index" entry: a list of links to
     what is in it, as a directory's is."""
@@ -756,7 +804,7 @@ async def _produce_container_html(thing: Any, state: State) -> AsyncIterator[Chu
         url = _entry_url(base, str(key), value)
         if url is not None:
             links.append((str(key), url))
-    yield listing(links, state)
+    yield listing(links, state, parent_link(state))
 
 
 for _container_type in (dict, MappingProxyType, list, tuple):
