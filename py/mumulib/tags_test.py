@@ -339,6 +339,29 @@ class TestProduceHtml(unittest.TestCase):
 
 
 class TestEvery(unittest.TestCase):
+    def test_each_element_is_in_one_group(self):
+        groups = [
+            tags.MAIN_ROOT,
+            tags.DOCUMENT_METADATA,
+            tags.SECTIONING_ROOT,
+            tags.CONTENT_SECTIONING,
+            tags.TEXT_CONTENT,
+            tags.INLINE_TEXT_SEMANTICS,
+            tags.IMAGE_AND_MULTIMEDIA,
+            tags.EMBEDDED_CONTENT,
+            tags.SVG_AND_MATHML,
+            tags.SCRIPTING,
+            tags.DEMARCATING_EDITS,
+            tags.TABLE_CONTENT,
+            tags.FORMS,
+            tags.INTERACTIVE_ELEMENTS,
+            tags.WEB_COMPONENTS,
+        ]
+        everything = [element for group in groups for element in group]
+        self.assertEqual(len(everything), len(set(everything)))
+        self.assertEqual(sorted(tags.ALL_ELEMENTS), sorted(everything))
+        self.assertIn("menu", tags.TEXT_CONTENT)
+
     def test_every_tag_is_in_every(self):
         self.assertIsInstance(tags.every.div, Stan)
 

@@ -193,7 +193,8 @@ FORMS: list[str] = [
 ]
 
 
-INTERACTIVE_ELEMENTS: list[str] = ["details", "dialog", "menu", "summary"]
+# menu is text content, as MDN has it, and listed there alone
+INTERACTIVE_ELEMENTS: list[str] = ["details", "dialog", "summary"]
 
 
 WEB_COMPONENTS: list[str] = ["slot", "template"]
