@@ -11,6 +11,13 @@ page is TypeScript's, and asks the tree for what it shows:
     GET    /notes.json          the notes, a Persist: its file, as it is
     PUT    /notes/last.json     "Milk": added, and the file written
     DELETE /notes/0.json        removed -- null in its place -- and written
+    GET    /mumulib/changes.sse /notes, as each write to them is made
+
+The page binds the notes, with mumulib's sync.bind: it fetches /notes.json
+into its state, and again whenever /notes is announced, so every page open
+shows everyone's notes. A write is a request, and nothing else: the page
+does not change its own copy, and shows its own write when it is announced,
+as anyone's.
 
 make run sets MUMULIB_DEVELOPMENT=1 and starts the pages' Vite dev server on
 5757: the page is then asked of it, and the URLs Vite writes in it name it
@@ -24,7 +31,7 @@ The notes are kept in var/data/notes.json. Delete it to start again.
 from pathlib import Path
 
 from mumulib.persist import Persist
-from mumulib.server import consumers_app
+from mumulib.server import EventSource, consumers_app
 from mumulib.static import Page
 
 # Where Vite builds the pages: ts/build/pages in the repository
@@ -34,4 +41,8 @@ notes = Persist(["Write the Vite example", "Run it built, in production"])
 
 app_root = {"index": Page("notes/index.html"), "notes": notes}
 
-app = consumers_app(app_root, vite=PAGES)
+# Every change announced on it: the page binds the notes, and fetches them
+# again when a write to them, anyone's, is announced
+changes = EventSource()
+
+app = consumers_app(app_root, changes=changes, vite=PAGES)

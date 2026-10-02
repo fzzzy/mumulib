@@ -1,7 +1,10 @@
 // The notes page: a Vite page, served by mumulib's Python server as Vite
-// made it -- py/examples/notes.py. Past the HTML it is all TypeScript,
-// talking to the published tree: GET /notes.json, a Persist's file; PUT
-// /notes/last.json adds one; DELETE /notes/<index>.json removes one.
+// made it -- py/examples/notes.py. Past the HTML it is all TypeScript. The
+// notes, a Persist at /notes, are bound into the state with sync.bind:
+// fetched, and fetched again whenever a write to them -- this page's or
+// anyone's -- is announced. Writes are requests: PUT /notes/last.json adds
+// one, DELETE /notes/<index>.json removes one.
+import { state, sync } from 'mumulib'
 import './style.css'
 
 // A removed note leaves null in its place, so no other note's URL changes
@@ -17,22 +20,20 @@ function item(text: string, index: number): HTMLLIElement {
   remove.textContent = 'Remove'
   remove.addEventListener('click', async () => {
     await fetch(`/notes/${index}.json`, { method: 'DELETE' })
-    await load()
   })
   li.append(' ', remove)
   return li
 }
 
-async function load(): Promise<void> {
-  const response = await fetch('/notes.json')
-  const notes = (await response.json()) as Note[]
+await state.onstate(async (current) => {
+  const notes = (current.notes ?? []) as Note[]
   list.replaceChildren(
     ...notes.flatMap((text, index) =>
       text === null ? [] : [item(text, index)]
     )
   )
-  document.body.dataset.loaded = 'true'
-}
+  if (current.notes !== undefined) document.body.dataset.loaded = 'true'
+})
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -43,7 +44,6 @@ form.addEventListener('submit', async (event) => {
     body: JSON.stringify(text),
   })
   form.reset()
-  await load()
 })
 
-await load()
+await sync.bind('notes', '/notes')

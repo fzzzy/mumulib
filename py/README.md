@@ -99,7 +99,8 @@ deploy editor: every page built in Stan, each object a `Resource` whose state
 fills its edit form, each form a plain post its resource checks and answers
 with 303 See Other, and one small script that fetches the tables again when
 anything changes. `notes.py` (`SERVER=notes`) is a Vite page, `ts/pages/notes`,
-served by Python beside a `Persist` it reads and writes; `make production
+served by Python beside a `Persist` it binds with the TypeScript library's
+`sync.bind`, so every page open shows everyone's notes; `make production
 SERVER=notes` serves it built.
 
 ## Resources

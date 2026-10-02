@@ -1,6 +1,7 @@
 # State sync
 
-Status: decided, not yet built. Started 2026-10-01.
+Status: part one built (`sync.bind`); part two, links, to come. Started
+2026-10-01.
 
 How the server's state tree and the TypeScript `state` module are kept the
 same, automatically.

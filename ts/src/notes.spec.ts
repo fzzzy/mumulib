@@ -4,7 +4,8 @@ import { test, expect, type Page } from './coverage.fixture'
 // served by Python as Vite made it. Once in development, its TypeScript from
 // the pages' Vite dev server, and once in production, built and served by
 // Python under /mumulib-vite/ (playwright.config). Chromium and WebKit run at once
-// against each, so each adds and removes notes of its own.
+// against each, so each adds and removes notes of its own. The page binds
+// the notes with sync.bind, so every page open shows each change.
 const MODES = {
   development: 'http://127.0.0.1:8125',
   production: 'http://127.0.0.1:8126',
@@ -47,6 +48,33 @@ for (const [mode, server] of Object.entries(MODES)) {
       ).json()
       expect(notes[0]).toBe('Write the Vite example')
       expect(notes).toContain(null)
+    })
+
+    test('another page open shows each change, bound, never reloaded', async ({
+      browser,
+    }, info) => {
+      const writer = await browser.newPage()
+      const watcher = await browser.newPage()
+      await watcher.goto(`${server}/`)
+      await expect(watcher.locator('body[data-loaded]')).toBeAttached()
+      await watcher.evaluate(() => {
+        ;(window as Window & { kept?: boolean }).kept = true
+      })
+      await writer.goto(`${server}/`)
+      const text = `Watched in ${info.project.name} at ${Date.now()}`
+      await add(writer, text)
+      // The watcher's state was fetched again, on the announcement
+      await expect(watcher.locator('#notes')).toContainText(text)
+      // And removed from the watcher, the writer sees it go
+      const item = watcher.locator('#notes li', { hasText: text })
+      await item.getByRole('button', { name: 'Remove' }).click()
+      await expect(writer.locator('#notes')).not.toContainText(text)
+      const kept = await watcher.evaluate(
+        () => (window as Window & { kept?: boolean }).kept
+      )
+      expect(kept, 'the watcher never reloaded').toBe(true)
+      await writer.close()
+      await watcher.close()
     })
   })
 }
