@@ -105,6 +105,14 @@ class TestPersist(PersistCase):
         status, headers, _, _ = self.call("DELETE", "/people.json")
         self.assertEqual((status, headers[b"allow"]), (405, b"GET, PUT"))
 
+    def test_in_a_plain_dict_it_is_linked_as_its_json(self):
+        _, _, _, body = self.call("GET", "/all/", root={"all": {"p": self.people}})
+        self.assertIn(b'<a href="/all/p.json">p</a>', body)
+
+    def test_its_xml_is_read_alone(self):
+        status, headers, _, _ = self.call("PUT", "/people.xml", {"a": 1})
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+
     def test_only_json_for_now(self):
         self.assertEqual(self.call("GET", "/people.html")[0], 404)
         self.assertEqual(self.call("GET", "/people.txt")[0], 404)
@@ -137,7 +145,7 @@ class TestPersist(PersistCase):
 
         async def go():
             # Asked for with no file: the document, made into JSON
-            return [c async for c in persist._produce_persist(thing, {})]
+            return [c async for c in persist._produce_persist_json(thing, {})]
 
         self.assertEqual(asyncio.run(go()), ["{}"])
 

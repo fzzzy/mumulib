@@ -716,16 +716,21 @@ def _entry_url(base: str, name: str, value: Any) -> str | None:
 
     A container is at its slash. A file is at its own extension, the only
     type it is served as, and one with none is nowhere; text, a string or a
-    number, is linked as .txt, where it is; anything else as HTML. What
-    would not be found is not listed.
+    number, is linked as .txt, where it is; what has neither HTML nor text
+    but JSON -- True, False, a Persist -- as .json; anything else as HTML.
+    What would not be found is not listed, and None is not found.
     """
     if not name or "/" in name or name == "index":
         return None
     if is_container(value):
         return f"{base}{quote(name)}/"
+    if value is None:
+        return None
     if not can_produce(value, "text/html"):
         if can_produce(value, "text/plain"):
             return f"{base}{quote(name)}.txt"
+        if can_produce(value, "application/json"):
+            return f"{base}{quote(name)}.json"
         return None
     filename = getattr(value, "name", None)
     if isinstance(value, (TextIOWrapper, BufferedReader, Path)) and isinstance(

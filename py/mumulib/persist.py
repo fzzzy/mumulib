@@ -95,19 +95,8 @@ async def _consume_persist(
     return result
 
 
-async def _produce_persist(thing: Persist, state: State) -> AsyncIterator[Chunk]:
-    """The persist at its own URL: GET is its file, PUT replaces it."""
-    extension = state.get("extension", "json")
-    if extension == "xml" and state.get("method", "GET").upper() == "GET":
-        # Its document as XML, from memory -- the same as its file -- when it
-        # is a dict, as only a dict is XML
-        document: Any = thing.document
-        if not isinstance(document, dict):
-            raise NotFoundResponse()
-        yield to_xml(document, type(thing).__name__)
-        return
-    if extension != "json":
-        raise NotFoundResponse()
+async def _produce_persist_json(thing: Persist, state: State) -> AsyncIterator[Chunk]:
+    """The persist at its own URL, as JSON: GET is its file, PUT replaces it."""
     method = state.get("method", "GET").upper()
     if method == "PUT":
         thing.document = state.get("parsed_body")
@@ -127,7 +116,21 @@ async def _produce_persist(thing: Persist, state: State) -> AsyncIterator[Chunk]
     yield SpecialResponse(start, b"", stream(thing.file))
 
 
+async def _produce_persist_xml(thing: Persist, state: State) -> AsyncIterator[Chunk]:
+    """The persist at its own URL, as XML, to read: its document, from memory
+    -- the same as its file -- when it is a dict, as only a dict is XML."""
+    if state.get("method", "GET").upper() != "GET":
+        raise refuse("GET")
+    document: Any = thing.document
+    if not isinstance(document, dict):
+        raise NotFoundResponse()
+    yield to_xml(document, type(thing).__name__)
+
+
 # A persist answers every method at its own URL: the dict or list it is in
-# hands it a PUT, rather than replacing it with what was sent
+# hands it a PUT, rather than replacing it with what was sent. It is
+# produced as JSON and XML alone, the types it answers: as anything else it
+# is not found, and a listing links it as its .json. TODO: its .html.
 add_consumer(Persist, _consume_persist, own_methods=True)
-add_producer(Persist, _produce_persist)
+add_producer(Persist, _produce_persist_json, "application/json")
+add_producer(Persist, _produce_persist_xml, "application/xml")

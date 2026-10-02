@@ -2181,6 +2181,7 @@ class TestTextAndListings(unittest.TestCase):
                     '  <li><a href="/notes/sub/">sub</a></li>\n'
                     '  <li><a href="/notes/items/">items</a></li>\n'
                     '  <li><a href="/notes/sheet.css">sheet</a></li>\n'
+                    '  <li><a href="/notes/on.json">on</a></li>\n'
                     "</ul>\n"
                     "</body>\n</html>",
                 )
