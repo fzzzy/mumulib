@@ -44,8 +44,7 @@ when it is built.
 ### 3. Development by default, production by an environment variable
 
 The Python server is in development mode unless an environment variable
-says production -- `MUMULIB_PRODUCTION=1`, say; the name is settled when it
-is built.
+says production -- `MUMULIB_PRODUCTION=1`
 
 ### 4. Bundled and code-split from the start
 
@@ -61,6 +60,12 @@ serves that HTML exactly as Vite made it: in development by asking Vite's
 dev server for it, so it comes with Vite's client and hot reloading; in
 production by reading Vite's build of it from disk. Python does not fill or
 change it.
+
+A Vite page that wants live updates links mumulib's live.js itself, with a
+plain `<script src="/mumulib/live.js" defer>` in its HTML entry, as it would
+any other script: Python does not add it, since it serves the page as Vite
+made it. Importing live updates as a module instead can be tried once this
+works.
 
 `Page`, the class, and `tags.page()`, the Stan function, are different
 things, and differ at least by case; `Page` may well go in a module of its

@@ -20,7 +20,9 @@ same, automatically.
 A path in the client's `state` tree is bound to a container URL. When the
 change stream announces that URL, the client fetches it again and puts what
 it gets at the bound path with `set_path`. It is live updates' idea --
-something watching a URL -- with a state path watching instead of an element.
+something watching a URL -- with a state path watching instead of an element,
+and URLs are compared as live updates compare them: as paths, without an
+extension, a query or a fragment, a trailing slash kept, and exactly.
 
 ### 2. Client to server is explicit REST
 
