@@ -15,17 +15,40 @@ same, automatically.
 
 ## Decisions
 
-### 1. A URL not seen before is fetched eagerly
+### 1. Server to client is automatic
 
-When the client meets a link to a URL it has not seen before, it fetches it
-then and there, rather than waiting until it is needed.
+A path in the client's `state` tree is bound to a container URL. When the
+change stream announces that URL, the client fetches it again and puts what
+it gets at the bound path with `set_path`. It is live updates' idea --
+something watching a URL -- with a state path watching instead of an element.
 
-### 2. A link is a richer type than a string
+### 2. Client to server is explicit REST
+
+The client changes the server's state by asking: a `PUT` or a `PATCH`, sent
+by the app. Changes to the client's own tree are never pushed to the server
+by themselves.
+
+### 3. The server is the authority, and nothing is optimistic
+
+The client never changes its bound tree itself. Its own write comes back to
+it as anyone's does -- announced, fetched, applied -- so its state is always
+the server's, never ahead of it: no rollback, no change applied twice, no
+race between the two. It costs a round trip before the user sees their own
+change; optimism can be added later, for one interaction, if that ever
+matters.
+
+### 4. A URL not seen before is fetched eagerly
+
+A bound tree's links are where one document ends and another begins. When
+the client meets a link to a URL it has not seen before, it fetches it then
+and there, rather than waiting until it is needed.
+
+### 5. A link is a richer type than a string
 
 A link to another document has to be told apart from a field whose value is
 a string that looks like a URL, so it is not a bare string.
 
-### 3. One tagged-value shape for every richer type
+### 6. One tagged-value shape for every richer type
 
 JSON has no type for a link, a date or anything else beyond its own, so
 richer types are carried by one general mechanism: an object of a reserved
@@ -33,13 +56,13 @@ shape that says which type it is and carries its value. A link is its first
 type; others, dates among them, come through the same shape when they are
 needed.
 
-### 4. The shape is reserved, and only the serializer makes it
+### 7. The shape is reserved, and only the serializer makes it
 
 The tagged shape is never user content. The JSON serializer is the only thing
 that produces it, so a tagged value in the output always came from the
 serializer and means what its tag says.
 
-### 5. Writes that contain it are refused
+### 8. Writes that contain it are refused
 
 A write whose content contains the reserved shape is refused, with a 400 --
 not escaped. Escaping would let user data use the shape too, at the cost of
@@ -54,3 +77,6 @@ a transform on every read and write; refusing is much simpler.
 2. **Where the ban is checked.** On every write into a persist -- `PUT`,
    `PATCH` and a sub-URL `PUT` -- at any depth of what is written? And into
    plain dicts and lists in memory too, or persists alone?
+3. **The same shape on both sides.** Is a bound client path the server
+   document's own shape -- the same keys, the same structure -- so that a
+   path means the same thing on each side and binding needs no translation?
