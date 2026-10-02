@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite'
-import * as fs from 'node:fs'
 import { resolve } from 'node:path'
 import { originPlugin } from './src/vite/origin.mjs'
 import { sfcPlugin } from './src/vite/sfc.mjs'
+import { pageEntries } from './scripts/page-entries.mjs'
 
-// The pages mumulib's Python server serves: each pages/<name>/index.html is
-// an entry, a Page("<name>/index.html") in Python. Everything is under
+// The pages mumulib's Python server serves: each index.html under pages/,
+// at any depth, is an entry, a Page("notes/index.html") or
+// Page("notes/settings/index.html") in Python. Everything is under
 // /mumulib-vite/, Vite's base, which Python keeps for it.
 //
 // `vite --config vite.pages.config.mts` is the dev server, always on 5757:
@@ -19,13 +20,7 @@ const root = resolve(import.meta.dirname, 'pages')
 const PORT = 5757
 const ORIGIN = `http://127.0.0.1:${PORT}`
 
-const entries = Object.fromEntries(
-  fs
-    .readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .filter((entry) => fs.existsSync(resolve(root, entry.name, 'index.html')))
-    .map((entry) => [entry.name, resolve(root, entry.name, 'index.html')])
-)
+const entries = pageEntries(root)
 
 export default defineConfig({
   root,

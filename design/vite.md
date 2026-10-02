@@ -143,3 +143,12 @@ annoying to write. The alternative, if they do, is to rewrite a relative URL
 to root-relative, resolved against the entry's own path, before Vite's
 transform, with a check after it that every URL a page loads is under the
 base or has a scheme of its own, so a mistake stays loud.
+
+### 12. An entry is always an index.html, at any depth
+
+Every page Vite builds for Python is a directory's `index.html`, its slash:
+`pages/notes/index.html`, or deeper, `pages/notes/settings/index.html`, which
+is `Page("notes/settings/index.html")`. Every one under the pages' root is an
+entry, so development and production serve the same pages, and every one is
+checked for relative URLs in the build too. Components, `.sfc.html`, are
+not pages and are not checked: loading one that is wrong fails visibly.
