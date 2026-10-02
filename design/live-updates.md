@@ -33,11 +33,21 @@ A live element is marked `data-live`, and has an `id`. It watches one URL:
 Both the watched URL and the URL an event carries are compared as paths on
 the page's origin, without an extension, a query or a fragment. A trailing
 slash is kept, so `/editors/` and `/editors` are different URLs. A match is
-exact: no prefixes and no hierarchy, so a change to `/users/42/name` does not
-match an element watching `/users/42`, nor one watching `/users`.
+exact: no prefixes and no hierarchy, so an event announcing `/users/42/name`
+does not match an element watching `/users/42`, nor one watching `/users`.
 
 So on `/editors/characters/c1.html`, a `data-live` with no value watches
-`/editors/characters/c1`, the URL an edit of that character announces.
+`/editors/characters/c1`.
+
+### What an event announces
+
+Which URL a change announces is the persistence design's
+([persistence.md](persistence.md), decision 8): a write inside a persist
+announces that persist's URL, wherever in it the write was made, and a write
+with no persist above it announces `/`. So a `PUT` to `/users/42/name`,
+`/users/42` being a persist, announces `/users/42`, and the element watching
+`/users/42` is refreshed: matching stays exact, and the persist is what is
+announced.
 
 ### A match refetches the current page
 
@@ -60,10 +70,11 @@ As today: a page with no live element opens no stream.
 ## What it means for the editors example
 
 The index's tables have no URL of their own that an edit announces -- an
-edit announces the object it changed -- so each **row** is the live element,
-watching its own object: the row for `c1` is
-`<tr id="character-c1" data-live="/editors/characters/c1">`. Editing `c1`
-refetches `/editors/` and replaces that row alone.
+edit announces the persist it is inside -- so each **row** is the live
+element, watching its own object: the row for `c1` is
+`<tr id="character-c1" data-live="/editors/characters/c1">`. An edit inside
+the persist `/editors/characters/c1` refetches `/editors/` and replaces that
+row alone.
 
 A row shows what it watches, and nothing else is kept up to date by it: a
 party's row lists its members' names but watches the party, so renaming a
