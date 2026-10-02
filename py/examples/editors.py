@@ -39,62 +39,66 @@ URL: when anyone, from any page, changes an object, the pages watching it
 are fetched again and those elements alone put in place.
 """
 
-from pathlib import Path
-from typing import Any
+import pathlib
+import typing
 
-from mumulib.mumutypes import HTTPResponse, State
-from mumulib.resource import Resource
-from mumulib.server import EventSource, consumers_app
-from mumulib.tags import Stan, page
-from mumulib.tags import every as t
+from mumulib import mumutypes, resource, server, tags
 
 STYLESHEET = "/editors/style.css"
-NAV = t.p[t.a(href="/editors/")["Editors"]]
+NAV = tags.every.p[tags.every.a(href="/editors/")["Editors"]]
 
 
-def buttons() -> Stan:
+def buttons() -> tags.Stan:
     """Save posts the form; Cancel goes back, saving nothing."""
-    return t.p[t.button["Save"], " ", t.a(href="/editors/")["Cancel"]]
+    return tags.every.p[
+        tags.every.button["Save"], " ", tags.every.a(href="/editors/")["Cancel"]
+    ]
 
 
-def edit_page(title: str, *fields: Any) -> Stan:
+def edit_page(title: str, *fields: typing.Any) -> tags.Stan:
     """An edit page: the object's name, kept up to date, and a form posting
     to its own URL, Resource's url slot. The heading is live with no URL, so
     it watches the page's own -- the object's -- and someone else's edit of
     the object shows here; the form, being typed in, is not."""
-    return page(
+    return tags.page(
         title,
         NAV,
-        t.h1(id="heading", live=True, slt="name")["A name"],
-        t.form(attr="action=url", method="post")[t.h2[title], *fields, buttons()],
+        tags.every.h1(id="heading", live=True, slt="name")["A name"],
+        tags.every.form(attr="action=url", method="post")[
+            tags.every.h2[title], *fields, buttons()
+        ],
         stylesheets=[STYLESHEET],
         live=True,
     )
 
 
-def name_field() -> Stan:
-    return t.label[
-        "Name", t.input(attr="value=name", type="text", name="name", required=True)
+def name_field() -> tags.Stan:
+    return tags.every.label[
+        "Name",
+        tags.every.input(attr="value=name", type="text", name="name", required=True),
     ]
 
 
-class Character(Resource):
+class Character(resource.Resource):
     """A character: state {"name", "prompt", "agent_args"}."""
 
     template = edit_page(
         "Edit character",
         name_field(),
-        t.label["System prompt", t.textarea(slt="prompt", name="prompt")["A prompt"]],
-        t.label[
+        tags.every.label[
+            "System prompt",
+            tags.every.textarea(slt="prompt", name="prompt")["A prompt"],
+        ],
+        tags.every.label[
             "Agent args",
-            t.input(attr="value=agent_args", type="text", name="agent_args"),
+            tags.every.input(attr="value=agent_args", type="text", name="agent_args"),
         ],
     )
 
-    async def handle_POST(self, request: State) -> Any:
+    async def handle_POST(self, request: mumutypes.State) -> typing.Any:
         form = self.form(request)
         if not form.text("name"):
-            raise HTTPResponse(400, "A character needs a name.\n")
+            raise mumutypes.HTTPResponse(400, "A character needs a name.\n")
         self.state.update(
             name=form.text("name"),
             prompt=form.text("prompt"),
@@ -104,63 +108,67 @@ class Character(Resource):
         self.see_other("/editors/")
 
 
-class Party(Resource):
+class Party(resource.Resource):
     """A party: state {"name", "members"}, the members character ids."""
 
     template = edit_page(
         "Edit party",
         name_field(),
-        t.label[
+        tags.every.label[
             "Members",
-            t.select(slt="member_options", name="members[]", multiple=True),
+            tags.every.select(slt="member_options", name="members[]", multiple=True),
         ],
     )
 
-    def slot_member_options(self, request: State) -> list[Stan]:
+    def slot_member_options(self, request: mumutypes.State) -> list[tags.Stan]:
         # One option for each character, chosen if it is a member
         return [
-            t.option(value=cid, selected=cid in self.state["members"])[c.state["name"]]
+            tags.every.option(value=cid, selected=cid in self.state["members"])[
+                c.state["name"]
+            ]
             for cid, c in characters.items()
         ]
 
-    async def handle_POST(self, request: State) -> Any:
+    async def handle_POST(self, request: mumutypes.State) -> typing.Any:
         form = self.form(request)
         # members[] is a list, and none chosen sends none: []
         members = form.texts("members")
         if not form.text("name"):
-            raise HTTPResponse(400, "A party needs a name.\n")
+            raise mumutypes.HTTPResponse(400, "A party needs a name.\n")
         unknown = [cid for cid in members if cid not in characters]
         if unknown:
-            raise HTTPResponse(400, f"No character {unknown[0]!r}.\n")
+            raise mumutypes.HTTPResponse(400, f"No character {unknown[0]!r}.\n")
         self.state.update(name=form.text("name"), members=members)
         await self.save()
         self.see_other("/editors/")
 
 
-class Deploy(Resource):
+class Deploy(resource.Resource):
     """A deploy: state {"name", "party", "status"}. Its status is the
     server's, shown on its page and not taken from any form."""
 
     template = edit_page(
         "Edit deploy",
         name_field(),
-        t.label["Party", t.select(slt="party_options", name="party")],
-        t.p["Status: ", t.span(slt="status")["running"]],
+        tags.every.label["Party", tags.every.select(slt="party_options", name="party")],
+        tags.every.p["Status: ", tags.every.span(slt="status")["running"]],
     )
 
-    def slot_party_options(self, request: State) -> list[Stan]:
+    def slot_party_options(self, request: mumutypes.State) -> list[tags.Stan]:
         return [
-            t.option(value=pid, selected=pid == self.state["party"])[p.state["name"]]
+            tags.every.option(value=pid, selected=pid == self.state["party"])[
+                p.state["name"]
+            ]
             for pid, p in parties.items()
         ]
 
-    async def handle_POST(self, request: State) -> Any:
+    async def handle_POST(self, request: mumutypes.State) -> typing.Any:
         form = self.form(request)
         name, party = form.text("name"), form.text("party")
         if not name:
-            raise HTTPResponse(400, "A deploy needs a name.\n")
+            raise mumutypes.HTTPResponse(400, "A deploy needs a name.\n")
         if party not in parties:
-            raise HTTPResponse(400, f"No party {party!r}.\n")
+            raise mumutypes.HTTPResponse(400, f"No party {party!r}.\n")
         self.state.update(name=name, party=party)
         await self.save()
         self.see_other("/editors/")
@@ -211,42 +219,62 @@ def row(kind: str, key: str) -> dict[str, str]:
     }
 
 
-class Editors(Resource):
+class Editors(resource.Resource):
     """/editors/: a table of each kind, every row a copy of its pattern. Each
     row is live, watching its own object, kept up to date by live.js."""
 
-    template = page(
+    template = tags.page(
         "Editors",
         NAV,
-        t.table(id="characters")[
-            t.caption["Characters"],
-            t.thead[t.tr[t.th["Name"], t.th["Prompt"], t.th["Agent args"]]],
-            t.tbody(slt="character_rows")[
-                t.tr(pat="character_row", attr={"id": "row_id", "data-live": "watch"})[
-                    t.td[t.a(slt="name", attr="href=edit")],
-                    t.td(slt="prompt"),
-                    t.td[t.code(slt="agent_args")],
+        tags.every.table(id="characters")[
+            tags.every.caption["Characters"],
+            tags.every.thead[
+                tags.every.tr[
+                    tags.every.th["Name"],
+                    tags.every.th["Prompt"],
+                    tags.every.th["Agent args"],
+                ]
+            ],
+            tags.every.tbody(slt="character_rows")[
+                tags.every.tr(
+                    pat="character_row", attr={"id": "row_id", "data-live": "watch"}
+                )[
+                    tags.every.td[tags.every.a(slt="name", attr="href=edit")],
+                    tags.every.td(slt="prompt"),
+                    tags.every.td[tags.every.code(slt="agent_args")],
                 ]
             ],
         ],
-        t.table(id="parties")[
-            t.caption["Parties"],
-            t.thead[t.tr[t.th["Name"], t.th["Members"]]],
-            t.tbody(slt="party_rows")[
-                t.tr(pat="party_row", attr={"id": "row_id", "data-live": "watch"})[
-                    t.td[t.a(slt="name", attr="href=edit")],
-                    t.td(slt="members"),
+        tags.every.table(id="parties")[
+            tags.every.caption["Parties"],
+            tags.every.thead[
+                tags.every.tr[tags.every.th["Name"], tags.every.th["Members"]]
+            ],
+            tags.every.tbody(slt="party_rows")[
+                tags.every.tr(
+                    pat="party_row", attr={"id": "row_id", "data-live": "watch"}
+                )[
+                    tags.every.td[tags.every.a(slt="name", attr="href=edit")],
+                    tags.every.td(slt="members"),
                 ]
             ],
         ],
-        t.table(id="deploys")[
-            t.caption["Deploys"],
-            t.thead[t.tr[t.th["Name"], t.th["Party"], t.th["Status"]]],
-            t.tbody(slt="deploy_rows")[
-                t.tr(pat="deploy_row", attr={"id": "row_id", "data-live": "watch"})[
-                    t.td[t.a(slt="name", attr="href=edit")],
-                    t.td(slt="party"),
-                    t.td(slt="status"),
+        tags.every.table(id="deploys")[
+            tags.every.caption["Deploys"],
+            tags.every.thead[
+                tags.every.tr[
+                    tags.every.th["Name"],
+                    tags.every.th["Party"],
+                    tags.every.th["Status"],
+                ]
+            ],
+            tags.every.tbody(slt="deploy_rows")[
+                tags.every.tr(
+                    pat="deploy_row", attr={"id": "row_id", "data-live": "watch"}
+                )[
+                    tags.every.td[tags.every.a(slt="name", attr="href=edit")],
+                    tags.every.td(slt="party"),
+                    tags.every.td(slt="status"),
                 ]
             ],
         ],
@@ -254,13 +282,13 @@ class Editors(Resource):
         live=True,
     )
 
-    def slot_character_rows(self, request: State) -> list[Stan]:
+    def slot_character_rows(self, request: mumutypes.State) -> list[tags.Stan]:
         return [
             self.pattern("character_row", **row("characters", cid), **c.state)
             for cid, c in characters.items()
         ]
 
-    def slot_party_rows(self, request: State) -> list[Stan]:
+    def slot_party_rows(self, request: mumutypes.State) -> list[tags.Stan]:
         return [
             self.pattern(
                 "party_row",
@@ -273,7 +301,7 @@ class Editors(Resource):
             for pid, p in parties.items()
         ]
 
-    def slot_deploy_rows(self, request: State) -> list[Stan]:
+    def slot_deploy_rows(self, request: mumutypes.State) -> list[tags.Stan]:
         return [
             self.pattern(
                 "deploy_row",
@@ -286,7 +314,7 @@ class Editors(Resource):
         ]
 
 
-class Site(Resource):
+class Site(resource.Resource):
     """/editors: every child a class attribute, child_<name> being found as
     any attribute is. Its slash is child_index, the tables; the rest are
     the three kinds, and the stylesheet, a file served as it is."""
@@ -295,10 +323,10 @@ class Site(Resource):
     child_characters = characters
     child_parties = parties
     child_deploys = deploys
-    child_style = Path(__file__).parent / "editors" / "style.css"
+    child_style = pathlib.Path(__file__).parent / "editors" / "style.css"
 
 
 # Every change announced on it; consumers_app serves it, and live.js
-changes = EventSource()
+changes = server.EventSource()
 
-app = consumers_app({"editors": Site()}, changes=changes)
+app = server.consumers_app({"editors": Site()}, changes=changes)

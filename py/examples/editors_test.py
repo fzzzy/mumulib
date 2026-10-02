@@ -19,7 +19,7 @@ class TestEditors(unittest.TestCase):
         # An app of the tests' own, keeping its files where nothing else does
         cls.directory = tempfile.TemporaryDirectory()
         cls.data = Path(cls.directory.name).resolve()
-        cls.app = editors.consumers_app(
+        cls.app = editors.server.consumers_app(
             {"editors": editors.Site()}, changes=editors.changes, data=cls.data
         )
 
@@ -159,7 +159,7 @@ class TestEditors(unittest.TestCase):
         # Another process: objects made as editors.py makes them, the same
         # data directory
         party = editors.Party({"name": "Operators", "members": ["c3"]})
-        app = editors.consumers_app(
+        app = editors.server.consumers_app(
             {"editors": {"parties": {"p2": party}}}, data=self.data
         )
 
