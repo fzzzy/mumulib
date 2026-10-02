@@ -94,15 +94,8 @@ the sub-URL: `PUT /characters/c1/name.json`, `c1` being a persist, announces
 `/characters/c1`. So an element watching `/characters/c1` hears every change
 to it, wherever in it the change was made.
 
-A write with no persist above it -- into plain dicts and lists in memory, or
-a resource's own handler -- announces `/`: the root is the container of
+A write with no persist above it announces `/`: the root is the container of
 everything not inside a persist.
-
-So until an app's objects are persists, every change it makes announces `/`:
-an element watching `/` hears them all, and one watching an object's own URL
-none. The editors example is such an app today -- its characters, parties
-and deploys are resources in plain dicts -- so its rows, watching their own
-objects, refresh once its objects are persists.
 
 ### 9. Caching: sub-URLs share their container's ETag
 
