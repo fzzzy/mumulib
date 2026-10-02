@@ -154,9 +154,13 @@ Python package). Breaking changes come first under each release.
   at its own URL: a dict, list, tuple or `MappingProxyType` it is in hands it
   the request instead of replacing, removing or refusing it.
 - **`consumers_app(root, changes=events)`**: every `POST`, `PUT`, `PATCH` or
-  `DELETE` answered with success puts the URL of what it changed on the
-  `EventSource` `events` -- the request's URL, or a 201's `Location`, with
-  no extension, `/todos/3` -- for pages listening to fetch it again.
+  `DELETE` answered with success puts the URL of the container it changed
+  on the `EventSource` `events` -- the nearest resource at or above what
+  was written, with no extension, `/todos`, or `/` with none -- for pages
+  listening to fetch it again.
+- **A resource knows its URL**: `url`, learnt from the path the first
+  request to reach it walked, `/todos` or `/todos/` for an index. One
+  resource has one URL; reached by a second, it is a 500 naming both.
 - **Short names for the template attributes in Stan**: `pat=` for
   `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), `attr=` for
   `data-attr`, as `"href=url"` or `{"href": "url"}`, and `live=` for

@@ -215,47 +215,32 @@ LIVE_SCRIPT = Path(__file__).parent / "live.js"
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
-def _object_url(url: str) -> str:
-    """The URL of the object itself, whatever representation was asked for:
-    the extension off the last segment, as split_path takes it off.
-    /todos/0.json and /todos/0.txt are both /todos/0; a slash, / or /todos/,
-    has none to take."""
-    if url.endswith("/"):
-        return url
-    head, slash, last = url.rpartition("/")
-    key, dot, _ = last.rpartition(".")
-    return f"{head}{slash}{key}" if dot and key else url
-
-
-def _announce_changes(send: Send, changes: "EventSource", url: str) -> Send:
+def _announce_changes(send: Send, changes: "EventSource", state: State) -> Send:
     """send, for a request that may change something: once its response has
-    succeeded, the URL of what it changed is put on changes.
+    succeeded, the URL of the container it changed is put on changes.
 
-    Success is any 2xx, or 303 See Other, a form post's. What changed is
-    the request's URL, or for 201 Created the new thing's own, in Location:
-    PUT /todos/last.json makes /todos/3.json. Either is put without its
-    extension, as the object's own name rather than one representation's:
-    /todos/3. It is put as the final body is produced, before it is sent:
-    the change is made whether or not this client stays to hear so.
+    Success is any 2xx, or 303 See Other, a form post's. The container is
+    the nearest Located object the request walked to or through -- a
+    Resource, which is all of what it keeps -- whatever was written inside
+    it: a POST to /todos.json and a PUT to /todos/items/0.json, items
+    being a list of the Todos resource's own, both put /todos. A write with
+    no Located object above it puts /. It is put as the final body is
+    produced, before it is sent: the change is made whether or not this
+    client stays to hear so.
     """
     status = 0
-    location: str | None = None
 
     async def announcing_send(message: Message) -> None:
-        nonlocal status, location
+        nonlocal status
         if message["type"] == "http.response.start":
             status = message["status"]
-            for key, value in message.get("headers", []):
-                if key.lower() == b"location":
-                    location = value.decode("latin-1")
         elif message["type"] == "http.response.body" and not message.get(
             "more_body", False
         ):
             # A 303 See Other is a form post's success, sending the
             # browser on: the change is made, as for any 2xx
             if 200 <= status < 300 or status == 303:
-                changed = location if status == 201 and location else url
-                changes.put(_object_url(changed))
+                changes.put(state.get("container", "/"))
         await send(message)
 
     return announcing_send
@@ -266,10 +251,11 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
 
     Given changes, an EventSource, every request that changes something --
     a POST, PUT, PATCH or DELETE answered with success -- puts the URL of
-    what it changed on it, without an extension: /todos/3. The app serves it
-    itself, read-only, at /mumulib/changes.sse, with /mumulib/live.js, the
-    script that keeps a page's data-live elements up to date by it -- a page
-    made with tags.page(..., live=True) links it.
+    the container it changed on it, without an extension: the nearest
+    Located object, a Resource, at or above what was written, or else /.
+    The app serves it itself, read-only, at /mumulib/changes.sse, with
+    /mumulib/live.js, the script that keeps a page's data-live elements up
+    to date by it -- a page made with tags.page(..., live=True) links it.
     """
     mumulib = (
         GetOnly({"changes": changes, "live": LIVE_SCRIPT})
@@ -292,10 +278,10 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
                     return
 
         assert scope["type"] == "http"
-        if changes is not None and scope["method"] in MUTATING:
-            send = _announce_changes(send, changes, scope["path"])
-
         state = scope["state"]
+        if changes is not None and scope["method"] in MUTATING:
+            send = _announce_changes(send, changes, state)
+
         state["url"] = scope["path"]
         state["method"] = scope["method"]
         parsed = split_path(scope["path"])

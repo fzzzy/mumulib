@@ -226,6 +226,8 @@ def _locate(thing: Located, segments: list[str], state: State) -> None:
         thing.url = url
     elif thing.url != url:
         raise Aliased(thing, url)
+    # The deepest walked to or through so far: what a write here changes
+    state["container"] = url
 
 
 def answer(

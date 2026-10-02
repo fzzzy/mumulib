@@ -24,7 +24,7 @@ produced as though it had been published there, of the URL's type.
     GET    /mumulib/live.js                   the script that follows them
 
 Every page open is kept up to date with everyone's changes: the app is
-given an EventSource as changes, and puts on it the URL of whatever each
+given an EventSource as changes, and puts on it the URL of the resource each
 POST, PUT or DELETE changed. The list page links mumulib's live.js: the list
 watches /todos, which a POST adding to it announces, and each item its own
 URL, which a PUT to it announces -- so the page is fetched again and the

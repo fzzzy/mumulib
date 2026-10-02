@@ -261,7 +261,7 @@ streams[key] = EventSource()  # /events/<key>.sse is theirs alone
 ### Changes
 
 Given an `EventSource` as `changes`, `consumers_app` puts on it the URL of
-everything a request changes: each `POST`, `PUT`, `PATCH` or `DELETE`
+the container each request changes: each `POST`, `PUT`, `PATCH` or `DELETE`
 answered with success, any 2xx, or a form post's 303 See Other. The app
 serves it itself, read-only, at `/mumulib/changes.sse`, and beside it
 `/mumulib/live.js`, which keeps a page's live elements up to date:
@@ -286,12 +286,21 @@ nothing. A page of your own, not made with `tags.page`, links
 A page of your own can listen too: `new EventSource("/mumulib/changes.sse")`,
 each event's data the JSON of a URL.
 
-The URL names the object, not a representation of it, so it has no
-extension: a `PUT` to `/todos/0.json` and one to `/todos/0.txt` both put
-`/todos/0`, and a listener adds the extension it wants. A slash, `/` or
-`/todos/`, is put as itself. It is the request's URL, or for 201 Created the
-new thing's, from `Location`: `PUT /todos/last.json` puts `/todos/3`. It is put as the response's final body is produced, so a change is heard even if the client that made it has gone. A request
-that fails -- 404, 405, 500 -- puts nothing.
+The container is the nearest resource at or above what was written --
+the `Resource` the request walked to, or the deepest it walked through --
+whatever inside it was written: a `POST` to `/todos.json` and a `PUT` to
+`/todos/items/3.json`, `items` being a list of the `/todos` resource's own,
+both put `/todos`. A write with no resource above it puts `/`. The URL names
+the object, not a representation of it, so it has no extension, and a
+listener adds the extension it wants. It is put as the response's final
+body is produced, so a change is heard even if the client that made it has
+gone. A request that fails -- 404, 405, 500 -- puts nothing.
+
+A resource learns its URL from the path a request first reaches it by, and
+keeps it, as `url`: `/todos` for `/todos.json`, `/todos.html` and
+`/todos/items/3.json` alike, or `/todos/` for one that is an index. One
+resource has one URL: published in two places, the second to be reached is
+a 500, logged with both.
 
 An event stream never ends by itself, and a server stopping waits for open
 responses to finish. So when `consumers_app` starts -- at the ASGI lifespan

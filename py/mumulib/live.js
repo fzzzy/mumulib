@@ -1,9 +1,10 @@
 // mumulib's live.js: keeps a page's live elements up to date.
 //
 // consumers_app(root, changes=...) serves this at /mumulib/live.js, and the
-// change stream at /mumulib/changes.sse, which announces the URL of
-// everything a request changes. tags.page(..., live=True) links it; a page
-// of your own links it as any script, <script src="/mumulib/live.js" defer>.
+// change stream at /mumulib/changes.sse, which announces the URL of the
+// container each request changes: the nearest resource, or /.
+// tags.page(..., live=True) links it; a page of your own links it as any
+// script, <script src="/mumulib/live.js" defer>.
 //
 // A live element has an id and data-live, and watches one URL: data-live's
 // value, or with none the page's own. When a change announces that URL --

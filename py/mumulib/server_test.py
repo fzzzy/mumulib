@@ -14,7 +14,6 @@ from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
     EventSource,
     _close_streams_on_signal,
-    _object_url,
     consumers_app,
     parse_json,
     parse_multipart,
@@ -1628,7 +1627,7 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
         events = listener.body.split(b"\n\n")[1:-1]
         return statuses, [json.loads(e.removeprefix(b"data: ")) for e in events]
 
-    async def test_each_write_puts_the_url_of_what_it_changed(self):
+    async def test_a_write_with_no_container_above_it_puts_slash(self):
         statuses, urls = await self.heard(
             ("PUT", "/todos/0.json", "b"),
             ("PUT", "/todos/last.json", "c"),
@@ -1637,9 +1636,32 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
             ("POST", "/greet.json", "Ada"),
         )
         self.assertEqual(statuses, [204, 201, 204, 204, 200])
-        # Each object's own URL, with no extension: the appended element's
-        # from Location, and the slash as itself
-        self.assertEqual(urls, ["/todos/0", "/todos/1", "/todos/0", "/", "/greet"])
+        self.assertEqual(urls, ["/", "/", "/", "/", "/"])
+
+    async def test_a_write_puts_the_nearest_resource_at_or_above_it(self):
+        class Inner(Resource):
+            async def handle_PUT(self, request):
+                return "put"
+
+        class Shelf(Inner):
+            child_books = ["a", "b"]
+            child_inner = {"deeper": Inner()}
+
+        self.root["shelf"] = Shelf()
+        statuses, urls = await self.heard(
+            # The resource's own, at its URL, whatever type it is written as
+            ("PUT", "/shelf.json", "x"),
+            ("PUT", "/shelf.txt", "x"),
+            # Inside it, in a list of its own: the resource is what changed
+            ("PUT", "/shelf/books/0.json", "c"),
+            ("PUT", "/shelf/books/last.json", "d"),
+            # And a resource inside it is nearer still
+            ("PUT", "/shelf/inner/deeper.json", "x"),
+        )
+        self.assertEqual(statuses, [200, 200, 204, 201, 200])
+        self.assertEqual(
+            urls, ["/shelf", "/shelf", "/shelf", "/shelf", "/shelf/inner/deeper"]
+        )
 
     async def test_a_303_is_a_form_posts_success_and_is_announced(self):
         class Form(Resource):
@@ -1656,7 +1678,7 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
         await write(self.app, "PUT", "/todos/0.json", "b")
         await settle()
         await listener.go()
-        self.assertIn(b'data: "/todos/0"', listener.body)
+        self.assertIn(b'data: "/"', listener.body)
         status, headers, body = await get(self.root, "/mumulib/live.js")
         self.assertEqual(status, 404)  # get() builds an app without changes
         sent = []
@@ -1678,27 +1700,6 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"data-live", b"".join(m.get("body", b"") for m in sent[1:]))
         # Read-only, and nothing of root's is shadowed but its own mumulib
         self.assertEqual(await write(self.app, "PUT", "/mumulib/live.js", "x"), 405)
-
-    async def test_one_object_has_one_url_whatever_type_it_was_written_as(self):
-        _, urls = await self.heard(
-            ("PUT", "/todos/0.json", "b"),
-            ("PUT", "/todos/0.txt", "c"),
-            ("PUT", "/todos.json", ["whole"]),
-            ("PUT", "/sub/", "page"),
-        )
-        self.assertEqual(urls, ["/todos/0", "/todos/0", "/todos", "/sub/"])
-
-    def test_the_object_url_keeps_every_dot_but_the_extensions(self):
-        for url, expected in [
-            ("/a.b/c.json", "/a.b/c"),
-            ("/app.min.js", "/app.min"),
-            ("/", "/"),
-            ("/todos/", "/todos/"),
-            ("/.json", "/.json"),
-            ("/plain", "/plain"),
-        ]:
-            with self.subTest(url=url):
-                self.assertEqual(_object_url(url), expected)
 
     async def test_what_changed_nothing_puts_nothing(self):
         statuses, urls = await self.heard(
