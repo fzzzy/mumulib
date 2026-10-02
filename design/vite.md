@@ -9,7 +9,7 @@ and read from Vite's build in production.
 ## What the code does today
 
 - The Python server and Vite run separately: `make run` starts Vite on 8000
-  for `ts/examples` and a Python example on 8001. Neither serves the other's
+  for `ts/examples` and a Python example on 5959. Neither serves the other's
   files.
 - One prefix is already Python's own: given `changes=`, `consumers_app`
   serves `/mumulib/changes.sse` and `/mumulib/live.js` ahead of the tree.
@@ -98,8 +98,25 @@ the Python server over Ajax -- `GET`, `PUT` and `PATCH`
 ([patch.md](patch.md), later) against the published tree -- and listens to
 the change stream.
 
-## Open questions
+### 9. In development, Python serves the HTML, naming Vite's server in it
 
-1. **How a Page gets its HTML in development.** Python asking Vite's dev
-   server for it, a page linking Vite's client and entry itself, or a
-   redirect to Vite: to be worked out when it is built, by what works.
+A `Page` is served by Python in development too, from Python's origin: it
+asks the Vite dev server for the entry and serves what it gets. The URLs
+Vite writes into it -- its client, the entry's modules and stylesheets --
+name the Vite dev server in full, `http://127.0.0.1:5757/vite/...`, so the
+browser fetches them, and opens the HMR websocket, from Vite directly.
+
+Tried with Vite 8.3.1, a page served from another origin:
+
+- A full-URL `base`, or `server.origin`, does not do it: in development Vite
+  writes the HTML's URLs root-relative, `/vite/src/main.ts`, whatever
+  either says, and they would be fetched from Python.
+- A plugin of Vite's own, run only by the dev server, does: a
+  `transformIndexHtml` hook, after Vite's, puts the origin in front of each
+  `src` and `href` starting with `/vite/`.
+- Past the HTML, nothing else needs it. Imports inside the modules are
+  root-relative and resolve against the module's own URL, on Vite; Vite's
+  client opens its websocket to the host it was loaded from; and Vite
+  answers CORS for a page on `127.0.0.1`'s other ports by default.
+- An edit to a module that does not accept hot updates reloads the page,
+  from Python's origin.
