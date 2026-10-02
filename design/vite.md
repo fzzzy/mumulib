@@ -1,77 +1,74 @@
 # Vite
 
-Status: design in progress. Started 2026-10-01.
+Status: decided, not yet built. Started 2026-10-01.
 
 How a page served by the Python server becomes a TypeScript app built by
 Vite: proxied to Vite's dev server, with hot reloading, while developing,
-and read from Vite's build when not.
+and read from Vite's build in production.
 
 ## What the code does today
 
 - The Python server and Vite run separately: `make run` starts Vite on 8000
   for `ts/examples` and a Python example on 8001. Neither serves the other's
-  files. The TypeScript examples that needed Python data used Vite's
-  `server.proxy` to reach it, the other way round.
+  files.
 - One prefix is already Python's own: given `changes=`, `consumers_app`
   serves `/mumulib/changes.sse` and `/mumulib/live.js` ahead of the tree.
 - `consumers_app` answers HTTP and the lifespan protocol only, and asserts
   on any other scope: there is no websocket support.
-- The Python package depends on no HTTP client.
+- The Python package depends on no HTTP client or proxy.
 - There is no development mode in mumulib.
 - `tags.page(title, *content, stylesheets=, scripts=, live=)` builds a whole
   page in Stan.
 
 ## Decisions
 
-### 1. Python proxies Vite while developing, hot reloading included
+### 1. Everything Vite serves is under one prefix, /vite/
 
-In development, the Python server passes Vite's URLs on to the Vite dev
-server, its HMR websocket included, so a page served by Python reloads as
-its TypeScript changes.
+Vite's `base` is `/vite/`, so everything it serves is under that one prefix:
+in development its own client and helpers, every source module (which Vite
+otherwise serves at its file path, `/src/index.ts`, where it could collide
+with the tree) and the HMR websocket; in production the built chunks and
+assets, `/vite/assets/...`. Python reserves `/vite/` for its own handlers,
+ahead of the tree, as it does `/mumulib/`: no published object can be
+reached there.
 
-### 2. Vite's URLs are reserved
+### 2. Python proxies Vite while developing, hot reloading included
 
-Python's own handlers own Vite's URLs -- its infrastructure, the built
-assets, the HMR socket -- ahead of the tree, as `/mumulib/` already is. No
-published object can be reached there. _(Which URLs: open question 1.)_
+In development, the Python server passes everything under `/vite/` on to the
+Vite dev server, the HMR websocket included, so a page served by Python
+reloads as its TypeScript changes.
 
-### 3. A Page switches between Vite and the build
+This needs an ASGI proxy for HTTP and websockets, pulled in as a dependency
+when it is built.
 
-A `Page` object serves a Vite page: in development, by asking Vite's dev
-server for it, so it comes with Vite's client and hot reloading; otherwise,
-by reading the files Vite built from disk. Which, is the Python server's
-development mode. _(How the mode is chosen, and what a Page is: open
-questions 2 and 3.)_
+### 3. Development by default, production by an environment variable
 
-### 4. Single-file bundles first
+The Python server is in development mode unless an environment variable
+says production -- `MUMULIB_PRODUCTION=1`, say; the name is settled when it
+is built.
 
-A page is built to start with as one self-contained file. Code splitting
-comes later, when duplication between pages hurts: the reserved assets
-prefix is then served from Vite's build directory, its hashed file names
-busting caches, and Python serves those files as bytes without knowing the
-graph between them -- the HTML Vite built names them.
+### 4. Bundled and code-split from the start
 
-### 5. Past the HTML, the TypeScript world
+Pages are built with Vite's bundling and code splitting from the start. In
+production `/vite/` is served from Vite's build directory, as bytes: Python
+does not know the graph between the chunks, since the HTML Vite built names
+them, and their hashed file names bust caches.
+
+### 5. A Page serves a Vite HTML entry as Vite made it
+
+A `Page` names a Vite HTML entry -- `Page("editors/index.html")`, say -- and
+serves that HTML exactly as Vite made it: in development by asking Vite's
+dev server for it, so it comes with Vite's client and hot reloading; in
+production by reading Vite's build of it from disk. Python does not fill or
+change it.
+
+`Page`, the class, and `tags.page()`, the Stan function, are different
+things, and differ at least by case; `Page` may well go in a module of its
+own, for things served from disk.
+
+### 6. Past the HTML, the TypeScript world
 
 Once the HTML is served, the page is Vite's and TypeScript's: its modules,
 its `.sfc.html` imports, mumulib's `state` and `patslot`. It talks back to
 the Python server over Ajax -- `GET`, `PUT` and `PATCH` against the
 published tree -- and listens to the change stream.
-
-## Open questions
-
-1. **Which URLs are Vite's.** In development Vite serves not only its own
-   prefixes (`/@vite/`, `/@id/`, `/@fs/`, `/node_modules/.vite/`) but every
-   source module at its file path (`/src/index.ts`), which can collide with
-   the tree. Proposed: Vite's `base` set to one prefix, say `/vite/`, so
-   everything Vite serves -- sources, its client, the HMR socket, and the
-   build's assets as `/vite/assets/` -- is under it, and Python reserves that
-   one prefix.
-2. **How the development mode is chosen.** An environment variable
-   (`MUMULIB_DEV=1`, which `make run` sets), or an argument
-   (`consumers_app(..., dev=True)`)?
-3. **What a Page is.** Does a `Page` name a Vite HTML entry
-   (`Page("editors/index.html")`) and serve that HTML as Vite made it -- or is
-   that HTML a template whose slots Python fills from the resource's state,
-   so that `template = Page(...)` works as a Stan template does? And how does
-   it sit beside `tags.page()`, the Stan page skeleton?
