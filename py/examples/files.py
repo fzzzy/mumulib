@@ -12,11 +12,11 @@ it, is found. A directory lists what is in it: /static/ as links, and
 The whole of it is in GetOnly: nothing but GET gets in.
 """
 
-from pathlib import Path
+import pathlib
 
 from mumulib import consumers, server
 
-SITE = Path(__file__).parent / "files"
+SITE = pathlib.Path(__file__).parent / "files"
 
 app = server.consumers_app(
     consumers.GetOnly(
