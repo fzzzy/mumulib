@@ -14,13 +14,12 @@ The whole of it is in GetOnly: nothing but GET gets in.
 
 from pathlib import Path
 
-from mumulib.consumers import GetOnly
-from mumulib.server import consumers_app
+from mumulib import consumers, server
 
 SITE = Path(__file__).parent / "files"
 
-app = consumers_app(
-    GetOnly(
+app = server.consumers_app(
+    consumers.GetOnly(
         {
             # Read afresh from its name on every request, so it can be edited
             # while the server runs
