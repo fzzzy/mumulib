@@ -2,8 +2,10 @@
 import asyncio
 import io
 import json
+import tempfile
 import unittest
 import unittest.mock
+from pathlib import Path
 from types import MappingProxyType
 
 from mumulib.consumers import GetOnly, RefuseIndex
@@ -12,7 +14,7 @@ from mumulib.server import consumers_app
 from mumulib.tags import parse_template
 
 
-def call(root, method, path, body=None):
+def call(root, method, path, body=None, data: str | Path = "var/data"):
     """The status, headers and body of one request to root, published."""
     sent = []
 
@@ -27,7 +29,7 @@ def call(root, method, path, body=None):
     scope = {"type": "http", "method": method, "path": path, "headers": headers}
 
     async def go():
-        await consumers_app(root)({**scope, "state": {}}, receive, send)
+        await consumers_app(root, data=data)({**scope, "state": {}}, receive, send)
 
     asyncio.run(go())
     content = b"".join(m.get("body", b"") for m in sent[1:])
@@ -571,3 +573,93 @@ class TestItsUrl(unittest.TestCase):
         logged.assert_called_once()
         self.assertIn(b"Profile at /a was reached as /b", body)
         self.assertEqual(ada.url, "/a")
+
+
+class Named(Resource):
+    """Renamed by a POST, which it saves."""
+
+    async def handle_GET(self, request):
+        return self.state
+
+    async def handle_POST(self, request):
+        self.state["name"] = request["parsed_body"]
+        await self.save()
+        return self.state
+
+
+class TestPersistence(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.data = Path(directory.name).resolve()
+
+    def call(self, root, method, path, body=None):
+        return call(root, method, path, body, data=self.data)
+
+    def test_with_no_file_it_answers_from_memory_and_writes_nothing(self):
+        ada = Named({"name": "Ada"})
+        status, _, body = self.call({"people": {"ada": ada}}, "GET", "/people/ada.json")
+        self.assertEqual((status, json.loads(body)), (200, {"name": "Ada"}))
+        self.assertEqual(ada.file, self.data / "people" / "ada.json")
+        self.assertEqual(list(self.data.iterdir()), [])
+
+    def test_save_writes_the_state_as_state_json_answers_it(self):
+        ada = Named({"name": "Ada", "seen": MappingProxyType({"a": 1})})
+        root = {"people": {"ada": ada}}
+        self.assertEqual(self.call(root, "POST", "/people/ada.json", "Grace")[0], 200)
+        saved = json.loads((self.data / "people" / "ada.json").read_text())
+        self.assertEqual(saved, {"name": "Grace", "seen": {"a": 1}})
+        self.assertEqual(
+            json.loads(self.call(root, "GET", "/people/ada/state.json")[2]), saved
+        )
+        # Nothing left beside it: the temporary file was renamed into place
+        self.assertEqual(list((self.data / "people").iterdir()), [ada.file])
+
+    def test_an_existing_file_wins_over_the_constructors_state(self):
+        (self.data / "people").mkdir()
+        (self.data / "people" / "ada.json").write_text('{"name": "Saved"}')
+        ada = Named({"name": "Constructed"})
+        body = self.call({"people": {"ada": ada}}, "GET", "/people/ada.json")[2]
+        self.assertEqual(json.loads(body), {"name": "Saved"})
+        self.assertEqual(ada.state, {"name": "Saved"})
+
+    def test_it_is_loaded_once_and_its_memory_is_what_answers_after(self):
+        ada = Named({"name": "Ada"})
+        root = {"ada": ada}
+        self.call(root, "POST", "/ada.json", "Grace")
+        # The file changed underneath is not read again
+        (self.data / "ada.json").write_text('{"name": "Elsewhere"}')
+        self.assertEqual(
+            json.loads(self.call(root, "GET", "/ada.json")[2])["name"], "Grace"
+        )
+        # And a new process -- a new object -- starts from the file
+        fresh = Named({"name": "Ada"})
+        body = self.call({"ada": fresh}, "GET", "/ada.json")[2]
+        self.assertEqual(json.loads(body), {"name": "Elsewhere"})
+
+    def test_an_index_keeps_index_json(self):
+        home, top = Named(), Named()
+        self.call({"home": {"index": home}}, "POST", "/home/", "Home")
+        self.assertEqual(home.file, self.data / "home" / "index.json")
+        self.call({"index": top}, "POST", "/", "Top")
+        self.assertEqual(top.file, self.data / "index.json")
+        self.assertEqual(
+            json.loads((self.data / "index.json").read_text()), {"name": "Top"}
+        )
+
+    def test_a_resource_no_request_has_reached_cannot_be_saved(self):
+        with self.assertRaises(RuntimeError):
+            asyncio.run(Named().save())
+
+    def test_a_failed_write_leaves_the_file_as_it_was(self):
+        ada = Named({"name": "Ada"})
+        root = {"ada": ada}
+        self.call(root, "POST", "/ada.json", "Grace")
+        with unittest.mock.patch("os.replace", side_effect=OSError("disk full")):
+            with unittest.mock.patch("traceback.print_exc"):
+                status = self.call(root, "POST", "/ada.json", "Lost")[0]
+        self.assertEqual(status, 500)
+        self.assertEqual(
+            json.loads((self.data / "ada.json").read_text()), {"name": "Grace"}
+        )
+        self.assertEqual(list(self.data.iterdir()), [ada.file])

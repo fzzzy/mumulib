@@ -24,7 +24,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import os
 import sys
+import tempfile
 from collections.abc import AsyncIterator, Callable, Iterable
 from io import BufferedReader, TextIOWrapper
 from pathlib import Path
@@ -192,9 +194,19 @@ class Located:
     /editors/characters/c1.html, .json and /c1/state.json alike, and
     /editors/ for one reached as an index, at its slash. Until then url is
     None. One object has one URL: reaching it by another is Aliased, a 500.
+
+    Its file is named by its URL, in the app's data directory:
+    var/data/editors/characters/c1.json, and an index's index.json in its
+    container's, var/data/editors/index.json. Then load is awaited, once,
+    before the request goes on: what the object does with a file it may
+    have, which here is nothing.
     """
 
     url: str | None = None
+    file: Path | None = None
+
+    async def load(self) -> None:
+        """Called once, when a request first reaches it: url and file are set."""
 
 
 class Aliased(Exception):
@@ -216,7 +228,34 @@ def url_of(walked: list[str]) -> str:
     return "/" + "/".join(walked)
 
 
-def _locate(thing: Located, segments: list[str], state: State) -> None:
+def file_for(data: Path, url: str) -> Path:
+    """Where in data the Located object at url keeps its file: its URL with
+    .json, an index -- a slash -- being index.json. Never outside data."""
+    name = f"{url}index" if url.endswith("/") else url
+    file = data / f"{name.lstrip('/')}.json"
+    if not file.resolve().is_relative_to(data.resolve()):
+        raise ValueError(f"{url} names a file outside {data}")
+    return file
+
+
+def write_atomically(file: Path, text: str) -> None:
+    """Write text to file whole or not at all: to a temporary file beside it,
+    flushed to the disk, then renamed over it. A reader -- or the next start,
+    after a crash -- sees the old file or the new one, never part of one."""
+    file.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as out:
+            out.write(text)
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temporary, file)
+    except BaseException:
+        os.unlink(temporary)
+        raise
+
+
+async def _locate(thing: Located, segments: list[str], state: State) -> None:
     # What has been walked is the request's segments, less those remaining
     walked = state.get("segments")
     if walked is None:
@@ -224,6 +263,10 @@ def _locate(thing: Located, segments: list[str], state: State) -> None:
     url = url_of(walked[: len(walked) - len(segments)])
     if thing.url is None:
         thing.url = url
+        data = state.get("data")
+        if data is not None:
+            thing.file = file_for(data, url)
+        await thing.load()
     elif thing.url != url:
         raise Aliased(thing, url)
     # The deepest walked to or through so far: what a write here changes
@@ -268,7 +311,7 @@ async def consume(
         any or None: The object found at the end of the traversal, or None if not found.
     """
     if isinstance(parent, Located):
-        _locate(parent, segments, state)
+        await _locate(parent, segments, state)
     if not segments:
         return parent
     state["remaining"] = segments

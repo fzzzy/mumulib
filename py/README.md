@@ -35,7 +35,7 @@ working; anything else in a module is its own.
   `live=True` marks an element live.js keeps up to date. An attribute that is
   `True` is written by its name, `required`, and one that is `False` or
   `None` is left out, as boolean attributes must be. `page(title, *content,
-  stylesheets=, scripts=, live=)` is a whole page: the doctype, a UTF-8
+stylesheets=, scripts=, live=)` is a whole page: the doctype, a UTF-8
   charset and a viewport, the title, the stylesheets and scripts, and the
   content as its body.
 - `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
@@ -142,6 +142,34 @@ still narrow: under `GetOnly` it is only read. A type of your own can answer
 for itself the same way, registered with
 `add_consumer(type, consumer, own_methods=True)`.
 
+### Persistence
+
+A resource keeps its state in a file named by its URL, in the app's data
+directory: `var/data` beside where the server runs, or the one
+`consumers_app(root, data=...)` names. `/editors/characters/c1` keeps
+`var/data/editors/characters/c1.json`, and an index, `/editors/`,
+`var/data/editors/index.json`. The process is one, on one thread, so a
+resource's state in memory is the state.
+
+The first request to reach a resource loads its file, if there is one, as
+`self.state` -- an existing file wins over the state it was made with.
+With none, the constructor's state is kept, and answered from memory. A
+handler that changes the state saves it:
+
+```python
+class Character(Resource):
+    async def handle_POST(self, request):
+        self.state["name"] = self.form(request).text("name")
+        await self.save()
+        self.see_other("/editors/")
+```
+
+`save()` writes the state as `state.json` answers it, atomically: to a
+temporary file beside it, then renamed into place, so the file is the state
+before or the state after. Nothing else saves: a change not saved is gone
+when the process is. A resource no request has reached has no file, and
+saving it is an error.
+
 ### Slots
 
 When `template` is a parsed template, `handle_GET` fills a copy of it: each
@@ -230,7 +258,7 @@ Each item is sent as JSON, encoded as a `.json` URL's answer is, so a client
 reads every event's data the same way, whatever was put:
 
 ```js
-new EventSource("/events.sse").onmessage = (e) => show(JSON.parse(e.data))
+new EventSource('/events.sse').onmessage = (e) => show(JSON.parse(e.data))
 ```
 
 A string arrives as a string, and a dict as an object; JSON has no raw

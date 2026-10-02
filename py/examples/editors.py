@@ -21,6 +21,13 @@ answers 303 See Other, back to /editors/:
     GET  /mumulib/changes.sse               the URL of each change, as it is made
     GET  /mumulib/live.js                   the script that follows them
 
+Each object is persistent: its state is kept in a file named by its URL,
+var/data/editors/characters/c1.json, loaded the first time a request reaches
+it, and written by its handle_POST, with await self.save(). Until then, the
+state it was made with here is what it answers with. var/data is beside
+where the server runs -- py/var/data, for make run -- and deleting it starts
+again.
+
 Each object has an id that never changes, so its URL does not either, and
 renaming is a post to the URL it already had. A party's members and a
 deploy's party are ids, so they follow a rename.
@@ -93,6 +100,7 @@ class Character(Resource):
             prompt=form.text("prompt"),
             agent_args=form.text("agent_args"),
         )
+        await self.save()
         self.see_other("/editors/")
 
 
@@ -125,6 +133,7 @@ class Party(Resource):
         if unknown:
             raise HTTPResponse(400, f"No character {unknown[0]!r}.\n")
         self.state.update(name=form.text("name"), members=members)
+        await self.save()
         self.see_other("/editors/")
 
 
@@ -153,6 +162,7 @@ class Deploy(Resource):
         if party not in parties:
             raise HTTPResponse(400, f"No party {party!r}.\n")
         self.state.update(name=name, party=party)
+        await self.save()
         self.see_other("/editors/")
 
 

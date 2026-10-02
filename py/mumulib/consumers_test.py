@@ -2,6 +2,7 @@
 import asyncio
 import json
 import unittest
+from pathlib import Path
 from types import MappingProxyType
 from urllib.parse import quote, unquote
 
@@ -12,6 +13,7 @@ from mumulib.consumers import (
     RefuseIndex,
     add_consumer,
     consume,
+    file_for,
     is_container,
     url_of,
 )
@@ -750,3 +752,21 @@ class TestLocated(unittest.TestCase):
         found = asyncio.run(consume({"x": thing}, ["x"], {"method": "GET"}, send))
         self.assertIs(found, thing)
         self.assertIsNone(thing.url)
+
+    def test_with_no_data_directory_it_has_a_url_and_no_file(self):
+        thing = Located()
+
+        async def send(message):
+            pass
+
+        state = {"method": "GET", "segments": ["x"]}
+        asyncio.run(consume({"x": thing}, ["x"], state, send))
+        self.assertEqual((thing.url, thing.file), ("/x", None))
+
+    def test_a_file_is_named_by_the_url_and_never_outside_data(self):
+        data = Path("/srv/data")
+        self.assertEqual(file_for(data, "/a/b"), data / "a" / "b.json")
+        self.assertEqual(file_for(data, "/a/"), data / "a" / "index.json")
+        self.assertEqual(file_for(data, "/"), data / "index.json")
+        with self.assertRaises(ValueError):
+            file_for(data, "/../etc/passwd")

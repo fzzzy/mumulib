@@ -246,8 +246,14 @@ def _announce_changes(send: Send, changes: "EventSource", state: State) -> Send:
     return announcing_send
 
 
-def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
+def consumers_app(
+    root: Any, changes: "EventSource | None" = None, data: str | Path = "var/data"
+) -> ASGIApp:
     """The ASGI app publishing root.
+
+    data is the directory each Located object -- each Resource -- keeps its
+    file in, named by its URL: var/data/editors/characters/c1.json. It is
+    relative to the directory the app is made in, unless absolute.
 
     Given changes, an EventSource, every request that changes something --
     a POST, PUT, PATCH or DELETE answered with success -- puts the URL of
@@ -257,6 +263,7 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
     /mumulib/live.js, the script that keeps a page's data-live elements up
     to date by it -- a page made with tags.page(..., live=True) links it.
     """
+    data_directory = Path(data).resolve()
     mumulib = (
         GetOnly({"changes": changes, "live": LIVE_SCRIPT})
         if changes is not None
@@ -309,6 +316,7 @@ def consumers_app(root: Any, changes: "EventSource | None" = None) -> ASGIApp:
         # Every segment, as the path has them: what was walked to reach an
         # object is these less those remaining, and names its URL
         state["segments"] = segments
+        state["data"] = data_directory
         state["content_type"] = content_type
         state["accept"] = [content_type.split(";")[0], "*/*"]
 

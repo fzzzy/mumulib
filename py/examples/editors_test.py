@@ -2,7 +2,9 @@
 import asyncio
 import copy
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from typing import Any
 from unittest import mock
 from urllib.parse import urlencode
@@ -12,6 +14,19 @@ from mumulib.mumutypes import Message
 
 
 class TestEditors(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # An app of the tests' own, keeping its files where nothing else does
+        cls.directory = tempfile.TemporaryDirectory()
+        cls.data = Path(cls.directory.name).resolve()
+        cls.app = editors.consumers_app(
+            {"editors": editors.Site()}, changes=editors.changes, data=cls.data
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.directory.cleanup()
+
     def setUp(self):
         # Each test's writes undone after it: the states as they were
         self.saved = [
@@ -44,7 +59,7 @@ class TestEditors(unittest.TestCase):
 
         async def go() -> None:
             scope = {"type": "http", "method": method, "path": path, "headers": headers}
-            await editors.app({**scope, "state": {}}, receive, send)
+            await type(self).app({**scope, "state": {}}, receive, send)
 
         asyncio.run(go())
         content = b"".join(m.get("body", b"") for m in sent[1:]).decode()
@@ -133,6 +148,32 @@ class TestEditors(unittest.TestCase):
         )
         # Escaped on every page it is shown on
         self.assertIn("&lt;Renamed&gt;", self.page("/editors/"))
+        # And saved, in a file named by its URL, for the next start
+        saved = self.data / "editors" / "characters" / "c1.json"
+        self.assertEqual(json.loads(saved.read_text())["name"], "<Renamed>")
+
+    def test_a_new_start_begins_from_the_files(self):
+        self.post("/editors/parties/p2.html", {"name": "Kept", "members[]": ["c1"]})
+        # Another process: objects made as editors.py makes them, the same
+        # data directory
+        party = editors.Party({"name": "Operators", "members": ["c3"]})
+        app = editors.consumers_app(
+            {"editors": {"parties": {"p2": party}}}, data=self.data
+        )
+
+        async def go() -> None:
+            async def receive() -> Message:
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            async def send(message: Message) -> None:
+                pass
+
+            scope = {"type": "http", "method": "GET", "headers": []}
+            path = "/editors/parties/p2.json"
+            await app({**scope, "path": path, "state": {}}, receive, send)
+
+        asyncio.run(go())
+        self.assertEqual(party.state, {"name": "Kept", "members": ["c1"]})
 
     def test_a_partys_members_are_a_list_and_may_be_none(self):
         self.post("/editors/parties/p1.html", {"name": "R", "members[]": ["c1", "c3"]})

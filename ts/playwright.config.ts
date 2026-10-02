@@ -95,7 +95,9 @@ export default defineConfig({
       },
     },
     {
-      command: `uv run --directory ../py --extra dev --locked uvicorn examples.editors:app --host 127.0.0.1 --port ${EDITORS_PORT}`,
+      // In a directory of its own, emptied first: the example keeps its
+      // objects in var/data there, and each run starts from none
+      command: `rm -rf ../var/e2e/editors && mkdir -p ../var/e2e/editors && cd ../var/e2e/editors && uv run --project ../../../py --extra dev --locked uvicorn --app-dir ../../../py examples.editors:app --host 127.0.0.1 --port ${EDITORS_PORT}`,
       url: `http://127.0.0.1:${EDITORS_PORT}/editors/characters.json`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

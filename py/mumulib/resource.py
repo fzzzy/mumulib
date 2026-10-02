@@ -23,12 +23,26 @@ anything else, and each can be anything publishable, a Resource included.
 """
 
 import inspect
+import json
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, NoReturn, cast
 
-from mumulib.consumers import GetOnly, Located, add_consumer, consume, refuse
+from mumulib.consumers import (
+    GetOnly,
+    Located,
+    add_consumer,
+    consume,
+    refuse,
+    write_atomically,
+)
 from mumulib.mumutypes import Chunk, Send, SpecialResponse, State
-from mumulib.producers import add_json_form, add_producer, can_produce, produce
+from mumulib.producers import (
+    add_json_form,
+    add_producer,
+    can_produce,
+    custom_serializer,
+    produce,
+)
 from mumulib.tags import Stan
 
 # The public API: the class to subclass.
@@ -74,6 +88,14 @@ class Resource(Located):
     It is Located: url is where it is published, without an extension --
     /editors/characters/c1 -- learnt when a request first reaches it, and
     None until then. Unlike the url slot, which is the request's own URL.
+
+    And it is persistent. Its file, named by its URL in the app's data
+    directory, is its state as JSON: when a request first reaches it, a file
+    there is loaded as self.state, in place of the constructor's -- an
+    existing file wins -- and with none, the constructor's state is kept,
+    and answered from memory, until the first save makes one. A handler
+    that changes the state saves it, with await self.save(): nothing else
+    does, and a change not saved is gone when the process is.
     """
 
     template: Any = ""
@@ -84,6 +106,25 @@ class Resource(Located):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         _register(cls)
+
+    async def load(self) -> None:
+        """Its file, if it has one, as self.state; else the state it has."""
+        if self.file is not None and self.file.exists():
+            self.state = json.loads(self.file.read_text(encoding="utf-8"))
+
+    async def save(self) -> None:
+        """Write self.state to its file, whole, as its state.json answers.
+
+        Atomic: the file is the state before or the state after, never part
+        of either. A resource no request has reached yet has no file, and
+        nowhere to be saved: saving one is an error.
+        """
+        if self.file is None:
+            raise RuntimeError(
+                f"{type(self).__name__} has no file to be saved in: a request "
+                "has not reached it, or the app has no data directory"
+            )
+        write_atomically(self.file, json.dumps(self.state, default=custom_serializer))
 
     async def get_child(self, segments: list[str], request: State, send: Send) -> Any:
         """The child the next segment names, or None: its child_ attribute,

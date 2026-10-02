@@ -161,6 +161,12 @@ Python package). Breaking changes come first under each release.
 - **A resource knows its URL**: `url`, learnt from the path the first
   request to reach it walked, `/todos` or `/todos/` for an index. One
   resource has one URL; reached by a second, it is a 500 naming both.
+- **Persistent resources**: a resource's state is kept in a file named by
+  its URL, `var/data/todos.json`, in the directory
+  `consumers_app(root, data=...)` names. It is loaded when a request first
+  reaches the resource -- an existing file wins over the constructor's
+  state -- and written, atomically, by `await self.save()`, which a handler
+  that changes the state calls.
 - **Short names for the template attributes in Stan**: `pat=` for
   `data-pat`, `slt=` for `data-slot` (`slot` is HTML's own), `attr=` for
   `data-attr`, as `"href=url"` or `{"href": "url"}`, and `live=` for
