@@ -219,7 +219,7 @@ LIVE_SCRIPT = Path(__file__).parent / "live.js"
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
-def _announce_changes(send: Send, changes: "EventSource", state: State) -> Send:
+def _announce_changes(send: Send, changes: EventSource, state: State) -> Send:
     """send, for a request that may change something: once its response has
     succeeded, the URL of the container it changed is put on changes.
 
@@ -273,7 +273,7 @@ def _with_headers(send: Send, headers: list[tuple[bytes, bytes]]) -> Send:
 
 def consumers_app(
     root: Any,
-    changes: "EventSource | None" = None,
+    changes: EventSource | None = None,
     data: str | Path = "var/data",
     vite: str | Path | None = None,
 ) -> ASGIApp:

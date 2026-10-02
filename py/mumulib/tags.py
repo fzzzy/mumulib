@@ -214,7 +214,7 @@ ALL_ELEMENTS.extend(DEMARCATING_EDITS + TABLE_CONTENT)
 ALL_ELEMENTS.extend(FORMS + INTERACTIVE_ELEMENTS + WEB_COMPONENTS)
 
 
-def attr_slots(node: "Stan") -> list[tuple[str, str]]:
+def attr_slots(node: Stan) -> list[tuple[str, str]]:
     """An element's own attribute slots, from its data-attr: "id=row_id,
     title=hint" is [("id", "row_id"), ("title", "hint")]."""
     mapping = str(node.attributes.get("data-attr", ""))
@@ -222,7 +222,7 @@ def attr_slots(node: "Stan") -> list[tuple[str, str]]:
     return [(name, slot) for name, eq, slot in pairs if eq and name and slot]
 
 
-def reindent_tree(node: "Stan", indent: int) -> None:
+def reindent_tree(node: Stan, indent: int) -> None:
     node.indent = indent
     for child in node.children:
         if isinstance(child, Stan):
@@ -237,7 +237,7 @@ class Stan:
         self.attributes: dict[str, Any] = dict(kwargs)
         self.children: list[Any] = list(args)
 
-    def __call__(self, **kwargs: Any) -> "Stan":
+    def __call__(self, **kwargs: Any) -> Stan:
         if self.clone:
             self = self.copy()
         if "indent" in kwargs:
@@ -263,7 +263,7 @@ class Stan:
         self.attributes = self.attributes | kwargs
         return self
 
-    def __getitem__(self, item: Any) -> "Stan":
+    def __getitem__(self, item: Any) -> Stan:
         if self.clone:
             self = self.copy()
         # t.p["a", t.b["b"]] is two children, as t.p[["a", t.b["b"]]] is
@@ -279,7 +279,7 @@ class Stan:
             self.children.append(item)
         return self
 
-    def copy(self) -> "Stan":
+    def copy(self) -> Stan:
         children = [getattr(child, "copy", lambda: child)() for child in self.children]
         attributes = {
             k: getattr(v, "copy", lambda: v)() for k, v in self.attributes.items()
@@ -287,7 +287,7 @@ class Stan:
         result = Stan(self.tagname, 0, *children, **attributes)
         return result
 
-    def clone_pat(self, patname: str, **slots: Any) -> "Stan | None":
+    def clone_pat(self, patname: str, **slots: Any) -> Stan | None:
         if self.attributes.get("data-pat") == patname:
             copy = self.copy()
             reindent_tree(copy, 0)
@@ -472,7 +472,7 @@ class Template:
         self.template: Stan | None = None
         self.root: Stan | None = None
 
-    def load(self) -> "Template":
+    def load(self) -> Template:
         self.loaded = True
         self.template = parse_template(open(self.filename, "rb"))
         if self.template:

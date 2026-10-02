@@ -10,7 +10,7 @@ authors = [
 ]
 description = "There is no library, squared"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "aiofiles>=24.1.0",
     "lxml>=5.3.0",
@@ -41,7 +41,7 @@ Issues = "https://github.com/fzzzy/mumulib/issues"
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
@@ -51,7 +51,7 @@ ignore = []
 # "# pyright: standard" comment on its first line: the tests are unannotated
 # unittest code, but standard mode still catches wrong calls into the package.
 [tool.pyright]
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"

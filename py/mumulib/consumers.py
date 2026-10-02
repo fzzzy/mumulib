@@ -368,7 +368,7 @@ async def consume_tuple(
         else:
             index = validate_list_index(segments[0])
             child = parent[index]
-    except (IndexError, ValueError):
+    except IndexError, ValueError:
         return None
     return await consume(child, segments[1:], state, send)
 
@@ -486,7 +486,7 @@ async def _consume_immutabledict(
         else:
             key = sanitize_dict_key(segments[0])
             child = parent[key]
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         return None
     return await consume(child, segments[1:], state, send)
 

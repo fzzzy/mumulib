@@ -7,6 +7,11 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **The Python package requires Python 3.14.** It had allowed 3.12, which
+  CI ran -- the runner's own -- while development was on 3.14, and the two
+  differ: 3.12's own table of types has no `.md` or `.ttf`, and its
+  `types.GeneratorType` is not generic. CI now runs 3.14, as required.
+
 - **A string is text, never HTML.** Strings and numbers answer `.txt` and
   `.json` alone, and are not found as `.html`, `.js`, `.css` or anything
   else: a string at `.html` was served as markup, so a visitor's note was a

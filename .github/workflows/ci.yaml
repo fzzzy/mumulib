@@ -18,6 +18,8 @@ jobs:
         with:
           version: latest
           enable-cache: true
+          # The Python the project requires, not the runner's own
+          python-version: '3.14'
       - run: npm ci
         working-directory: ts
       - run: npx playwright install --with-deps
