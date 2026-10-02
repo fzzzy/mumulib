@@ -25,8 +25,8 @@ Each object is persistent: its state is kept in a file named by its URL,
 var/data/editors/characters/c1.json, loaded the first time a request reaches
 it, and written by its handle_POST, with await self.save(). Until then, the
 state it was made with here is what it answers with. var/data is beside
-where the server runs -- py/var/data, for make run -- and deleting it starts
-again.
+where the server runs -- the repository's root, for make run -- and
+deleting it starts again.
 
 Each object has an id that never changes, so its URL does not either, and
 renaming is a post to the URL it already had. A party's members and a

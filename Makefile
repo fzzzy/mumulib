@@ -19,6 +19,11 @@ UVICORN_FLAGS := --reload --timeout-graceful-shutdown 2
 # runs through uv from py/, so each reads py/pyproject.toml and leaves its
 # caches and .coverage there; every npm script runs in ts/.
 UV := uv run --directory py --extra dev --locked
+# A Python example's server is the exception: it runs from the root, so the
+# data it keeps, var/data, is beside var/log -- still reading py/'s project,
+# importing from py/, and reloading as py/ changes
+SERVE := uv run --project py --extra dev --locked uvicorn --app-dir py \
+	--reload-dir py
 NPM := cd ts && npm
 
 
@@ -80,7 +85,7 @@ run: node_modules python-sync server-exists declarations
 	@mkdir -p "$(LOG)"
 	@$(MAKE) --no-print-directory stop > /dev/null
 	@cd ts && exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
-	@PYTHONUNBUFFERED=1 exec $(UV) uvicorn examples.$(SERVER):app \
+	@PYTHONUNBUFFERED=1 exec $(SERVE) examples.$(SERVER):app \
 		--host 127.0.0.1 --port $(SERVER_PORT) $(UVICORN_FLAGS) \
 		> "$(LOG)/server.log" 2>&1 < /dev/null &
 	@$(call wait_for_port,$(PORT),vite)
@@ -151,7 +156,7 @@ declarations: node_modules
 
 # A Python example, in the foreground, reloading as its code changes
 server: python-sync server-exists
-	$(UV) uvicorn examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) \
+	$(SERVE) examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT) \
 		$(UVICORN_FLAGS)
 
 server-exists:
