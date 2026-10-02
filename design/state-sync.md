@@ -1,6 +1,6 @@
 # State sync
 
-Status: part one built (`sync.bind`); part two, links, to come. Started
+Status: part one built (`sync.bind`); part two, links, deferred. Started
 2026-10-01.
 
 How the server's state tree and the TypeScript `state` module are kept the
@@ -164,6 +164,13 @@ Built first, as part of part one: a string or a number answers `.txt` and
 served as markup, a visitor's included. HTML of a program's own is a
 `tags.Markup`, served at `.html`. A resource's template is HTML alone, not
 found as `.txt`. A file is served at its extension on disk alone.
+
+## Part two: deferred
+
+Part two -- a resource or persist inside another's state, as a link --
+waits. What part one has, plain JSON with references as plain ids looked up
+by whoever needs them, is much simpler, and is to be used until it causes a
+problem; part two is designed then, against that problem.
 
 ## Open questions
 
