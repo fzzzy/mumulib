@@ -13,8 +13,8 @@ class TestResources(unittest.TestCase):
     def setUp(self):
         # A site of its own for each test, so writes do not leak between them
         self.site = resources.Site()
-        self.changes = resources.EventSource()
-        self.app = resources.consumers_app(self.site, changes=self.changes)
+        self.changes = resources.server.EventSource()
+        self.app = resources.server.consumers_app(self.site, changes=self.changes)
 
     def request(
         self, path: str, method: str = "GET", body: object = None, form: bytes = b""
@@ -102,7 +102,7 @@ class TestResources(unittest.TestCase):
         # An empty list is an empty <ul>
         site = resources.Site()
         site.child_todos = resources.Todos()
-        self.app = resources.consumers_app(site)
+        self.app = resources.server.consumers_app(site)
         _, _, body = self.request("/todos.html")
         self.assertIn(b'<ul id="items" data-live="/todos" data-slot="items">', body)
         self.assertNotIn(b"<li", body)
@@ -126,7 +126,7 @@ class TestResources(unittest.TestCase):
     def test_a_put_is_the_items_own_and_changes_it_in_place(self):
         # The site at hand, to see the Todo object is changed, not replaced
         site = resources.Site()
-        self.app = resources.consumers_app(site)
+        self.app = resources.server.consumers_app(site)
         todo = site.child_todos.child_items[0]
         self.assertEqual(
             self.json("/todos/items/0.json", "PUT", {"done": True}),

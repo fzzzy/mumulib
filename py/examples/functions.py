@@ -22,17 +22,15 @@ read-only view of a dict, which refuses both with 405 and lets GET and
 POST through to the function.
 """
 
+import collections.abc
 import html
 import json
-from collections.abc import AsyncIterator
-from types import MappingProxyType
-from typing import Any, cast
+import types
+import typing
 
-from mumulib.mumutypes import State
-from mumulib.server import consumers_app
-from mumulib.tags import Markup
+from mumulib import mumutypes, server, tags
 
-INDEX = Markup("""<!doctype html>
+INDEX = tags.Markup("""<!doctype html>
 <title>Functions</title>
 <form method="post" action="/greet.html">
   <label>Name <input name="name" value="Ada" /></label>
@@ -41,10 +39,10 @@ INDEX = Markup("""<!doctype html>
 """)
 
 
-async def greet(state: State) -> AsyncIterator[str]:
+async def greet(state: mumutypes.State) -> collections.abc.AsyncIterator[str]:
     # A JSON object or a form: either way, a dict of what was sent
     body = state.get("parsed_body")
-    fields = cast(dict[str, Any], body) if isinstance(body, dict) else {}
+    fields = typing.cast(dict[str, typing.Any], body) if isinstance(body, dict) else {}
     name = str(fields.get("name", "world"))
     greeting = f"Hello, {name}!"
     if state["extension"] == "json":
@@ -56,4 +54,4 @@ async def greet(state: State) -> AsyncIterator[str]:
         yield greeting
 
 
-app = consumers_app(MappingProxyType({"index": INDEX, "greet": greet}))
+app = server.consumers_app(types.MappingProxyType({"index": INDEX, "greet": greet}))
