@@ -1,5 +1,4 @@
-mumulib
-=====
+# mumulib
 
 mumulib is a simple typescript state management, html templating, and form processing library. It contains four modules: state, patslot, dialog, and sync.
 
@@ -11,23 +10,20 @@ dialog provides functionality to show html dialog elements populated with state 
 
 sync binds a path in the state to a URL on mumulib's Python server, and keeps it the same as the server's, as anyone changes it.
 
-Node
-=====
+## Node
 
 `require('mumulib')` and `import 'mumulib'` work in Node as in a browser. Where
 there is no DOM, mumulib makes one with [domino](https://github.com/fgnass/domino):
 `document`, and the element classes it needs. A DOM already there, such as
 jsdom's, is left alone.
 
-Examples
-=====
+## Examples
 
 The links below go to the examples as `make run` serves them, from the
 [repository](https://github.com/fzzzy/mumulib), which also says how to build
 and check the library.
 
-state
-=====
+## state
 
 The state module provides simple state management with a toplevel javascript object and a function set_state which takes a new object and updates the state by merging all toplevel keys with the old state. The onstate function registers a callback which is called when the state has changed.
 
@@ -94,20 +90,32 @@ state.onstate(async (new_state) => {
 
 [http://127.0.0.1:8000/examples/use_state_selected/](http://127.0.0.1:8000/examples/use_state_selected/)
 
-state api
-=====
+### state api
 
-type State = { [key: string]: any };
-type OnStateChange = (state: State) => Promise&lt;void&gt;;
+```ts
+type State = { [key: string]: any } | any
+type OnStateChange = (state: State) => Promise<void>
+```
 
-onstate(callback: OnStateChange): Registers callback to be called when the state has changed.
+```ts
+onstate(callback: OnStateChange): Promise<void>
+```
 
-set_state(new_state: State): Applies all toplevel keys in new_state to the old state object, and calls all the onstate handlers if the state has changed. onstate handlers are free to call set_state again and onstate handlers will be called again on the next animation frame.
+Registers callback to be called when the state has changed.
 
-set_path(path: string, new_substate: any): Traverses the given path and sets the substate to new_substate. If the state has changed, calls all the onstate handlers.
+```ts
+set_state(new_state: State): Promise<void>
+```
 
-patslot
-=====
+Applies all toplevel keys in new_state to the old state object, and calls all the onstate handlers if the state has changed. onstate handlers are free to call set_state again and onstate handlers will be called again on the next animation frame.
+
+```ts
+set_path(path: string, new_substate: State): Promise<void>
+```
+
+Traverses the given path and sets the substate to new_substate. If the state has changed, calls all the onstate handlers.
+
+## patslot
 
 Patterns and Slots provide a very simple html templating mechanism with templates that can be edited with sample data in them in a graphical html editor. There are only three tag attributes: data-pat, data-slot, and data-attr. All logic is delegated to normal TypeScript or JavaScript code.
 
@@ -242,29 +250,56 @@ window.onload = async () => {
 
 [http://127.0.0.1:8000/examples/use_patslot_nested/](http://127.0.0.1:8000/examples/use_patslot_nested/)
 
-patslot api
-=====
+### patslot api
 
-type SyncPattern = HTMLElement |
-(HTMLElement | Generator&lt;Pattern&gt; | string)[] |
-Generator&lt;Pattern&gt; |
-string |
-number;
-type Pattern = Promise&lt;SyncPattern&gt; | SyncPattern;
+```ts
+type SyncPattern =
+  | HTMLElement
+  | (
+      | HTMLElement
+      | Promise<HTMLElement | string>
+      | Generator<Pattern>
+      | AsyncGenerator<Pattern>
+      | string
+    )[]
+  | Generator<Pattern>
+  | AsyncGenerator<Pattern>
+  | string
+  | number
+type Pattern = Promise<SyncPattern> | SyncPattern
+```
 
-clone_pat(pattern_name: string, slot_values: { [key: string]: Pattern}) => HTMLElement: Clone a pattern in the current html page and fill any slots with the given values. Return the filled HTMLElement.
+```ts
+clone_pat(pattern_name: string, slot_values: { [key: string]: Pattern }): Promise<HTMLElement>
+```
 
-fill(element: HTMLElement, slot_values: { [key: string]: Pattern }): Given an HTMLElement, fill its slots with the given slot_values, as fill_body does for the page.
+Clone a pattern in the current html page and fill any slots with the given values. Return the filled HTMLElement.
 
-fill_slots(element: HTMLElement,
-slot_name: string, slot_value: Pattern): Given an HTMLElement, fill the slots with the given name with the given value.
+```ts
+fill(element: HTMLElement, slot_values: { [key: string]: Pattern }): Promise<void>
+```
 
-append_to_slots(element: HTMLElement, slot_name: string, slot_value: Pattern): Given an HTMLElement, append the given values to the named slots.
+Given an HTMLElement, fill its slots with the given slot_values, as fill_body does for the page.
 
-fill_body(slot_values: { [key: string]: Pattern }): Fill slots in the current html page body with the given slot_values.
+```ts
+fill_slots(element: HTMLElement, slot_name: string, slot_value: Pattern): Promise<void>
+```
 
-dialog
-=====
+Given an HTMLElement, fill the slots with the given name with the given value.
+
+```ts
+append_to_slots(element: HTMLElement, slot_name: string, slot_value: Pattern): Promise<void>
+```
+
+Given an HTMLElement, append the given values to the named slots.
+
+```ts
+fill_body(slot_values: { [key: string]: Pattern }): Promise<void>
+```
+
+Fill slots in the current html page body with the given slot_values.
+
+## dialog
 
 The dialog module provides a simple function for showing a &lt;dialog&gt; element with forms in it and automatically calling a method of your choice when a form is submitted.
 
@@ -313,17 +348,23 @@ brackets, so a `<select multiple name="members[]">` with one choice gives
 `{members: ['c1']}`; a name given twice is a list too. The render function may
 fill the dialog in place and return it, and may be async.
 
-dialog api
-=====
+### dialog api
 
-type RenderFunc = (el: HTMLElement, state: object) => HTMLElement;
+```ts
+type RenderFunc = (
+  el: HTMLElement,
+  state: object
+) => HTMLElement | Promise<HTMLElement>
+type FormArgs = { [key: string]: string | string[] }
+```
 
-type FormArgs = { [key: string]: string | string[] };
+```ts
+do_dialog(dialog_id: string, path: string, render: RenderFunc): Promise<void>
+```
 
-do_dialog(dialog_id: string, path: string, render: RenderFunc) => HTMLElement: Fetch the state at path, call the render function, set the contents of the &lt;dialog&gt; element with the id dialog_id to the result of the render function, and display the dialog.
+Fetch the state at path, call the render function, set the contents of the &lt;dialog&gt; element with the id dialog_id to the result of the render function, and display the dialog.
 
-sync
-=====
+## sync
 
 `sync.bind(path, url)` fetches `<url>.json` from mumulib's Python server -- a
 resource's state, or a persist's document -- and puts it in the state at
@@ -350,8 +391,21 @@ A page has one change stream, opened by its first `bind`. A bound URL is a
 resource or a persist: a slash is refused. `ts/pages/notes`, served by
 `py/examples/notes.py`, is a whole page bound this way.
 
-single-file components
-=====
+### sync api
+
+```ts
+bind(path: string, url: string): Promise<void>
+```
+
+Fetch `<url>.json` into the state at path, and fetch it again whenever the change stream announces url. Resolves once the first fetch is in place.
+
+```ts
+watched(url: string): string
+```
+
+A URL as the change stream compares them: its path on this origin, without an extension, a query or a fragment, a trailing slash kept.
+
+## single-file components
 
 `mumulib/vite-plugin-sfc` is a Vite plugin for components written as one HTML
 file: a `<template>`, which may hold a `<style>`, and a `<script>` in
