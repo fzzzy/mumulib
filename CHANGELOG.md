@@ -292,6 +292,12 @@ Python package). Breaking changes come first under each release.
   `returnValue`, and Escape closed it with none: both saved the first form.
   Now a close with no submit, or with `cancel`, is a cancel, and a submit
   saves the form submitted unless `returnValue` names another.
+- `patslot`: any slot or pattern name is found, `item.name` or `2 col` as
+  much as `name`. Each was put bare into a selector, `[data-slot=item.name]`,
+  which throws; names are compared as text now, with no selector built from
+  them, and a dialog's `returnValue` too. And a fill stops at what is already
+  filled: a pattern's slots and `data-attr` are its own, so filling a page's
+  `name` no longer overwrites the `name` of every row already put in a list.
 - `set_state`: a key set to `undefined` is deleted and counts as a change,
   so `onstate` hears of it; it had been deleted silently. A callback that
   throws no longer leaves every later change waiting on it forever. A field

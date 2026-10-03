@@ -152,4 +152,22 @@ test.describe('Mumulib PatSlot Tests', () => {
     expect(spans[0]).toBe('Hello World')
     expect(spans[1]).toBe('Bonjour Monde')
   })
+
+  test('any name is found, and filled content keeps its own slots', async ({
+    page,
+  }) => {
+    await page.goto('examples/use_patslot_names/')
+    await expect(page.locator('body')).toHaveAttribute('data-filled', 'yes')
+
+    await expect(page.locator('h1')).toHaveText('Town')
+    await expect(page.locator('p').first()).toHaveText('dotted')
+    await expect(page.locator('p').nth(1)).toHaveText('spaced')
+    const people = await page.$$eval('li', (items) =>
+      items.map((li) => [li.getAttribute('title'), li.textContent?.trim()])
+    )
+    expect(people).toEqual([
+      ['Ada', 'Ada'],
+      ['Grace', 'Grace'],
+    ])
+  })
 })

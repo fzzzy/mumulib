@@ -54,9 +54,23 @@ test.describe('Mumulib Dialog Tests', () => {
       'this.my_object'
     )
     await name.fill('kept')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(dialog).toBeHidden()
     await expect.poll(outputs).toEqual(['saved kept'])
     await expect(page.locator('body')).toHaveAttribute('data-selected', '')
+  })
+
+  test('a returnValue that is no selector still saves', async ({ page }) => {
+    await page.goto('examples/use_dialog_cancel/')
+    await page.click('#open')
+    await page.locator('input[name="name"]').fill('dotted')
+    await page.getByRole('button', { name: 'Save as' }).click()
+    await expect
+      .poll(() =>
+        page.$$eval('div[class="output"]', (divs) =>
+          divs.map((div) => div.textContent)
+        )
+      )
+      .toEqual(['saved dotted'])
   })
 })

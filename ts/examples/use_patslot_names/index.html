@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pattern and Slot Names Example</title>
+    <script type="module" src="./names_example.ts"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1 data-slot="name"></h1>
+      <p data-slot="item.name"></p>
+      <p data-slot="2 col"></p>
+      <ul data-slot="people">
+        <li data-pat="person.row" data-attr="title=name">
+          <span data-slot="name"></span>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

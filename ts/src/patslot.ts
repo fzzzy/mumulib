@@ -53,6 +53,43 @@ function isAsyncIterable(value: unknown): value is AsyncIterable<Pattern> {
   )
 }
 
+// The elements under node that have attribute as value, compared as text:
+// no selector is built from a name, so any name is found as it is written
+function having(node: Element, attribute: string, value: string): Element[] {
+  return Array.from(node.querySelectorAll(`[${attribute}]`)).filter(
+    (el) => el.getAttribute(attribute) === value
+  )
+}
+
+// What a fill of node reaches, node first: the elements that match, but
+// nothing inside a pattern -- its prototype in the page, or a clone of one
+// already filled into a slot -- whose slots and attributes are its own; and,
+// given stop, nothing inside a match, whose content is being replaced
+function reach(
+  node: Element,
+  matches: (el: Element) => boolean,
+  stop: boolean
+): Element[] {
+  const found: Element[] = []
+  const visit = (el: Element) => {
+    const matched = matches(el)
+    if (matched) {
+      found.push(el)
+    }
+    if (matched && stop) {
+      return
+    }
+    if (el !== node && el.hasAttribute('data-pat')) {
+      return
+    }
+    for (const child of Array.from(el.children)) {
+      visit(child)
+    }
+  }
+  visit(node)
+  return found
+}
+
 class Template {
   url: string
 
@@ -75,7 +112,7 @@ class Template {
       template = doc.body
     }
 
-    const pat = template.querySelector(`[data-pat=${patname}]`)
+    const [pat] = having(template, 'data-pat', patname)
     if (!pat) {
       throw new Error(`No pat named ${patname}`)
     }
@@ -129,16 +166,14 @@ async function _fill_or_append_slots(
   pat: Pattern,
   append: boolean
 ) {
-  let slots: HTMLElement[] | Element[] = []
-  const descendantSlots = Array.from(
-    node.querySelectorAll(`[data-slot=${slotname}]`)
+  // Attributes, not dataset, which domino -- the DOM in Node -- lacks. A
+  // pattern's own data-slot is found, as a slot filled with an element takes
+  // the slot's name, but nothing inside it is
+  const slots = reach(
+    node,
+    (el) => el.getAttribute('data-slot') === slotname,
+    true
   )
-  // Attributes, not dataset, which domino -- the DOM in Node -- lacks
-  if (node.getAttribute('data-slot') == slotname) {
-    slots = [node, ...descendantSlots]
-  } else {
-    slots = descendantSlots
-  }
   const calculated_slot: (Element | string)[] = []
   if (pat instanceof Promise) {
     pat = await pat
@@ -203,14 +238,15 @@ async function _fill_or_append_slots(
       }
     }
   }
-  let attrslots: HTMLElement[] | Element[] | NodeListOf<Element> = []
-  if (node.getAttribute('data-attr')) {
-    attrslots = [node]
-  }
-  attrslots = [
-    ...attrslots,
-    ...Array.from(node.querySelectorAll(`[data-attr]`)),
-  ]
+  // A pattern's data-attr is its own, filled as it is cloned, not by a fill
+  // of what it was put in
+  const attrslots = reach(
+    node,
+    (el) =>
+      Boolean(el.getAttribute('data-attr')) &&
+      (el === node || !el.hasAttribute('data-pat')),
+    false
+  )
 
   for (const attrslot of attrslots) {
     const attrs = attrslot.getAttribute('data-attr') || ''

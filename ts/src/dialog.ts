@@ -114,12 +114,13 @@ async function do_dialog(
         set_state({ selected: undefined })
         return
       }
-      const form =
-        (returnValue &&
-          (ev.target as HTMLElement).querySelector<HTMLFormElement>(
-            `form[name=${returnValue}]`
-          )) ||
-        submitted
+      // The name compared as text, not built into a selector, so any
+      // returnValue is a name; and the attribute, which a control named
+      // "name" does not hide as it does form.name
+      const named = Array.from(
+        (ev.target as HTMLElement).querySelectorAll('form')
+      ).find((f) => f.getAttribute('name') === returnValue)
+      const form = (returnValue && named) || submitted
       const method = form.querySelector(
         'input[name="method"]'
       ) as HTMLInputElement
