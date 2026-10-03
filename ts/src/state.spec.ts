@@ -196,4 +196,51 @@ test.describe('Mumulib State Tests', () => {
       expect(current.person1.number).toBe(previous.person1.number + 1)
     }
   })
+
+  test('a field cleared is a change, and one left empty is not', async ({
+    page,
+  }) => {
+    await page.goto('examples/use_state_select_textarea/')
+    const outputs = () =>
+      page.$$eval('div[class="output"]', (divs) =>
+        divs.map((div) => div.textContent)
+      )
+    await expect.poll(outputs).toEqual(['Got state {}'])
+
+    // Focused and left as it was, empty: nothing is written
+    await page.focus('textarea[name="this.comment"]')
+    await page.click('body')
+    await page.fill('textarea[name="this.comment"]', 'words')
+    await page.click('body')
+    await page.fill('textarea[name="this.comment"]', '')
+    await page.click('body')
+    await expect
+      .poll(outputs)
+      .toEqual([
+        'Got state {}',
+        'Got state {"comment":"words"}',
+        'Got state {"comment":""}',
+      ])
+  })
+
+  test('a deletion is a change, and a callback that throws stops nothing', async ({
+    page,
+  }) => {
+    await page.goto('examples/use_state_changes/')
+    const outputs = () =>
+      page.$$eval('div[class="output"]', (divs) =>
+        divs.map((div) => div.textContent)
+      )
+    await expect.poll(outputs).toEqual(['Got state {}'])
+    await page.click('#run')
+    await expect
+      .poll(outputs)
+      .toEqual([
+        'Got state {}',
+        'Got state {"a":1}',
+        'Got state {}',
+        'threw boom',
+        'Got state {"b":2}',
+      ])
+  })
 })

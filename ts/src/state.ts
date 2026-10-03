@@ -64,8 +64,8 @@ async function _set_state(
             delete root[k]
           } else {
             root[k] = v
-            changed = true
           }
+          changed = true
         }
       }
     } else {
@@ -80,26 +80,31 @@ async function _set_state(
     return
   }
   setting++
-  if (setting === 1) {
-    update_dom_state(state)
-    if (debug_mode) {
-      document.body.setAttribute('data-state', JSON.stringify(state))
-      console.log('onstatechange', state)
+  try {
+    if (setting === 1) {
+      update_dom_state(state)
+      if (debug_mode) {
+        document.body.setAttribute('data-state', JSON.stringify(state))
+        console.log('onstatechange', state)
+      }
+      for (const onstatechange of obs) {
+        await onstatechange(state)
+      }
+    } else {
+      dirty = true
     }
-    for (const onstatechange of obs) {
-      await onstatechange(state)
+  } finally {
+    // Even when a callback throws: else every later change would count as
+    // nested in this one, and nothing would be rendered again
+    setting--
+    if (setting === 0 && dirty) {
+      dirty = false
+      // The next frame in a browser; in Node, which has none, the next turn
+      const later =
+        globalThis.requestAnimationFrame ??
+        ((then: () => void) => setTimeout(then, 0))
+      later(() => set_state(null))
     }
-  } else {
-    dirty = true
-  }
-  setting--
-  if (setting === 0 && dirty) {
-    dirty = false
-    // The next frame in a browser; in Node, which has none, the next turn
-    const later =
-      globalThis.requestAnimationFrame ??
-      ((then: () => void) => setTimeout(then, 0))
-    later(() => set_state(null))
   }
 }
 
@@ -127,7 +132,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 document.addEventListener(
   'focus',
   function (e) {
-    if (e.target && e.target instanceof HTMLInputElement) {
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement
+    ) {
       initialValues[e.target.name] = e.target.value
     }
   },
@@ -144,7 +152,8 @@ function possibly_changed(e: Event) {
     } else if (e.target instanceof HTMLTextAreaElement) {
       target = e.target as HTMLTextAreaElement
     }
-    if (target && (!target.name || !target.value)) {
+    // An empty value is a field cleared, and goes through like any other
+    if (target && !target.name) {
       return
     }
   }

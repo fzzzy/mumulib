@@ -272,6 +272,15 @@ Python package). Breaking changes come first under each release.
   (`FormArgs`, now exported). After a dialog was cancelled, its next submit
   was taken for a cancel too: its `returnValue` is now cleared each time it
   is shown. A `RenderFunc` may be async, as `do_dialog` already awaited it.
+- A dialog's Cancel and Escape save nothing. Its forms' submit handler closed
+  it without the button's value, so a `value="cancel"` button never reached
+  `returnValue`, and Escape closed it with none: both saved the first form.
+  Now a close with no submit, or with `cancel`, is a cancel, and a submit
+  saves the form submitted unless `returnValue` names another.
+- `set_state`: a key set to `undefined` is deleted and counts as a change,
+  so `onstate` hears of it; it had been deleted silently. A callback that
+  throws no longer leaves every later change waiting on it forever. A field
+  cleared to empty reaches the state; one only focused and left does not.
 - `patslot`'s `Pattern` type allows an array of promises, such as
   `items.map(clone_pat)`, which it had always filled.
 

@@ -6,6 +6,9 @@
  * Functions:
  * - do_dialog(dialog_name: string, path: string, render: (el: HTMLElement, state: object) => HTMLElement): void
  *   Opens a dialog, renders its content, and handles form submissions.
+ *   Submitting a form saves it: the form the dialog's returnValue names, or
+ *   else the one submitted. Closing it any other way -- Escape, or a submit
+ *   button whose value is "cancel" -- saves nothing.
  *
  *   Parameters:
  *   - dialog_name: The ID of the dialog element to be opened.
@@ -68,6 +71,8 @@ async function do_dialog(
     const clone = await render(dialog, substate)
     console.log('cloned', dialog, clone)
     morphdom(dialog, clone)
+    // The form submitted this showing; none, and the dialog was cancelled
+    let submitted: HTMLFormElement | null = null
     for (const d of Array.from(dialog.querySelectorAll('form'))) {
       d.onsubmit = (event) => {
         event.preventDefault()
@@ -81,7 +86,16 @@ async function do_dialog(
               return
             }
           }
-          target.close()
+          submitted = d
+          // What method="dialog" would have done: the button's value is the
+          // dialog's returnValue, so a Cancel button cancels
+          const button = event.submitter
+          target.close(
+            button instanceof HTMLButtonElement ||
+              button instanceof HTMLInputElement
+              ? button.value
+              : ''
+          )
         }
       }
     }
@@ -94,48 +108,42 @@ async function do_dialog(
       if (!ev.target) {
         return
       }
-      let form: HTMLFormElement | null
       const returnValue = (ev.target as HTMLDialogElement).returnValue
-      if (returnValue) {
-        if (returnValue === 'cancel') {
-          set_state({ selected: undefined })
-          return
-        }
-        form = (ev.target as HTMLElement).querySelector<HTMLFormElement>(
-          `form[name=${returnValue}]`
-        )
-        if (!form) {
-          form = (ev.target as HTMLElement).querySelector('form')
+      // Escape closes the dialog without a submit, as does close() from code
+      if (submitted === null || returnValue === 'cancel') {
+        set_state({ selected: undefined })
+        return
+      }
+      const form =
+        (returnValue &&
+          (ev.target as HTMLElement).querySelector<HTMLFormElement>(
+            `form[name=${returnValue}]`
+          )) ||
+        submitted
+      const method = form.querySelector(
+        'input[name="method"]'
+      ) as HTMLInputElement
+      if (method) {
+        const args = form_args(form)
+        console.log('calling method', method.value, args)
+        const got = get(state, String(args['path']).substring(5))
+        console.log('got', got)
+        delete args['method']
+        delete args['path']
+        const result = got[method.value].call(got, args)
+        if (result instanceof Promise) {
+          await result
         }
       } else {
-        form = (ev.target as HTMLElement).querySelector('form')
-      }
-      if (form) {
-        const method = form.querySelector(
-          'input[name="method"]'
-        ) as HTMLInputElement
-        if (method) {
-          const args = form_args(form)
-          console.log('calling method', method.value, args)
-          const got = get(state, String(args['path']).substring(5))
-          console.log('got', got)
-          delete args['method']
-          delete args['path']
-          const result = got[method.value].call(got, args)
-          if (result instanceof Promise) {
-            await result
-          }
-        } else {
-          for (const inp of Array.from(form.querySelectorAll('input'))) {
-            if (inp.name.substring(0, 9) === 'selected.') {
-              const fullname = `${state['selected']}.${inp.name.substring(9)}`
-              console.log('setting', fullname, inp.value)
-              set(state, fullname.substring(5), inp.value)
-            }
+        for (const inp of Array.from(form.querySelectorAll('input'))) {
+          if (inp.name.substring(0, 9) === 'selected.') {
+            const fullname = `${state['selected']}.${inp.name.substring(9)}`
+            console.log('setting', fullname, inp.value)
+            set(state, fullname.substring(5), inp.value)
           }
         }
-        set_state({ selected: undefined })
       }
+      set_state({ selected: undefined })
     }
   } else {
     console.error(`Dialog ${dialog_name} not found.`)
