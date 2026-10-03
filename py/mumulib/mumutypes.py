@@ -1,5 +1,6 @@
 import mimetypes
 from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 
 # The public API: The ASGI shapes mumulib's signatures use, the responses a
@@ -11,6 +12,7 @@ __all__ = [
     "Send",
     "ASGIApp",
     "State",
+    "Upload",
     "Writer",
     "Chunk",
     "Consumer",
@@ -37,6 +39,17 @@ type ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 # Per-request state shared by the consumers and producers: "method", "url",
 # "accept", "parsed_body", "remaining".
 type State = dict[str, Any]
+
+
+@dataclass(frozen=True)
+class Upload:
+    """A file a multipart form sent, in its parsed_body under the field's
+    name: the filename and type the client gave, and its bytes exactly."""
+
+    filename: str
+    content_type: str | None
+    data: bytes
+
 
 # Streams the rest of a response after a SpecialResponse has started it.
 type Writer = Callable[[Send, Receive], Awaitable[None]]

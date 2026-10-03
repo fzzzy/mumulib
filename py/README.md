@@ -320,8 +320,9 @@ anything but `GET` is 405.
 
 A function the URL ends at is its own producer: it is called as `f(state)`,
 where `state` holds the request -- `"method"`, `"url"`, `"extension"`,
-`"content_type"`, and `"parsed_body"` for a request with a body. Any kind of
-function will do. What an async generator or a generator yields is the
+`"content_type"`, and `"parsed_body"` for a request with a body -- a
+multipart form's files in it as `mumutypes.Upload`, its filename, type and
+bytes as sent. Any kind of function will do. What an async generator or a generator yields is the
 response; what a coroutine or a plain function returns is produced as though
 it had been published there, so a dict is JSON at `.json`. Either way it is
 the URL's type.

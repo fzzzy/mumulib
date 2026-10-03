@@ -9,7 +9,7 @@ from pathlib import Path
 from types import MappingProxyType
 from unittest import mock
 
-from mumulib.mumutypes import SpecialResponse
+from mumulib.mumutypes import SpecialResponse, Upload
 from mumulib.resource import Resource
 from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
@@ -399,7 +399,16 @@ class TestParseMultipart(unittest.TestCase):
             return {"type": "http.request", "body": body, "more_body": False}
 
         result = await parse_multipart(receive, boundary)
-        self.assertEqual(result, {"file": b"binary content"})
+        self.assertEqual(
+            result,
+            {
+                "file": Upload(
+                    filename="test.bin",
+                    content_type="application/octet-stream",
+                    data=b"binary content",
+                )
+            },
+        )
 
     def test_parse_multipart_with_file(self):
         """Wrapper to run async test"""
@@ -478,6 +487,98 @@ class TestParseMultipart(unittest.TestCase):
     def test_parse_multipart_malformed_part(self):
         """Wrapper to run async test"""
         asyncio.run(self.async_test_parse_multipart_malformed_part())
+
+    def parse(self, body, boundary=b"XyZ", chunk=None):
+        """parse_multipart over body, in chunks of that size if given"""
+        chunks = (
+            [body]
+            if chunk is None
+            else [body[i : i + chunk] for i in range(0, len(body), chunk)]
+        )
+
+        async def receive():
+            data = chunks.pop(0)
+            return {"type": "http.request", "body": data, "more_body": bool(chunks)}
+
+        return asyncio.run(parse_multipart(receive, boundary))
+
+    def test_name_is_the_name_parameter_wherever_it_is(self):
+        """filename first is still filed under name"""
+        body = (
+            b"--XyZ\r\n"
+            b'Content-Disposition: form-data; filename="a.png"; name="photo"\r\n'
+            b"Content-Type: image/png\r\n"
+            b"\r\n"
+            b"\x89PNG\r\n"
+            b"--XyZ--\r\n"
+        )
+        self.assertEqual(
+            self.parse(body),
+            {
+                "photo": Upload(
+                    filename="a.png", content_type="image/png", data=b"\x89PNG"
+                )
+            },
+        )
+
+    def test_bytes_are_kept_exactly(self):
+        """Trailing dashes and newlines, a lookalike boundary, and every
+        byte value, chunked across a boundary or not"""
+        data = bytes(range(256)) + b"--XyZ-not-it\r\n--\r\n\r\n--"
+        body = (
+            b"--XyZ\r\n"
+            b'Content-Disposition: form-data; name="f"; filename="raw.bin"\r\n'
+            b"\r\n" + data + b"\r\n--XyZ--\r\n"
+        )
+        for chunk in (None, 1, 7):
+            with self.subTest(chunk=chunk):
+                self.assertEqual(
+                    self.parse(body, chunk=chunk),
+                    {"f": Upload(filename="raw.bin", content_type=None, data=data)},
+                )
+
+    def test_filename_with_a_semicolon_and_non_ascii(self):
+        body = (
+            "--XyZ\r\n"
+            'Content-Disposition: form-data; name="f"; filename="a;b €.txt"\r\n'
+            "\r\n"
+            "x\r\n"
+            "--XyZ--\r\n"
+        ).encode()
+        self.assertEqual(self.parse(body)["f"].filename, "a;b €.txt")
+
+    def test_an_empty_file_is_still_an_upload(self):
+        body = (
+            b"--XyZ\r\n"
+            b'Content-Disposition: form-data; name="f"; filename=""\r\n'
+            b"Content-Type: application/octet-stream\r\n"
+            b"\r\n"
+            b"\r\n"
+            b"--XyZ--\r\n"
+        )
+        self.assertEqual(
+            self.parse(body),
+            {
+                "f": Upload(
+                    filename="", content_type="application/octet-stream", data=b""
+                )
+            },
+        )
+
+    def test_repeated_bracketed_names_are_a_list(self):
+        body = (
+            b"--XyZ\r\n"
+            b'Content-Disposition: form-data; name="tag[]"\r\n\r\na\r\n'
+            b"--XyZ\r\n"
+            b'Content-Disposition: form-data; name="tag[]"\r\n\r\nb\r\n'
+            b"--XyZ--\r\n"
+        )
+        self.assertEqual(self.parse(body), {"tag[]": ["a", "b"]})
+
+    def test_a_body_with_no_closing_boundary_is_an_error(self):
+        body = b'--XyZ\r\nContent-Disposition: form-data; name="a"\r\n\r\nabc'
+        with self.assertRaises(ValueError):
+            self.parse(body)
 
 
 class TestBytesResultHandling(unittest.TestCase):
@@ -1245,21 +1346,28 @@ class TestUnreadableBodies(unittest.TestCase):
             (400, "Bad Request"),
         )
 
+    def test_a_quoted_boundary_is_read(self):
+        status, _ = self.request(
+            "POST",
+            b'multipart/form-data; boundary="a b"',
+            b"--a b\r\n"
+            b'Content-Disposition: form-data; name="x"\r\n\r\n1\r\n'
+            b"--a b--\r\n",
+        )
+        self.assertEqual(status, 200)
+
+    def test_multipart_with_no_boundary_is_400(self):
+        self.assertEqual(
+            self.request("POST", b"multipart/form-data", b""),
+            (400, "Bad Request"),
+        )
+
     def test_malformed_multipart_is_400(self):
         boundary = b"multipart/form-data; boundary=XyZ"
         # No blank line between a part's headers and its content
         self.assertEqual(
             self.request(
                 "POST", boundary, b"--XyZ\r\nContent-Disposition: x\r\n--XyZ--"
-            ),
-            (400, "Bad Request"),
-        )
-        # A disposition with no name
-        self.assertEqual(
-            self.request(
-                "POST",
-                boundary,
-                b"--XyZ\r\nContent-Disposition: form-data\r\n\r\nv\r\n--XyZ--",
             ),
             (400, "Bad Request"),
         )

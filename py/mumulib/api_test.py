@@ -16,6 +16,7 @@ PUBLIC = {
         "Send",
         "ASGIApp",
         "State",
+        "Upload",
         "Writer",
         "Chunk",
         "Consumer",

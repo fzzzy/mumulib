@@ -10,6 +10,12 @@ from types import FrameType
 from typing import Any
 from urllib import parse
 
+from python_multipart.multipart import (
+    MultipartParser,
+    MultipartState,
+    parse_options_header,
+)
+
 # Registers XML for dicts, at .xml
 from mumulib import xml_producer  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from mumulib.consumers import GetOnly, consume, is_container
@@ -21,6 +27,7 @@ from mumulib.mumutypes import (
     Send,
     SpecialResponse,
     State,
+    Upload,
     content_type_for,
 )
 from mumulib.producers import add_producer, custom_serializer, produce
@@ -149,46 +156,84 @@ async def parse_urlencoded(
 async def parse_multipart(
     receive: Receive, boundary: bytes, max_size: int = DEFAULT_MAX_BODY_SIZE
 ) -> dict[str, Any]:
-    body = b""
-    # Receive request body chunks
+    """A multipart/form-data body, by field name: boundary is the
+    Content-Type's own parameter, without the leading dashes.
+
+    A part with a filename is an Upload; any other is text. name[] collects
+    every value sent by that name into a list, as for a urlencoded form.
+    """
+    parts: list[tuple[list[tuple[bytes, bytes]], bytearray]] = []
+    header: list[bytearray] = []
+
+    def on_part_begin() -> None:
+        parts.append(([], bytearray()))
+
+    def on_header_field(data: bytes, start: int, end: int) -> None:
+        if not header:
+            header.extend([bytearray(), bytearray()])
+        header[0] += data[start:end]
+
+    def on_header_value(data: bytes, start: int, end: int) -> None:
+        header[1] += data[start:end]
+
+    def on_header_end() -> None:
+        parts[-1][0].append((bytes(header[0]).lower(), bytes(header[1])))
+        header.clear()
+
+    def on_part_data(data: bytes, start: int, end: int) -> None:
+        parts[-1][1].extend(data[start:end])
+
+    parser = MultipartParser(
+        boundary,
+        {
+            "on_part_begin": on_part_begin,
+            "on_header_field": on_header_field,
+            "on_header_value": on_header_value,
+            "on_header_end": on_header_end,
+            "on_part_data": on_part_data,
+        },
+    )
+    size = 0
     while True:
         message = await receive()
 
-        # Check if we've reached the end of the body
         # ASGI servers should only send http.request during body reading
         if message["type"] == "http.request":  # pragma: no branch
-            # Accumulate body chunks
-            body += message.get("body", b"")
-
-            # Check if body size exceeds limit
-            if len(body) > max_size:
+            chunk = message.get("body", b"")
+            size += len(chunk)
+            if size > max_size:
                 raise BodyTooLarge(
-                    f"Request body too large: {len(body)} bytes exceeds limit "
+                    f"Request body too large: {size} bytes exceeds limit "
                     f"of {max_size} bytes"
                 )
-
-            # Check if this is the last body chunk
+            parser.write(chunk)
             if not message.get("more_body", False):
                 break
+    parser.finalize()
+    if parser.state != MultipartState.END:
+        raise ValueError("Multipart body ended before its closing boundary")
+
     result: dict[str, Any] = {}
-    for part in body.split(boundary):
-        if not part or part.strip() == b"--":
+    for headers, content in parts:
+        disposition = dict(headers).get(b"content-disposition", b"")
+        _, options = parse_options_header(disposition)
+        if b"name" not in options:
             continue
-        headers_bytes, content = part.split(b"\r\n\r\n", 1)
-        headers = headers_bytes.split(b"\r\n")
-        name: bytes | None = None
-        for header in headers:
-            if header.startswith(b"Content-Disposition:"):
-                name = header.split(b";")[1].split(b"=")[1][1:-1]
-        if name:
-            # Strip trailing \r\n-- or \r\n from content
-            stripped_content = content.rstrip(b"-").rstrip(b"\r\n")
-            for x in headers:
-                if b"Content-Type" in x:
-                    result[name.decode("utf-8")] = stripped_content
-                    break
-            else:
-                result[name.decode("utf-8")] = stripped_content.decode("utf-8")
+        name = options[b"name"].decode("utf-8")
+        value: str | Upload
+        if b"filename" in options:
+            content_type = dict(headers).get(b"content-type")
+            value = Upload(
+                filename=options[b"filename"].decode("utf-8"),
+                content_type=None if content_type is None else content_type.decode(),
+                data=bytes(content),
+            )
+        else:
+            value = content.decode("utf-8")
+        if name.endswith("]") and "[" in name:
+            result.setdefault(name, []).append(value)
+        else:
+            result[name] = value
     return result
 
 
@@ -380,8 +425,12 @@ def consumers_app(
                     elif lowervalue == b"application/x-www-form-urlencoded":
                         state["parsed_body"] = await parse_urlencoded(receive)
                     elif lowervalue == b"multipart/form-data":
-                        boundary = b"--" + value[len(lowervalue) + 11 :]
-                        state["parsed_body"] = await parse_multipart(receive, boundary)
+                        _, options = parse_options_header(value)
+                        if b"boundary" not in options:
+                            raise ValueError("multipart/form-data with no boundary")
+                        state["parsed_body"] = await parse_multipart(
+                            receive, options[b"boundary"]
+                        )
                     elif scope["method"] in MUTATING:
                         # A write whose body could not be read is refused,
                         # not handed on as though it had none
@@ -395,9 +444,8 @@ def consumers_app(
         except BodyTooLarge as exc:
             await send_error_response(send, 413, "Payload Too Large", str(exc))
             return
-        except (ValueError, IndexError) as exc:
-            # Malformed JSON, a body that is not UTF-8, a multipart part with
-            # no blank line after its headers or no name in its disposition
+        except ValueError as exc:
+            # Malformed JSON or multipart, or a body that is not UTF-8
             await send_error_response(send, 400, "Bad Request", str(exc))
             return
 
