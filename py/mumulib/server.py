@@ -37,6 +37,14 @@ __all__ = [
 DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
 
 
+class BodyTooLarge(Exception):
+    """A request body over the limit: 413.
+
+    Not a ValueError, which is what a body that will not parse raises -- a
+    json.JSONDecodeError, a UnicodeDecodeError -- and is a 400.
+    """
+
+
 async def send_error_response(
     send: Send, status: int, error_type: str, message: str
 ) -> None:
@@ -84,7 +92,7 @@ async def parse_json(
 
             # Check if body size exceeds limit
             if len(body) > max_size:
-                raise ValueError(
+                raise BodyTooLarge(
                     f"Request body too large: {len(body)} bytes exceeds limit "
                     f"of {max_size} bytes"
                 )
@@ -117,7 +125,7 @@ async def parse_urlencoded(
 
             # Check if body size exceeds limit
             if len(body) > max_size:
-                raise ValueError(
+                raise BodyTooLarge(
                     f"Request body too large: {len(body)} bytes exceeds limit "
                     f"of {max_size} bytes"
                 )
@@ -154,7 +162,7 @@ async def parse_multipart(
 
             # Check if body size exceeds limit
             if len(body) > max_size:
-                raise ValueError(
+                raise BodyTooLarge(
                     f"Request body too large: {len(body)} bytes exceeds limit "
                     f"of {max_size} bytes"
                 )
@@ -374,11 +382,23 @@ def consumers_app(
                     elif lowervalue == b"multipart/form-data":
                         boundary = b"--" + value[len(lowervalue) + 11 :]
                         state["parsed_body"] = await parse_multipart(receive, boundary)
-                    else:
-                        print(f"Unknown content type: {value}")
-        except ValueError as exc:
-            # Handle request body size limit errors
+                    elif scope["method"] in MUTATING:
+                        # A write whose body could not be read is refused,
+                        # not handed on as though it had none
+                        await send_error_response(
+                            send,
+                            415,
+                            "Unsupported Media Type",
+                            f"Cannot read a body of {value.decode('latin-1')}",
+                        )
+                        return
+        except BodyTooLarge as exc:
             await send_error_response(send, 413, "Payload Too Large", str(exc))
+            return
+        except (ValueError, IndexError) as exc:
+            # Malformed JSON, a body that is not UTF-8, a multipart part with
+            # no blank line after its headers or no name in its disposition
+            await send_error_response(send, 400, "Bad Request", str(exc))
             return
 
         try:

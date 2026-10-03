@@ -13,6 +13,7 @@ from mumulib.mumutypes import SpecialResponse
 from mumulib.resource import Resource
 from mumulib.server import (
     DEFAULT_MAX_BODY_SIZE,
+    BodyTooLarge,
     EventSource,
     _close_streams_on_signal,
     consumers_app,
@@ -90,7 +91,7 @@ class TestParseJson(unittest.TestCase):
         async def receive():
             return {"type": "http.request", "body": large_body, "more_body": False}
 
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(BodyTooLarge) as context:
             await parse_json(receive, max_size=DEFAULT_MAX_BODY_SIZE)
 
         self.assertIn("Request body too large", str(context.exception))
@@ -187,7 +188,7 @@ class TestParseUrlencoded(unittest.TestCase):
         async def receive():
             return {"type": "http.request", "body": large_body, "more_body": False}
 
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(BodyTooLarge) as context:
             await parse_urlencoded(receive, max_size=DEFAULT_MAX_BODY_SIZE)
 
         self.assertIn("Request body too large", str(context.exception))
@@ -1191,42 +1192,77 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
         asyncio.run(self.async_test_special_response_without_writer())
 
 
-class TestUnknownContentType(unittest.TestCase):
-    """Test handling of unknown content types"""
+class TestUnreadableBodies(unittest.TestCase):
+    """A body that cannot be read is the client's fault, and not a 413"""
 
-    async def async_test_unknown_content_type(self):
-        """Test that unknown content types print a message"""
-        root = {"data": "test"}
-        app = consumers_app(root)
-
+    def request(self, method, content_type, body):
+        """The status and error type of one request to a small app"""
+        app = consumers_app({"data": "test"})
         sent_messages = []
 
         async def send(message):
             sent_messages.append(message)
 
         async def receive():
-            return {
-                "type": "http.request",
-                "body": b"test data",
-                "more_body": False,
-            }
+            return {"type": "http.request", "body": body, "more_body": False}
 
         scope = {
             "type": "http",
-            "method": "POST",
+            "method": method,
             "path": "/data.json",
-            "headers": [(b"content-type", b"application/x-custom-type")],
+            "headers": [(b"content-type", content_type)],
             "state": {},
         }
+        asyncio.run(app(scope, receive, send))
+        status = sent_messages[0]["status"]
+        if status < 400:
+            return status, None
+        return status, json.loads(sent_messages[1]["body"])["error"]
 
-        await app(scope, receive, send)
+    def test_unknown_content_type_on_a_write_is_415(self):
+        self.assertEqual(
+            self.request("POST", b"application/x-custom-type", b"test data"),
+            (415, "Unsupported Media Type"),
+        )
 
-        # Should still get a response (unknown types are just printed, not rejected)
-        self.assertGreater(len(sent_messages), 0)
+    def test_unknown_content_type_on_a_read_is_ignored(self):
+        status, _ = self.request("GET", b"application/x-custom-type", b"")
+        self.assertEqual(status, 200)
 
-    def test_unknown_content_type(self):
-        """Wrapper to run async test"""
-        asyncio.run(self.async_test_unknown_content_type())
+    def test_malformed_json_is_400(self):
+        self.assertEqual(
+            self.request("POST", b"application/json", b"{not json"),
+            (400, "Bad Request"),
+        )
+
+    def test_a_body_that_is_not_utf8_is_400(self):
+        self.assertEqual(
+            self.request("POST", b"application/json", b'"\xff"'),
+            (400, "Bad Request"),
+        )
+        self.assertEqual(
+            self.request("POST", b"application/x-www-form-urlencoded", b"a=\xff"),
+            (400, "Bad Request"),
+        )
+
+    def test_malformed_multipart_is_400(self):
+        boundary = b"multipart/form-data; boundary=XyZ"
+        # No blank line between a part's headers and its content
+        self.assertEqual(
+            self.request(
+                "POST", boundary, b"--XyZ\r\nContent-Disposition: x\r\n--XyZ--"
+            ),
+            (400, "Bad Request"),
+        )
+        # A disposition with no name
+        self.assertEqual(
+            self.request(
+                "POST",
+                boundary,
+                b"--XyZ\r\nContent-Disposition: form-data\r\n\r\nv\r\n--XyZ--",
+            ),
+            (400, "Bad Request"),
+        )
 
 
 class TestRequestSizeLimits(unittest.TestCase):
