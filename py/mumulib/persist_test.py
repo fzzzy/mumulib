@@ -103,7 +103,7 @@ class TestPersist(PersistCase):
         self.assertEqual(self.saved(), {"new": True})
         self.assertIs(self.root["people"], self.people)
         status, headers, _, _ = self.call("DELETE", "/people.json")
-        self.assertEqual((status, headers[b"allow"]), (405, b"GET, PUT"))
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD, PUT"))
 
     def test_in_a_plain_dict_it_is_linked_as_its_json(self):
         _, _, _, body = self.call("GET", "/all/", root={"all": {"p": self.people}})
@@ -111,7 +111,7 @@ class TestPersist(PersistCase):
 
     def test_its_xml_is_read_alone(self):
         status, headers, _, _ = self.call("PUT", "/people.xml", {"a": 1})
-        self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD"))
 
     def test_only_json_for_now(self):
         self.assertEqual(self.call("GET", "/people.html")[0], 404)

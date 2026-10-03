@@ -77,6 +77,8 @@ extension alone decides what comes back.
   never its `str()`; and in JSON, a value with no JSON form is an error, not a
   quiet `null`. A `None` is `null` in a JSON document, but is not found as a
   URL's own answer: a consumer's `None` means not found.
+- `HEAD` is answered wherever `GET` is, as `GET`: the same status and
+  headers, and no body.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
   multipart), never what the response is; no response varies by request
   headers.
@@ -125,7 +127,7 @@ class Site(Resource):
 app = consumers_app(Site())  # /, /profile.html, /profile.json, /profile/name.txt
 ```
 
-`handle_GET` renders `template`; every other method is 405, with `Allow` naming `GET` and whatever the subclass handles.
+`handle_GET` renders `template`; every other method is 405, with `Allow` naming `GET`, `HEAD` and whatever the subclass handles.
 Handlers are `async def`, and `render` awaits them. What a handler returns is
 produced as though it had been published there, of the URL's type: the
 request says which, in `"content_type"` and `"extension"`. The base
@@ -314,7 +316,7 @@ what could be fetched is listed, and `RefuseIndex` is how to have no listing
 
 Only what is in the directory is found: `..`, hidden names such as `.git` and
 `.env`, and symlinks that lead outside are not. A directory is never written;
-anything but `GET` is 405.
+anything but `GET` or `HEAD` is 405.
 
 ## Functions
 
@@ -464,7 +466,7 @@ app = consumers_app({"notes": notes, "about": GetOnly(about)})
 ```
 
 `GetOnly` is a consumer: it hands `GET` on to what it wraps, and answers
-anything else with 405 Method Not Allowed and `Allow: GET`, at any depth below
+anything else with 405 Method Not Allowed and `Allow: GET, HEAD`, at any depth below
 it. It guards what is reached through it, not its own place in a parent: in
 the second app, `PUT /about.json` is the unguarded dict's to answer, and would
 replace the entry. Guard the parent, or the root, to keep that too.

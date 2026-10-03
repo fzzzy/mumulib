@@ -362,7 +362,7 @@ async def consume_tuple(
         own = _own_handler(parent, segments[0])
         if own is not None:
             return await consume(own, [], state, send)
-        return refuse("GET")
+        return refuse("GET, HEAD")
     child: Any
     try:
         # index, last in the path, is the collection itself
@@ -479,7 +479,7 @@ async def _consume_immutabledict(
         own = _own_handler(parent, segments[0])
         if own is not None:
             return await consume(own, [], state, send)
-        return refuse("GET, POST")
+        return refuse("GET, HEAD, POST")
     child: Any
     try:
         # index, last in the path, is the dict's "index" entry if it has
@@ -576,7 +576,7 @@ _ONLY_GET = SpecialResponse(
         "type": "http.response.start",
         "status": 405,
         "headers": [
-            (b"allow", b"GET"),
+            (b"allow", b"GET, HEAD"),
             (b"content-type", b"text/plain; charset=UTF-8"),
         ],
     },

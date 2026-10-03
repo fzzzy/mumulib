@@ -64,7 +64,7 @@ class TestResources(unittest.TestCase):
         # A template is HTML, and only HTML
         self.assertEqual(self.request("/about.txt")[0], 404)
         status, headers, _ = self.request("/about.html", "POST", "x")
-        self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD"))
 
     def test_the_list_answers_by_the_urls_type(self):
         self.assertEqual(
@@ -147,7 +147,7 @@ class TestResources(unittest.TestCase):
 
     def test_an_item_cannot_be_removed(self):
         status, headers, _ = self.request("/todos/items/0.json", "DELETE")
-        self.assertEqual((status, headers[b"allow"]), (405, b"GET, PUT"))
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD, PUT"))
         self.assertEqual(len(self.json("/todos.json")), 2)
 
     def test_the_items_are_listed_at_their_slash(self):

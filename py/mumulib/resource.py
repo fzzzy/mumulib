@@ -228,9 +228,6 @@ class Resource(Located):
             raise ValueError(f"the template has no pattern {name!r}")
         return copy
 
-    async def handle_HEAD(self, request: State) -> Any:
-        self.refuse()
-
     async def handle_POST(self, request: State) -> Any:
         self.refuse()
 
@@ -244,11 +241,12 @@ class Resource(Located):
         self.refuse()
 
     def allowed(self) -> list[str]:
-        """The methods this resource answers: GET, and those it handles."""
+        """The methods this resource answers: GET and HEAD, and those it
+        handles. A HEAD is answered as a GET, so there is no handle_HEAD."""
         return [
             method
             for method in METHODS
-            if method == "GET"
+            if method in ("GET", "HEAD")
             or getattr(type(self), f"handle_{method}")
             is not getattr(Resource, f"handle_{method}")
         ]

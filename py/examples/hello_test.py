@@ -42,9 +42,13 @@ class TestHello(unittest.TestCase):
         self.assertEqual(get("/other.json")[0], 404)
 
     def test_nothing_but_get_gets_in(self):
-        for method in ("PUT", "DELETE", "POST", "PATCH", "HEAD"):
+        for method in ("PUT", "DELETE", "POST", "PATCH"):
             with self.subTest(method=method):
                 status, _, body = get("/", method)
                 self.assertEqual((status, body), (405, b"Only GET"))
         # and nothing was changed on the way
         self.assertEqual(get("/")[2], b"Hello, world!")
+
+    def test_head_is_get_without_the_body(self):
+        status, headers, body = get("/", "HEAD")
+        self.assertEqual((status, headers, body), (*get("/")[:2], b""))

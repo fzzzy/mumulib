@@ -303,6 +303,22 @@ def _announce_changes(send: Send, changes: EventSource, state: State) -> Send:
     return announcing_send
 
 
+def _headers_only(send: Send) -> Send:
+    """send for a HEAD: the response's start as it is, then an empty body
+    that ends it at the first body message, and nothing after."""
+    ended = False
+
+    async def heading(message: Message) -> None:
+        nonlocal ended
+        if message["type"] == "http.response.start":
+            await send(message)
+        elif not ended:
+            ended = True
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+    return heading
+
+
 def _cache_headers(state: State, result: Any) -> list[tuple[bytes, bytes]] | None:
     """ETag and Cache-Control for a GET of something a file holds: a
     Persist, or below it, a Resource's state, or a built Vite page. None
@@ -375,6 +391,12 @@ def consumers_app(
 
         assert scope["type"] == "http"
         state = scope["state"]
+        # HEAD is GET without the body: answered as GET by everything that
+        # answers GET, with its status and headers, and only the body held back
+        head = scope["method"] == "HEAD"
+        if head:
+            scope = {**scope, "method": "GET"}
+            send = _headers_only(send)
         if changes is not None and scope["method"] in MUTATING:
             send = _announce_changes(send, changes, state)
 
@@ -509,7 +531,8 @@ def consumers_app(
                                     "more_body": True,
                                 }
                             )
-                            if chunk.writer is not None:
+                            # An event stream's writer never ends by itself
+                            if chunk.writer is not None and not head:
                                 await chunk.writer(send, receive)
                         else:
                             await send(
@@ -535,6 +558,10 @@ def consumers_app(
                                 }
                             )
                         first_chunk = False
+                        if head:
+                            # The headers are sent, and nothing after them is:
+                            # a producer that never ends is not waited for
+                            break
                     else:
                         # Handle both str and bytes chunks
                         chunk_bytes = (

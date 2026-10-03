@@ -103,7 +103,7 @@ async def _produce_persist_json(thing: Persist, state: State) -> AsyncIterator[C
         thing.write()
         raise answer(204)
     if method != "GET":
-        raise refuse("GET, PUT")
+        raise refuse("GET, HEAD, PUT")
     if thing.file is None:
         yield json.dumps(thing.document)
         return
@@ -120,7 +120,7 @@ async def _produce_persist_xml(thing: Persist, state: State) -> AsyncIterator[Ch
     """The persist at its own URL, as XML, to read: its document, from memory
     -- the same as its file -- when it is a dict, as only a dict is XML."""
     if state.get("method", "GET").upper() != "GET":
-        raise refuse("GET")
+        raise refuse("GET, HEAD")
     document: Any = thing.document
     if not isinstance(document, dict):
         raise NotFoundResponse()

@@ -2401,3 +2401,103 @@ class TestTextAndListings(unittest.TestCase):
 
         _, _, body = asyncio.run(get({"g": GetOnly({"a": "x"})}, "/g/"))
         self.assertIn(b'<a href="/g/a.txt">a</a>', body)
+
+
+class TestHead(unittest.TestCase):
+    """HEAD is answered wherever GET is, as GET, without the body."""
+
+    def sent(self, root, method, path, headers=()):
+        """Every message the app sends for one request; a receive that never
+        says the client has gone, so nothing may wait on it."""
+
+        messages = []
+        first = True
+
+        async def receive():
+            nonlocal first
+            if first:
+                first = False
+                return {"type": "http.request", "body": b"", "more_body": False}
+            await asyncio.Event().wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            messages.append(message)
+
+        async def go():
+            scope = {
+                "type": "http",
+                "method": method,
+                "path": path,
+                "headers": list(headers),
+                "state": {},
+            }
+            await asyncio.wait_for(consumers_app(root)(scope, receive, send), 2)
+
+        asyncio.run(go())
+        return messages
+
+    def assert_head_is_get(self, root, path):
+        got = self.sent(root, "GET", path)
+        head = self.sent(root, "HEAD", path)
+        self.assertEqual(head[0], got[0])
+        self.assertEqual(
+            head[1:],
+            [{"type": "http.response.body", "body": b"", "more_body": False}],
+        )
+        return got
+
+    def test_the_same_status_and_headers_and_no_body(self):
+        root = {"index": Markup("<p>home</p>"), "notes": {"a": "first"}}
+        for path in ("/", "/notes.json", "/notes/a.txt", "/missing.json"):
+            with self.subTest(path=path):
+                self.assert_head_is_get(root, path)
+
+    def test_a_resource_answers_head_with_its_get(self):
+        class Page(Resource):
+            template = "<p>a page</p>"
+
+        got = self.assert_head_is_get({"page": Page({"n": 1})}, "/page.json")
+        self.assertEqual(got[0]["status"], 200)
+        self.assertEqual(Page().allowed(), ["GET", "HEAD"])
+
+    def test_a_stream_that_never_ends_is_not_waited_for(self):
+        async def forever(state):
+            while True:
+                # Back to the loop each time, so a test that waits fails
+                await asyncio.sleep(0)
+                yield "more"
+
+        changes = EventSource()
+        root = {"forever": forever, "events": changes}
+        for path in ("/forever.txt", "/events.sse"):
+            with self.subTest(path=path):
+                head = self.sent(root, "HEAD", path)
+                self.assertEqual(head[0]["status"], 200)
+                self.assertEqual(
+                    head[1:],
+                    [{"type": "http.response.body", "body": b"", "more_body": False}],
+                )
+        self.assertEqual(changes.listeners, 0)
+
+    def test_head_is_not_a_change(self):
+        changes = EventSource()
+        app_root = {"notes": {"a": "first"}}
+        events = []
+        changes.put = events.append  # type: ignore[method-assign]
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            pass
+
+        scope = {
+            "type": "http",
+            "method": "HEAD",
+            "path": "/notes/a.json",
+            "headers": [],
+            "state": {},
+        }
+        asyncio.run(consumers_app(app_root, changes=changes)(scope, receive, send))
+        self.assertEqual(events, [])

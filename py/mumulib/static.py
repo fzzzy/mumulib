@@ -160,7 +160,7 @@ async def serve_vite(
         await _answer(send, 404, message.encode(), text)
         return
     if scope["method"] != "GET":
-        await _answer(send, 405, b"Only GET\n", [*text, (b"allow", b"GET")])
+        await _answer(send, 405, b"Only GET\n", [*text, (b"allow", b"GET, HEAD")])
         return
     file = (vite / scope["path"].removeprefix(VITE_BASE)).resolve()
     if not file.is_relative_to(vite) or not file.is_file():

@@ -123,7 +123,7 @@ class TestProduction(StaticCase):
             with self.subTest(path=path):
                 self.assertEqual(self.call(self.app(), path)[0], 404)
         status, headers, _ = self.call(self.app(), ASSET, "PUT")
-        self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD"))
 
     def test_without_a_vite_directory_vite_is_the_trees(self):
         app = self.app(vite=False, root={"mumulib-vite": {"x": "from the tree"}})

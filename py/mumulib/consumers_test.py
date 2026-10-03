@@ -177,7 +177,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
         # Test PUT and DELETE on /tuple/2
         response = await request(ASGI_APP, "PUT", "/tuple/2.json", "change")
         self.assertEqual(response["status"], 405)
-        self.assertEqual(response["headers"]["allow"], "GET")
+        self.assertEqual(response["headers"]["allow"], "GET, HEAD")
 
         response = await request(ASGI_APP, "DELETE", "/tuple/2.json", None)
         self.assertEqual(response["status"], 405)
@@ -315,7 +315,7 @@ class TestASGIApp(unittest.IsolatedAsyncioTestCase):
 
         response = await request(ASGI_APP, "DELETE", "/immutable/cannot.json", None)
         self.assertEqual(response["status"], 405)
-        self.assertEqual(response["headers"]["allow"], "GET, POST")
+        self.assertEqual(response["headers"]["allow"], "GET, HEAD, POST")
 
         # Verify GET /immutable after PUT and DELETE
         response = await request(ASGI_APP, "GET", "/immutable.json", None)
@@ -450,12 +450,11 @@ class TestGetOnly(unittest.TestCase):
             ("DELETE", "/notes/a.json"),
             ("PUT", "/items/last.json"),
             ("POST", "/notes/a.json"),
-            ("HEAD", "/"),
         ]:
             with self.subTest(method=method, path=path):
                 status, headers, body = call(root, method, path, "changed")
                 self.assertEqual((status, body), (405, b"Only GET\n"))
-                self.assertEqual(headers[b"allow"], b"GET")
+                self.assertEqual(headers[b"allow"], b"GET, HEAD")
         self.assertEqual(
             data, {"index": "home", "notes": {"a": "first"}, "items": [1, 2]}
         )
@@ -621,7 +620,7 @@ class TestDirectory(DirectorySite):
         for method in ("PUT", "DELETE", "POST"):
             with self.subTest(method=method):
                 status, headers, _ = call(self.root, method, "/static/new.txt", "x")
-                self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+                self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD"))
         self.assertFalse((self.site / "new.txt").exists())
 
 

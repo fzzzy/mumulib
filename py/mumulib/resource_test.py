@@ -109,13 +109,13 @@ class TestRender(unittest.TestCase):
 
 
 class TestMethods(unittest.TestCase):
-    def test_every_method_but_get_is_refused_by_default(self):
+    def test_every_method_but_get_and_head_is_refused_by_default(self):
         root = Site()
-        for method in ("HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"):
+        for method in ("POST", "PUT", "PATCH", "DELETE", "OPTIONS"):
             with self.subTest(method=method):
                 status, headers, _ = call(root, method, "/profile.html", "x")
                 self.assertEqual(status, 405)
-                self.assertEqual(headers[b"allow"], b"GET")
+                self.assertEqual(headers[b"allow"], b"GET, HEAD")
 
     def test_a_handler_is_called_with_the_request_and_allowed(self):
         book = Guestbook()
@@ -127,7 +127,7 @@ class TestMethods(unittest.TestCase):
         _, _, body = call(root, "GET", "/book.json")
         self.assertEqual(json.loads(body), [{"name": "Ada"}])
         status, headers, _ = call(root, "DELETE", "/book.json")
-        self.assertEqual((status, headers[b"allow"]), (405, b"GET, POST"))
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD, POST"))
 
     def test_a_put_under_a_resource_is_the_resources(self):
         root = Site()
@@ -209,7 +209,7 @@ class TestInContainers(unittest.TestCase):
             for method in ("PUT", "DELETE"):
                 with self.subTest(url=url, method=method):
                     status, headers, _ = call(root, method, url, "replaced")
-                    self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+                    self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD"))
         self.assertIsInstance(root["profile"], Profile)
         self.assertIsInstance(root["list"][0], Profile)
 
@@ -226,7 +226,7 @@ class TestInContainers(unittest.TestCase):
         box = Box()
         root = GetOnly({"box": box})
         status, headers, _ = call(root, "PUT", "/box.json", "full")
-        self.assertEqual((status, headers[b"allow"]), (405, b"GET"))
+        self.assertEqual((status, headers[b"allow"]), (405, b"GET, HEAD"))
         self.assertEqual((box.value, box.seen), ("empty", []))
         # RefuseIndex lets a write through to it, but no container body
         root = RefuseIndex({"box": box})
