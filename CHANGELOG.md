@@ -7,6 +7,14 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **A multipart file is a `mumutypes.Upload`**, its `filename`,
+  `content_type` and `data`, in place of its bytes alone. Multipart is read
+  by python-multipart, a new dependency: the hand-written parser filed a
+  part under its filename when that came before its name, and cut trailing
+  dashes and newlines from every value, a file's bytes included.
+- **`Resource.handle_HEAD` is gone.** A `HEAD` is answered as the `GET` it
+  would have been, so a subclass's own could not be reached.
+
 - **TypeScript: the state tree is not exported.** `state.state` is gone: a
   page reads the state as `onstate` gives it, and changes it with
   `set_state` and `set_path`, never by reaching in and mutating it.
@@ -126,6 +134,9 @@ Python package). Breaking changes come first under each release.
 
 ### Added
 
+- `HEAD` is answered wherever `GET` is: the same status and headers, from
+  every consumer, a `Persist`, the Vite build and the ETag, and no body.
+  `Allow` names `HEAD` wherever it names `GET`.
 - **`mumulib/vite-plugin-sfc`**: a Vite plugin for single-file components as
   HTML. A `.sfc.html` holds a `<template>` and a TypeScript `<script>`, and
   importing it gives the custom element class. Components' scripts have source
@@ -259,6 +270,10 @@ Python package). Breaking changes come first under each release.
 
 ### Fixed
 
+- A body that does not parse -- malformed JSON or multipart, or not UTF-8
+  -- is 400, not 413: the size limit's `ValueError` was caught with every
+  other. An unknown `Content-Type` on a `POST`, `PUT`, `PATCH` or `DELETE`
+  is 415, where it had been printed and the request handled as bodiless.
 - A form post's values are decoded once: `parse_qsl` had decoded them, and
   they were decoded again, so a literal `%41` arrived as `A`.
 - `tags`: `t.p["a", t.b["b"]]` is two children, as a list is; it had been one
