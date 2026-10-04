@@ -338,6 +338,11 @@ Python package). Breaking changes come first under each release.
   them, and a dialog's `returnValue` too. And a fill stops at what is already
   filled: a pattern's slots and `data-attr` are its own, so filling a page's
   `name` no longer overwrites the `name` of every row already put in a list.
+- `originPlugin` refuses Vite's default base, `/`, as the dev server starts.
+  It finds the URLs to send to Vite by the base appearing quoted, and under
+  `/` that was every quoted root-relative URL on the page: links to the
+  other server's own pages were sent to Vite too. It needs a base of its
+  own, such as `/mumulib-vite/`, which nothing else on a page says.
 - The `.sfc.html` plugin and checker read a component as HTML does, not by
   regular expression. A `<template>` inside the template ended it at the
   inner one's end tag; a `<script>` inside the template, or a comment

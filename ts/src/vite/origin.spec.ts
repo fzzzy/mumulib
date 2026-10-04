@@ -56,4 +56,25 @@ export default { root: ${JSON.stringify(root)}, base: '${BASE}', plugins: [origi
       'loads ./main.ts by a relative URL'
     )
   })
+
+  test("the dev server will not start under Vite's default base", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'origin-'))
+    const config = path.join(root, 'vite.config.mjs')
+    fs.writeFileSync(
+      config,
+      `import { originPlugin } from ${JSON.stringify(path.resolve('src/vite/origin.mjs'))}
+export default { root: ${JSON.stringify(root)}, plugins: [originPlugin()],
+  server: { port: 0 } }`
+    )
+    const run = spawnSync('npx', ['vite', '--config', config], {
+      encoding: 'utf8',
+      timeout: 30000,
+    })
+    fs.rmSync(root, { recursive: true, force: true })
+    expect(run.signal).toBeNull()
+    expect(run.status).not.toBe(0)
+    expect(run.stdout + run.stderr).toContain(
+      'originPlugin needs a base of its own'
+    )
+  })
 })

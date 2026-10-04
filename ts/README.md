@@ -491,7 +491,9 @@ origin would be asked of it. `originPlugin(origin)` puts the dev server's
 origin in front of each, wherever the base appears quoted -- a base as
 distinctive as `/mumulib-vite/` is in nothing else on a page -- so the
 browser fetches Vite's client and the page's modules from Vite, and hot
-reloading connects to it:
+reloading connects to it. It needs that base: under Vite's default, `/`,
+every root-relative URL on the page would be sent to Vite, links to the
+other server's pages too, so the dev server refuses to start with it.
 
 ```ts
 import { originPlugin } from 'mumulib/vite-plugin-origin'

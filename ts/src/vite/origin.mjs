@@ -16,7 +16,9 @@
  * Vite's own transform, this puts the dev server's origin in front of each:
  * wherever the base appears quoted, `"/mumulib-vite/`. A base that
  * distinctive is in nothing else on a page, so the HTML is not parsed, or
- * matched by pattern, to find them. The browser then fetches Vite's client,
+ * matched by pattern, to find them. So it needs one: with Vite's default,
+ * `/`, every quoted root-relative URL would be rewritten, the page's links
+ * to its own server's pages among them, and the dev server refuses to start. The browser then fetches Vite's client,
  * the page's modules and its stylesheets from Vite, and the client opens
  * its hot reloading websocket to Vite, the host it was loaded from. It also
  * sets `server.origin`, so the asset URLs Vite writes into modules and CSS
@@ -102,6 +104,14 @@ export function originPlugin(origin = 'http://127.0.0.1:5757') {
       config: () => ({ server: { origin } }),
       configResolved(config) {
         base = config.base
+        if (base === '/') {
+          throw new Error(
+            'originPlugin needs a base of its own, such as /mumulib-vite/: ' +
+              'it puts the dev server in front of every quoted URL under ' +
+              'the base, and under /, that is every root-relative URL on ' +
+              "the page, its links to the other server's pages too"
+          )
+        }
       },
       // After Vite's transform, which has written them under the base
       transformIndexHtml: {
