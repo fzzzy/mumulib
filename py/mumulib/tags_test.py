@@ -509,3 +509,40 @@ class TestEscaping(unittest.TestCase):
         # A slot not given leaves the attribute out, as before
         self.assertNotIn("title", copy.attributes)
         self.assertIn("Ada", render(copy))
+
+
+class TestAttrSlots(unittest.TestCase):
+    """data-attr is read in one place, attr_slots, and alike everywhere"""
+
+    MESSY = "a=b=c,,stray,=nameless,slotless=,id=row"
+
+    def test_only_the_first_equals_divides_and_a_broken_pair_is_no_slot(self):
+        node = Stan("b", 0, **{"data-attr": self.MESSY})
+        self.assertEqual(tags.attr_slots(node), [("a", "b=c"), ("id", "row")])
+
+    def test_filling_and_appending_read_it_so(self):
+        for how in ("fill_slots", "append_slots"):
+            with self.subTest(how=how):
+                inner = Stan("b", 1, **{"data-attr": self.MESSY})
+                tree = Stan("div", 0, inner)
+                getattr(tree, how)("b=c", "filled")
+                getattr(tree, how)("row", "r1")
+                self.assertEqual(inner.attributes["a"], "filled")
+                self.assertEqual(inner.attributes["id"], "r1")
+
+    def test_a_template_pattern_reads_it_so(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messy.html"
+            path.write_text(
+                f'<html><body><i data-pat="p" data-attr="{self.MESSY}">x</i>'
+                "</body></html>"
+            )
+            cloned = Template(str(path)).clone_pat("p", **{"b=c": "v", "row": "r"})
+        assert cloned is not None
+        self.assertEqual((cloned.attributes["a"], cloned.attributes["id"]), ("v", "r"))
+
+    def test_a_resource_names_the_same_slots(self):
+        from mumulib.resource import slot_names
+
+        tree = Stan("div", 0, Stan("b", 1, **{"data-attr": self.MESSY}))
+        self.assertEqual(slot_names(tree), ["b=c", "row"])

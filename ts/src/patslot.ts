@@ -61,6 +61,23 @@ function having(node: Element, attribute: string, value: string): Element[] {
   )
 }
 
+// An element's attribute slots, from its data-attr: "id=row_id,title=hint" is
+// [["id", "row_id"], ["title", "hint"]]. The one reading of data-attr, as
+// tags.attr_slots is Python's: a pair without both a name and a slot is no
+// slot, and only the first = divides one
+function attr_slots(el: Element): [string, string][] {
+  const slots: [string, string][] = []
+  for (const pair of (el.getAttribute('data-attr') || '').split(',')) {
+    const eq = pair.indexOf('=')
+    const name = pair.slice(0, eq)
+    const slot = pair.slice(eq + 1)
+    if (eq !== -1 && name && slot) {
+      slots.push([name, slot])
+    }
+  }
+  return slots
+}
+
 // What a fill of node reaches, node first: the elements that match, but
 // nothing inside a pattern -- its prototype in the page, or a clone of one
 // already filled into a slot -- whose slots and attributes are its own; and,
@@ -249,13 +266,10 @@ async function _fill_or_append_slots(
   )
 
   for (const attrslot of attrslots) {
-    const attrs = attrslot.getAttribute('data-attr') || ''
-    //console.log("attrs", attrs);
-    const mappings = attrs.split(',')
+    const mappings = attr_slots(attrslot)
     const results: Promise<void>[] = mappings.map(async (mapping) => {
-      const [attribute_name, attribute_slot] = mapping.split('=')
-      //console.log("attribute_slot", attribute_slot, slotname);
-      if (attribute_slot != slotname) {
+      const [attribute_name, attribute_slot] = mapping
+      if (attribute_slot !== slotname) {
         return
       }
       if (pat instanceof Element) {

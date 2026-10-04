@@ -41,7 +41,7 @@ from mumulib.producers import (
     custom_serializer,
     produce,
 )
-from mumulib.tags import Markup, Stan
+from mumulib.tags import Markup, Stan, attr_slots
 from mumulib.xml_producer import XmlOf
 
 # The public API: the class to subclass.
@@ -329,10 +329,8 @@ def _slot_names(node: Stan) -> Iterator[str]:
         slot = child.attributes.get("data-slot")
         if slot:
             yield slot
-        for pair in str(child.attributes.get("data-attr", "")).split(","):
-            _, eq, attrslot = pair.partition("=")
-            if eq and attrslot:
-                yield attrslot
+        for _, attrslot in attr_slots(child):
+            yield attrslot
         yield from _slot_names(child)
 
 

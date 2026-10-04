@@ -162,6 +162,8 @@ test.describe('Mumulib PatSlot Tests', () => {
     await expect(page.locator('h1')).toHaveText('Town')
     await expect(page.locator('p').first()).toHaveText('dotted')
     await expect(page.locator('p').nth(1)).toHaveText('spaced')
+    await expect(page.locator('b')).toHaveAttribute('data-x', 'divided once')
+    await expect(page.locator('b')).toHaveAttribute('data-y', 'plain')
     const people = await page.$$eval('li', (items) =>
       items.map((li) => [li.getAttribute('title'), li.textContent?.trim()])
     )

@@ -217,7 +217,9 @@ ALL_ELEMENTS.extend(FORMS + INTERACTIVE_ELEMENTS + WEB_COMPONENTS)
 
 def attr_slots(node: Stan) -> list[tuple[str, str]]:
     """An element's own attribute slots, from its data-attr: "id=row_id,
-    title=hint" is [("id", "row_id"), ("title", "hint")]."""
+    title=hint" is [("id", "row_id"), ("title", "hint")]. The one reading of
+    data-attr: a pair without both a name and a slot is no slot, and only the
+    first = divides one."""
     mapping = str(node.attributes.get("data-attr", ""))
     pairs = (pair.partition("=") for pair in mapping.split(",") if pair)
     return [(name, slot) for name, eq, slot in pairs if eq and name and slot]
@@ -321,13 +323,9 @@ class Stan:
         for i, child in enumerate(self.children):
             if not isinstance(child, Stan):
                 continue
-            attrslots = child.attributes.get("data-attr")
-            if attrslots:
-                attrslots = attrslots.split(",")
-                attrslots = [(k, v) for k, v in (x.split("=") for x in attrslots)]
-                for attrname, attrslotname in attrslots:
-                    if attrslotname == slotname:
-                        child.attributes[attrname] = value
+            for attrname, attrslotname in attr_slots(child):
+                if attrslotname == slotname:
+                    child.attributes[attrname] = value
             if child.attributes.get("data-slot") != slotname:
                 if isinstance(value, Stan):
                     reindent_tree(value, self.indent + 1)
@@ -353,13 +351,9 @@ class Stan:
         for child in self.children:
             if not isinstance(child, Stan):
                 continue
-            attrslots = child.attributes.get("data-attr")
-            if attrslots:
-                attrslots = attrslots.split(",")
-                attrslots = [(k, v) for k, v in (x.split("=") for x in attrslots)]
-                for attrname, attrslotname in attrslots:
-                    if attrslotname == slotname:
-                        child.attributes[attrname] = value
+            for attrname, attrslotname in attr_slots(child):
+                if attrslotname == slotname:
+                    child.attributes[attrname] = value
             if child.attributes.get("data-slot") != slotname:
                 child.append_slots(slotname, value)
                 continue
@@ -491,9 +485,7 @@ class Template:
                 continue
             result = child.clone_pat(patname, **slots)
             if result:
-                attrslots = result.attributes.get("data-attr", "")
-                attrslots = attrslots.split(",")
-                attrslots = [(k, v) for k, v in (x.split("=") for x in attrslots if x)]
+                attrslots = attr_slots(result)
                 for k, v in slots.items():
                     if result.attributes.get("data-slot") == k:
                         if isinstance(v, Stan):

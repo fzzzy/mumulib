@@ -11,6 +11,9 @@ window.onload = async () => {
     name: 'Town',
     'item.name': 'dotted',
     '2 col': 'spaced',
+    // Only the first = divides a pair: this slot is a=b
+    'a=b': 'divided once',
+    plain: 'plain',
   })
   document.body.dataset.filled = 'yes'
 }

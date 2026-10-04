@@ -292,6 +292,12 @@ Python package). Breaking changes come first under each release.
   `returnValue`, and Escape closed it with none: both saved the first form.
   Now a close with no submit, or with `cancel`, is a cancel, and a submit
   saves the form submitted unless `returnValue` names another.
+- `data-attr` is read one way, in one place: `tags.attr_slots` in Python and
+  its like in `patslot`. Only the first `=` divides a pair, and one without
+  both a name and a slot is none. `fill_slots`, `append_slots` and
+  `Template.clone_pat` each split it themselves and raised `ValueError` on
+  a pair such as `a=b=c`, `patslot` filled that pair's slot as `b`, and
+  `Resource` took `=x` for a slot named `x`.
 - `patslot`: any slot or pattern name is found, `item.name` or `2 col` as
   much as `name`. Each was put bare into a selector, `[data-slot=item.name]`,
   which throws; names are compared as text now, with no selector built from
