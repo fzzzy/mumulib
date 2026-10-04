@@ -47,6 +47,16 @@ What each would bring, as of 2026-10-03:
 - **None** -- a `TypedDict` or a dataclass of mumulib's own, which costs no
   dependency.
 
+## Thoughts so far, 2026-10-03
+
+Not decisions.
+
+- Request objects are familiar ground, and designing another is tedious.
+  Freezing the names `State` already has might be enough.
+- ASGI already defines `send`, the callback that sends the headers and the
+  body, so that part of a request design, the tedious part, would not need
+  doing.
+
 ## To decide
 
 - Whether to type the request at all.
