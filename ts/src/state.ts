@@ -151,7 +151,7 @@ function read(
 
 // The state, shown by a control: a checkbox checked if it is truthy, a radio
 // button checked if its own value is the state's -- its value left as it is,
-// as it is what the button stands for -- and anything else given the value
+// as it is what the button stands for -- and anything else given its text
 function show(
   el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   value: unknown
@@ -160,8 +160,12 @@ function show(
     el.checked = Boolean(value)
   } else if (el instanceof HTMLInputElement && el.type === 'radio') {
     el.checked = el.value === value
-  } else if (el.value !== value) {
-    el.value = value as string
+  } else {
+    // Nothing there is an empty field, not the text "undefined"
+    const text = value === undefined || value === null ? '' : String(value)
+    if (el.value !== text) {
+      el.value = text
+    }
   }
 }
 
@@ -205,6 +209,12 @@ function possibly_changed(e: Event) {
     !checkable(target) &&
     initialValues[name] === value
   ) {
+    // Left as it was: what the state became meanwhile, which no render
+    // wrote into it while it was being typed in, is shown now
+    const [bound, now] = bound_value(state, name)
+    if (bound) {
+      show(target, now)
+    }
     return
   }
   //console.log('Input event fired:', e.target.name, e.target.value);
@@ -257,6 +267,28 @@ document.addEventListener(
   true
 )
 
+// Being typed in: a text field or a textarea with the focus, which holds what
+// is typed until the focus leaves it, and only then gives it to the state
+function typing(el: Element): boolean {
+  return (
+    el === document.activeElement &&
+    ((el instanceof HTMLInputElement && !checkable(el)) ||
+      el instanceof HTMLTextAreaElement)
+  )
+}
+
+// Whether a control's name binds it to the state, and the state's value there
+function bound_value(state: State, name: string): [boolean, unknown] {
+  if (name.startsWith('this.')) {
+    return [true, get(state, name.slice(5))]
+  } else if (name.startsWith('selected.')) {
+    return [true, get(get(state, state['selected']), name.slice(9))]
+  } else if (name === 'selected') {
+    return [true, state['selected']]
+  }
+  return [false, undefined]
+}
+
 async function update_dom_state(state: State) {
   const elements = document.querySelectorAll('input, select, textarea')
   elements.forEach((element) => {
@@ -271,14 +303,14 @@ async function update_dom_state(state: State) {
     if (!el) {
       return
     }
-    const name = el.name
-    if (name.startsWith('this.')) {
-      show(el, get(state, name.slice(5)))
-    } else if (name.startsWith('selected.')) {
-      const selectedState = get(state, state['selected'])
-      show(el, get(selectedState, name.slice(9)))
-    } else if (name === 'selected') {
-      show(el, state['selected'])
+    // What is being typed is not written over: a change of state from
+    // elsewhere -- sync's, as the server announces one -- would wipe it
+    if (typing(el)) {
+      return
+    }
+    const [bound, value] = bound_value(state, el.name)
+    if (bound) {
+      show(el, value)
     }
   })
 }

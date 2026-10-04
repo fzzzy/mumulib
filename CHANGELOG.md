@@ -338,6 +338,14 @@ Python package). Breaking changes come first under each release.
   them, and a dialog's `returnValue` too. And a fill stops at what is already
   filled: a pattern's slots and `data-attr` are its own, so filling a page's
   `name` no longer overwrites the `name` of every row already put in a list.
+- `state`: a change of state no longer wipes what is being typed. Every
+  `set_state` wrote the state into every bound control, the field being
+  typed in too, so a change from elsewhere -- `sync`'s, as the server
+  announced one -- put back what it held before. A render now leaves the
+  text field or textarea with the focus alone; as the focus leaves it, what
+  was typed is committed as before, and if nothing was, what the state
+  became meanwhile is shown. An empty state is an empty field, where it had
+  been the text `undefined`.
 - `state`: radio buttons and checkboxes named `this.*` or `selected.*` work.
   A radio button's click focused it first, and its focus recorded its own
   value as the field's, so its change was taken for none; a checkbox was

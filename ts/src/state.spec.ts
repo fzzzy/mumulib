@@ -276,4 +276,44 @@ test.describe('Mumulib State Tests', () => {
     await expect(radio('l')).not.toBeChecked()
     await expect(agree).not.toBeChecked()
   })
+
+  test('a change from elsewhere does not wipe what is being typed', async ({
+    page,
+  }) => {
+    await page.goto('examples/use_state_typing/')
+    const last = () =>
+      page.$$eval('div[class="output"]', (divs) => divs.at(-1)?.textContent)
+    const remote = (detail: object) =>
+      page.evaluate(
+        (detail) => window.dispatchEvent(new CustomEvent('remote', { detail })),
+        detail
+      )
+    const name = page.locator('input[name="this.name"]')
+    const note = page.locator('textarea[name="this.note"]')
+    await expect.poll(last).toBe('Got state {}')
+
+    // Typed, not yet left: a change elsewhere leaves it, and it is committed
+    await name.click()
+    await page.keyboard.type('Ada')
+    await remote({ elsewhere: 1 })
+    await expect.poll(last).toBe('Got state {"elsewhere":1}')
+    await expect(name).toHaveValue('Ada')
+    await expect(name).toBeFocused()
+    await note.click()
+    await expect.poll(last).toBe('Got state {"elsewhere":1,"name":"Ada"}')
+
+    // Focused and left alone while the state changes under it: not written
+    // over while focused, shown as it leaves, and not written back
+    await remote({ note: 'Server' })
+    await expect
+      .poll(last)
+      .toBe('Got state {"elsewhere":1,"name":"Ada","note":"Server"}')
+    await expect(note).toHaveValue('')
+    await name.click()
+    await expect(note).toHaveValue('Server')
+    await page.waitForTimeout(100)
+    expect(await last()).toBe(
+      'Got state {"elsewhere":1,"name":"Ada","note":"Server"}'
+    )
+  })
 })
