@@ -62,8 +62,8 @@ _json_forms: dict[type[Any], Callable[[Any], Any]] = {}
 
 def add_json_form(adapter_for_type: type[Any], to_json: Callable[[Any], Any]) -> None:
     """Say what a type's things are in JSON: to_json(thing), something JSON
-    can hold -- a Resource is its state. It is used wherever one is found,
-    at the top or deep in a dict or a list."""
+    can hold -- add_json_form(datetime, datetime.isoformat), say. It is used
+    wherever one is found, at the top or deep in a dict or a list."""
     _json_forms[adapter_for_type] = to_json
 
 

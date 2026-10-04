@@ -343,7 +343,6 @@ def _slot_names(node: Stan) -> Iterator[str]:
 def _register(cls: type[Resource]) -> None:
     add_consumer(cls, consume_resource, own_methods=True)
     add_producer(cls, produce_resource)
-    # Inside any JSON, a resource is its state
 
 
 _register(Resource)
