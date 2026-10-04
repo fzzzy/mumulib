@@ -29,6 +29,16 @@
       },
       "default": "./dist/browser/src/index.mjs"
     },
+    "./node": {
+      "import": {
+        "types": "./dist/esm/types/node.d.ts",
+        "default": "./dist/esm/node.mjs"
+      },
+      "require": {
+        "types": "./dist/types/node.d.ts",
+        "default": "./dist/cjs/node.cjs"
+      }
+    },
     "./vite-plugin-sfc": {
       "types": "./dist/esm/types/vite/sfc.d.mts",
       "import": "./dist/vite/sfc.mjs"

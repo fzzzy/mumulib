@@ -7,6 +7,12 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **TypeScript: in Node, import `mumulib/node`.** `mumulib`'s Node bundles
+  set domino's `document` and element classes on `globalThis` as they were
+  imported, whatever the importer wanted. Now `mumulib` sets nothing, and
+  `mumulib/node` makes the DOM -- where there is none -- and then loads the
+  library. It is two imports, written out rather than bundled, so that the
+  library, which reads `document` as it loads, always comes second.
 - **`tags.Template` is loaded with `await`:
   `template = await Template(path).load()`.** Its first `clone_pat`,
   `fill_slots`, `clear_slots` or `append_slots` read and parsed the file on

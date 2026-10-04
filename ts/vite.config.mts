@@ -5,29 +5,8 @@ import { sfcPlugin } from './src/vite/sfc.mjs'
 
 const root = import.meta.dirname
 const entry = resolve(root, 'src/index.ts')
-
-// A DOM for Node, where the templating and dialog code have none of their own:
-// domino's document, and the element classes the code checks with instanceof.
-// Each is set only if missing, so a DOM already there -- jsdom in someone's
-// tests -- is left alone. The browser build needs no such thing.
-const DOM_CLASSES = [
-  'Node',
-  'Element',
-  'HTMLElement',
-  'HTMLInputElement',
-  'HTMLSelectElement',
-  'HTMLTextAreaElement',
-  'HTMLFormElement',
-  'HTMLDialogElement',
-]
-const domFromDomino = (domino: string) =>
-  `if (typeof document === 'undefined') {
-  const window = ${domino}.createWindow('');
-  globalThis.document = window.document;
-  for (const name of ${JSON.stringify(DOM_CLASSES)}) globalThis[name] ??= window[name];
-}`
-const dominoEsm = `import domino from 'domino';\n${domFromDomino('domino')}`
-const dominoCjs = domFromDomino("require('domino')")
+// The Node build's other entry: domino's DOM, which mumulib/node runs first
+const dom = resolve(root, 'src/dom.ts')
 
 // `vite` serves the examples from source, with `mumulib` resolving to src/.
 // `vite build` writes the browser bundle; `vite build --mode node` the two
@@ -76,19 +55,22 @@ export default defineConfig(({ mode }) => ({
           sourcemap: true,
           minify: false,
           target: 'node20',
-          lib: { entry, formats: ['es', 'cjs'] },
+          // The library, and the DOM apart from it: mumulib/node is these two
+          // imported in order, written by scripts/esm-types.mjs rather than
+          // bundled, as a bundler may run a shared chunk before the DOM
+          lib: { entry: { index: entry, dom }, formats: ['es', 'cjs'] },
           rolldownOptions: {
             external: ['domino'],
             output: [
               {
                 format: 'es',
-                entryFileNames: 'esm/index.mjs',
-                banner: dominoEsm,
+                entryFileNames: 'esm/[name].mjs',
+                chunkFileNames: 'esm/[name]-[hash].mjs',
               },
               {
                 format: 'cjs',
-                entryFileNames: 'cjs/index.cjs',
-                banner: dominoCjs,
+                entryFileNames: 'cjs/[name].cjs',
+                chunkFileNames: 'cjs/[name]-[hash].cjs',
                 exports: 'named',
               },
             ],

@@ -10,11 +10,42 @@ import * as path from 'node:path'
 // Each is run as its own program, and prints its results as JSON
 const USES = {
   'use.cjs': `
-const { state, patslot } = require('mumulib')
+const { state, patslot } = require('mumulib/node')
 ${'__BODY__'}`,
   'use.mjs': `
-import { state, patslot } from 'mumulib'
+import { state, patslot } from 'mumulib/node'
 ${'__BODY__'}`,
+}
+
+// Plain mumulib sets no globals: with no DOM it cannot load, and says why;
+// and mumulib/node leaves a DOM already there -- jsdom's, say -- as it is
+const GLOBALS = ['document', 'Node', 'HTMLElement', 'HTMLDialogElement']
+const BARE = {
+  'bare.cjs': `
+let threw = null
+try { require('mumulib') } catch (e) { threw = e.message }
+process.stdout.write(JSON.stringify({
+  threw, set: ${JSON.stringify(GLOBALS)}.filter((name) => name in globalThis),
+}))`,
+  'bare.mjs': `
+let threw = null
+try { await import('mumulib') } catch (e) { threw = e.message }
+process.stdout.write(JSON.stringify({
+  threw, set: ${JSON.stringify(GLOBALS)}.filter((name) => name in globalThis),
+}))`,
+  'own-dom.mjs': `
+import domino from 'domino'
+const own = domino.createWindow('').document
+globalThis.document = own
+const { patslot } = await import('mumulib/node')
+process.stdout.write(JSON.stringify({
+  kept: globalThis.document === own, filled: typeof patslot.fill_slots,
+}))`,
+}
+const BARE_EXPECTED = {
+  'bare.cjs': { threw: 'document is not defined', set: [] },
+  'bare.mjs': { threw: 'document is not defined', set: [] },
+  'own-dom.mjs': { kept: true, filled: 'function' },
 }
 
 // What every use checks: each patslot fill path that touches data-*
@@ -114,6 +145,24 @@ try {
       )
     } else {
       console.log(`${file}: patslot and state work in Node`)
+    }
+  }
+  for (const [file, source] of Object.entries(BARE)) {
+    fs.writeFileSync(path.join(work, file), source)
+    let got
+    try {
+      got = execFileSync('node', [file], { cwd: work, encoding: 'utf-8' })
+    } catch (e) {
+      got = String(e.stdout || e.message)
+    }
+    const expected = JSON.stringify(BARE_EXPECTED[file])
+    if (got !== expected) {
+      failed = true
+      console.log(`${file}: FAILED, expected ${expected}, got ${got}`)
+    } else {
+      console.log(
+        `${file}: ${file.startsWith('bare') ? 'mumulib sets no globals' : 'mumulib/node keeps a DOM already there'}`
+      )
     }
   }
 } finally {

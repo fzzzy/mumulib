@@ -12,10 +12,20 @@ sync binds a path in the state to a URL on mumulib's Python server, and keeps it
 
 ## Node
 
-`require('mumulib')` and `import 'mumulib'` work in Node as in a browser. Where
-there is no DOM, mumulib makes one with [domino](https://github.com/fgnass/domino):
-`document`, and the element classes it needs. A DOM already there, such as
+In Node, import `mumulib/node`: the library, with a DOM made first by
+[domino](https://github.com/fgnass/domino) -- `document`, and the element
+classes mumulib needs, set on `globalThis`. A DOM already there, such as
 jsdom's, is left alone.
+
+```js
+import { state, patslot } from 'mumulib/node'
+// or
+const { state, patslot } = require('mumulib/node')
+```
+
+`mumulib` itself sets nothing on import. Where you have a DOM of your own,
+import it instead; with none, it cannot load, as it reads `document` as it
+does.
 
 ## Examples
 
