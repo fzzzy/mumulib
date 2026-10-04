@@ -24,9 +24,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-import traceback
+import logging
 from collections.abc import Callable
 from typing import Any, cast
+
+logger = logging.getLogger(__name__)
 
 # The public API: Checking data against a shape, and what is raised when it
 # does not fit or the shape itself is wrong.
@@ -285,14 +287,14 @@ def would_retain_shape(
     This function navigates `data` following the path segments in `segs`. If `shape`
     is a dict, `str` keys in `shape` act as a wildcard fallback if the exact segment
     key is not found. If any mismatch occurs, it returns False. If `debug` is True,
-    it prints a traceback before returning.
+    it logs the exception, with its traceback, before returning.
 
     Args:
         shape: The shape definition to validate against.
         data: The data structure to inspect.
         segs (list[str]): The path segments to navigate into `data`.
         leaf: The value to hypothetically insert at the end of that path.
-        debug (bool): If True, prints a traceback on exception.
+        debug (bool): If True, logs the exception and its traceback.
 
     Returns:
         bool: True if substituting `leaf` would preserve `shape`, False otherwise.
@@ -301,6 +303,6 @@ def would_retain_shape(
         _would_retain_shape_exc(shape, data, segs, leaf)
     except Exception:
         if debug:
-            traceback.print_exc()
+            logger.exception("%s does not keep its shape at %s", leaf, segs)
         return False
     return True

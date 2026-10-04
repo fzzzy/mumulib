@@ -596,12 +596,12 @@ class TestItsUrl(unittest.TestCase):
         ada = Profile()
         root = {"a": ada, "b": ada}
         self.assertEqual(call(root, "GET", "/a.html")[0], 200)
-        with unittest.mock.patch("traceback.print_exc") as logged:
+        with self.assertLogs("mumulib.server", "ERROR") as logs:
             status, _, body = call(root, "GET", "/b.html")
         self.assertEqual(status, 500)
-        # Logged, and said: both URLs
-        logged.assert_called_once()
-        self.assertIn(b"Profile at /a was reached as /b", body)
+        # Logged with both URLs, and the client told only the status
+        self.assertIn("Profile at /a was reached as /b", logs.output[0])
+        self.assertNotIn(b"/a", body)
         self.assertEqual(ada.url, "/a")
 
 

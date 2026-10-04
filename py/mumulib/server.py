@@ -1,9 +1,9 @@
 import asyncio
 import json
+import logging
 import os
 import signal
 import threading
-import traceback
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from types import FrameType
@@ -39,6 +39,10 @@ __all__ = [
     "consumers_app",
     "EventSource",
 ]
+
+# What went wrong, for whoever runs the server: a client is told only the
+# status, and nothing of the code that failed
+logger = logging.getLogger(__name__)
 
 # Default max request body size: 10MB
 DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
@@ -501,11 +505,17 @@ def consumers_app(
                         )
                         return
         except BodyTooLarge as exc:
-            await send_error_response(send, 413, "Payload Too Large", str(exc))
+            logger.info("413 for %s %s: %s", scope["method"], scope["path"], exc)
+            await send_error_response(
+                send, 413, "Payload Too Large", "The request body is too large"
+            )
             return
         except ValueError as exc:
             # Malformed JSON or multipart, or a body that is not UTF-8
-            await send_error_response(send, 400, "Bad Request", str(exc))
+            logger.info("400 for %s %s: %s", scope["method"], scope["path"], exc)
+            await send_error_response(
+                send, 400, "Bad Request", "The request body could not be read"
+            )
             return
 
         try:
@@ -515,10 +525,12 @@ def consumers_app(
                 result = await consume(mumulib, segments[1:], state, send)
             else:
                 result = await consume(root, segments, state, send)
-        except Exception as exc:
+        except Exception:
             # Handle errors during request consumption/routing
-            traceback.print_exc()
-            await send_error_response(send, 500, "Internal Server Error", str(exc))
+            logger.exception("500 for %s %s", scope["method"], scope["path"])
+            await send_error_response(
+                send, 500, "Internal Server Error", "The server could not answer"
+            )
             return
         # A container's HTML is its slash alone: /todos/, not /todos.html
         if (
@@ -619,8 +631,8 @@ def consumers_app(
                     await send(special.asgi_send_dict)
                     first_chunk = False
                 result = special.leaf_object
-            except Exception as exc:
-                traceback.print_exc()
+            except Exception:
+                logger.exception("500 for %s %s", scope["method"], scope["path"])
                 if first_chunk:
                     await send(
                         {
@@ -633,7 +645,10 @@ def consumers_app(
                     )
                     first_chunk = False
                 result = json.dumps(
-                    {"error": "Internal Server Error", "message": str(exc)}
+                    {
+                        "error": "Internal Server Error",
+                        "message": "The server could not answer",
+                    }
                 )
 
         # Ensure result is bytes

@@ -689,7 +689,8 @@ class TestExceptionHandling(unittest.TestCase):
             response_body = sent_messages[1]
             body_data = json.loads(response_body["body"].decode("utf-8"))
             self.assertEqual(body_data["error"], "Internal Server Error")
-            self.assertIn("Intentional error", body_data["message"])
+            # The client is told the status alone; the error is logged
+            self.assertNotIn("Intentional error", json.dumps(body_data))
         finally:
             # Clean up - remove the broken consumer
             from mumulib.consumers import _consumer_adapters
@@ -699,7 +700,9 @@ class TestExceptionHandling(unittest.TestCase):
 
     def test_exception_during_consume(self):
         """Wrapper to run async test"""
-        asyncio.run(self.async_test_exception_during_consume())
+        with self.assertLogs("mumulib.server", "ERROR") as logs:
+            asyncio.run(self.async_test_exception_during_consume())
+        self.assertIn("Intentional error", logs.output[0])
 
     async def async_test_special_response_result(self):
         """Test that SpecialResponse returned directly from consume is handled"""
@@ -944,7 +947,8 @@ class TestExceptionHandling(unittest.TestCase):
             response_body = sent_messages[1]
             body_data = json.loads(response_body["body"].decode("utf-8"))
             self.assertEqual(body_data["error"], "Internal Server Error")
-            self.assertIn("Producer error", body_data["message"])
+            # The client is told the status alone; the error is logged
+            self.assertNotIn("Producer error", json.dumps(body_data))
         finally:
             # Clean up
             from mumulib.producers import _producer_adapters
@@ -957,7 +961,9 @@ class TestExceptionHandling(unittest.TestCase):
 
     def test_generic_exception_during_produce(self):
         """Wrapper to run async test"""
-        asyncio.run(self.async_test_generic_exception_during_produce())
+        with self.assertLogs("mumulib.server", "ERROR") as logs:
+            asyncio.run(self.async_test_generic_exception_during_produce())
+        self.assertIn("Producer error", logs.output[0])
 
     async def async_test_special_response_exception_after_first_chunk(self):
         """Test SpecialResponse exception after first chunk sent (line 237->240)"""
@@ -1073,7 +1079,8 @@ class TestExceptionHandling(unittest.TestCase):
             self.assertEqual(final_body["type"], "http.response.body")
             body_data = json.loads(final_body["body"].decode("utf-8"))
             self.assertEqual(body_data["error"], "Internal Server Error")
-            self.assertIn("Delayed error", body_data["message"])
+            # The client is told the status alone; the error is logged
+            self.assertNotIn("Delayed error", json.dumps(body_data))
         finally:
             # Clean up
             from mumulib.producers import _producer_adapters
@@ -1084,7 +1091,9 @@ class TestExceptionHandling(unittest.TestCase):
 
     def test_generic_exception_after_first_chunk(self):
         """Wrapper to run async test"""
-        asyncio.run(self.async_test_generic_exception_after_first_chunk())
+        with self.assertLogs("mumulib.server", "ERROR") as logs:
+            asyncio.run(self.async_test_generic_exception_after_first_chunk())
+        self.assertIn("Delayed error", logs.output[0])
 
 
 class TestSpecialResponseWithWriter(unittest.TestCase):
@@ -1319,6 +1328,39 @@ class TestUnreadableBodies(unittest.TestCase):
         if status < 400:
             return status, None
         return status, json.loads(sent_messages[1]["body"])["error"]
+
+    def test_what_was_wrong_is_logged_and_not_told(self):
+        app = consumers_app({"data": "test"})
+        for content_type, body, status, detail in [
+            (b"application/json", b"{not json", 400, "Expecting property"),
+            (
+                b"application/json",
+                b"x" * (DEFAULT_MAX_BODY_SIZE + 1),
+                413,
+                "exceeds limit",
+            ),
+        ]:
+            with self.subTest(status=status):
+                sent = []
+
+                async def send(message, sent=sent):
+                    sent.append(message)
+
+                async def receive(body=body):
+                    return {"type": "http.request", "body": body, "more_body": False}
+
+                scope = {
+                    "type": "http",
+                    "method": "POST",
+                    "path": "/data.json",
+                    "headers": [(b"content-type", content_type)],
+                    "state": {},
+                }
+                with self.assertLogs("mumulib.server", "INFO") as logs:
+                    asyncio.run(app(scope, receive, send))
+                self.assertEqual(sent[0]["status"], status)
+                self.assertIn(detail, logs.output[0])
+                self.assertNotIn(detail.encode(), sent[1]["body"])
 
     def test_unknown_content_type_on_a_write_is_415(self):
         self.assertEqual(
@@ -2280,9 +2322,13 @@ class TestTextAndListings(unittest.TestCase):
         class Thing:
             pass
 
-        status, _, body = asyncio.run(get({"data": {"thing": Thing()}}, "/data.json"))
+        with self.assertLogs("mumulib.server", "ERROR") as logs:
+            status, _, body = asyncio.run(
+                get({"data": {"thing": Thing()}}, "/data.json")
+            )
         self.assertEqual(status, 500)
-        self.assertIn(b"Thing has no JSON form", body)
+        self.assertIn("Thing has no JSON form", logs.output[0])
+        self.assertNotIn(b"Thing", body)
 
     def test_a_containers_slash_lists_what_could_be_fetched(self):
         import tempfile

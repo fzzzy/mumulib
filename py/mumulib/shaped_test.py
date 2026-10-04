@@ -1,6 +1,4 @@
 # pyright: standard
-import contextlib
-import io
 import unittest
 
 from mumulib.shaped import (
@@ -500,9 +498,8 @@ class TestWouldRetainShape(unittest.TestCase):
             "Custom class bad shape match should fail",
         )
 
-    def test_debug_prints_traceback(self):
-        stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr):
+    def test_debug_logs_the_exception(self):
+        with self.assertLogs("mumulib.shaped", "ERROR") as logs:
             result = would_retain_shape({"a": int}, {"a": 1}, ["b"], 2, debug=True)
         self.assertFalse(result, "Nonexistent path should fail")
-        self.assertIn("KeyMismatch", stderr.getvalue())
+        self.assertIn("KeyMismatch", logs.output[0])

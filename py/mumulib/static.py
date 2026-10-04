@@ -25,6 +25,7 @@ nothing is asked of it.
 """
 
 import asyncio
+import logging
 import urllib.error
 import urllib.request
 from collections.abc import AsyncIterator
@@ -49,6 +50,8 @@ from mumulib.producers import add_producer
 __all__ = ["Page", "VITE_DEV_SERVER", "VITE_BASE"]
 
 # Where Vite's dev server always is, in development: a port of its own
+logger = logging.getLogger(__name__)
+
 VITE_DEV_SERVER = "http://127.0.0.1:5757"
 
 # Vite's base: everything it serves is below it, built or not
@@ -123,15 +126,18 @@ async def _produce_page(thing: Page, state: State) -> AsyncIterator[Chunk]:
             # TODO: an async client; a thread keeps the loop free meanwhile
             yield await asyncio.to_thread(_fetch, url)
         except (urllib.error.URLError, OSError) as exc:
+            logger.warning("Vite's dev server did not answer for %s: %s", url, exc)
             raise HTTPResponse(
-                502, f"Vite's dev server did not answer for {url}: {exc}\n"
+                502, f"Vite's dev server did not answer for {url}\n"
             ) from exc
         return
     file = file_of(thing, state)
     if file is None:
         raise HTTPResponse(500, "consumers_app was given no vite directory\n")
     if not file.is_file():
-        raise HTTPResponse(500, f"{thing.entry} is not built, in {file.parent}\n")
+        # Where it was looked for is the server's to know, not the client's
+        logger.error("%s is not built, in %s", thing.entry, file.parent)
+        raise HTTPResponse(500, f"{thing.entry} is not built\n")
     start = {
         "type": "http.response.start",
         "status": 200,

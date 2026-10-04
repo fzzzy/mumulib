@@ -77,6 +77,11 @@ extension alone decides what comes back.
   never its `str()`; and in JSON, a value with no JSON form is an error, not a
   quiet `null`. A `None` is `null` in a JSON document, but is not found as a
   URL's own answer: a consumer's `None` means not found.
+- An error tells the client its status and no more: what went wrong -- an
+  exception and its traceback, a body that would not parse -- is logged,
+  to the `mumulib.server` logger and its like, and never sent. A 500 is
+  logged at `ERROR`, a 400 or 413 at `INFO`. With no logging configured,
+  Python's own last resort still prints an `ERROR` and its traceback.
 - A write -- anything but `GET`, `HEAD` or `OPTIONS` -- that a browser sends
   from another origin is 403: a page elsewhere cannot post a form here with
   a visitor's cookies. `Sec-Fetch-Site` decides where a browser sends it;

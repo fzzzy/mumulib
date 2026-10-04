@@ -86,9 +86,13 @@ class TestProduction(StaticCase):
 
     def test_a_page_not_built_or_with_nowhere_to_be_is_an_err(self):
         (self.vite / "notes" / "index.html").unlink()
-        status, _, body = self.call(self.app(), "/")
+        with self.assertLogs("mumulib.static", "ERROR") as logs:
+            status, _, body = self.call(self.app(), "/")
         self.assertEqual(status, 500)
         self.assertIn(b"notes/index.html is not built", body)
+        # Where it was looked for is logged, and not told to the client
+        self.assertIn(str(self.vite), logs.output[0])
+        self.assertNotIn(str(self.vite).encode(), body)
         status, _, body = self.call(self.app(vite=False), "/")
         self.assertEqual(status, 500)
         self.assertIn(b"no vite directory", body)

@@ -7,6 +7,12 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **An error's message is no longer the exception's.** A 500, 400 or 413
+  said `str(exc)` to the client -- an internal error's text, a parser's, a
+  built page's directory -- and a 500 printed its traceback. The client is
+  told a fixed sentence now, and the rest is logged: `logging`, to
+  `mumulib.server`, `mumulib.static` and `mumulib.shaped`, in place of
+  `print` and `traceback.print_exc`.
 - **A write from another origin is refused, 403.** A `POST`, `PUT`,
   `PATCH` or `DELETE` a browser sends from another site's page -- by
   `Sec-Fetch-Site`, or else by an `Origin` whose host is not the request's
