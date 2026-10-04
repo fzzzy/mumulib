@@ -44,54 +44,33 @@ The main entry point is an ASGI server factory that takes a single python object
 ## URLs
 
 `server.consumers_app(root)` publishes a Python object: a URL's path walks
-into it, through dicts by key and lists and tuples by index, and its
-extension alone decides what comes back.
+    into it, through dicts by key and lists and tuples by index, and the URLs
+    File extension determines which content type the object is rendered into.
 
 - `/motto.json` is `root["motto"]` as JSON, and `/motto.txt` the same value as
-  text. The extension is the type, not part of the key. `.txt` is plain text,
-  `.sse` server-sent events, `.xml` `application/xml`, and any other extension
-  is the type Python's own table gives it -- never the machine's
-  `/etc/mime.types`, so a type is the same on every machine, every time. A
-  URL without an extension is 404, and so is one whose extension has no type.
-- A container -- a dict, list, tuple or directory -- has one URL per type:
-  its slash, `/todos/`, as HTML, which is for people in browsers, and its
-  name, `/todos.json`, as anything else, as a leaf's is. `/todos.html` is
-  404, and so is `index.<ext>` spelled out, anywhere.
-- The slash is the container's `"index"` entry if it has one, and else a
-  `<ul>` of links to what is in it, as a directory's is: a container by its
-  slash, a file by its own extension, anything else as `.html`, and only what
-  could be fetched. Its name is always the container itself, as data. `PUT`
-  and `DELETE` on the slash write and remove the `"index"` entry, and on the
-  name replace and remove the container.
-- A list's or tuple's element has one URL: its index is `0`, or ASCII digits
-  with no leading zero. `-1`, `01` and `+1` are not found, though Python's
-  `int()` would take them for some element.
-- The root is the one exception: it has no name in a parent, so `/` is its
-  only URL, and it cannot be replaced whole. Its data is its entries'.
+- A URL without an extension is 404, and so is one whose extension doesn't map 
+    to a producer.
+- A container is a dict, list, tuple, directory, Persist or Resource
+    - `/todos/` is rendered as an html index page unless guarded by RefuseIndex.
+    - `/todos.json`, `/todos.txt`, and `/todos.xml` are also valid representations
+        of the same object.
+- Containers can be replaced or deleted with PUT or DELETE unless guarded with GetOnly.
+    - The root is the one exception: it has no name in a parent, so `/` is its
+        only URL, and it cannot be replaced whole. Its data is its entries'.
 - A string is text: its own content at `.txt`, and a JSON string at `.json`,
-  and a number its digits at both. As anything else -- `.html`, `.js`,
-  `.css`, `.xml` -- it is not found, since a string, a visitor's included,
-  served as markup or code is anyone's page. HTML of your own is a
-  `tags.Markup`, served at `.html` alone; a resource's template is its
-  markup. `True` and `False` are JSON alone. What has no producer for the URL's type is 404,
-  never its `str()`; and in JSON, a value with no JSON form is an error, not a
-  quiet `null`. A `None` is `null` in a JSON document, but is not found as a
-  URL's own answer: a consumer's `None` means not found.
-- An error tells the client its status and no more: what went wrong -- an
-  exception and its traceback, a body that would not parse -- is logged,
-  to the `mumulib.server` logger and its like, and never sent. A 500 is
-  logged at `ERROR`, a 400 or 413 at `INFO`. With no logging configured,
-  Python's own last resort still prints an `ERROR` and its traceback.
-- A write -- anything but `GET`, `HEAD` or `OPTIONS` -- that a browser sends
-  from another origin is 403: a page elsewhere cannot post a form here with
-  a visitor's cookies. `Sec-Fetch-Site` decides where a browser sends it;
-  else `Origin`, whose host must be the request's `Host`. A request with
-  neither, from `curl` or a script, is no browser's and is let through.
-- `HEAD` is answered wherever `GET` is, as `GET`: the same status and
-  headers, and no body.
+  and a number its digits at both.
+    - As anything else -- `.html`, `.js`, `.css`, `.xml` -- it is not found
+    - Any object that doesn't have a producer registered for the content type
+        of the file extension is 404 Not Found.
+    - A `None` is `null` in a JSON document, but is not found as a
+        URL's own answer: a consumer returning `None` means not found.
+- Anything but `GET`, `HEAD` or `OPTIONS` that a browser sends
+    from another origin is 403
+- `HEAD` is answered with the same status and headers as `GET`, and no body.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
-  multipart), never what the response is; no response varies by request
-  headers.
+  multipart) but only the urls file extension determines the response content
+    type.
+
 
 ## Examples
 
