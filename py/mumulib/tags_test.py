@@ -25,6 +25,11 @@ ATTR_TEMPLATE = b"""<!DOCTYPE html>
 """
 
 
+def loaded(path):
+    """A Template of path, loaded"""
+    return asyncio.run(Template(str(path)).load())
+
+
 def render(node, accept=("*/*",)):
     async def collect():
         state = {"accept": list(accept)}
@@ -227,7 +232,7 @@ class TestTemplates(unittest.TestCase):
         self.assertIsNone(parse_template(io.BytesIO(b" ")))
 
     def test_template_clone_pat_fills_slots(self):
-        template = Template(str(HERE / "templates.html"))
+        template = loaded(HERE / "templates.html")
         person = template.clone_pat("person", name="Bob", age=40)
         self.assertTrue(template.loaded)
         rendered = render(person)
@@ -236,7 +241,7 @@ class TestTemplates(unittest.TestCase):
         self.assertIn("red", rendered)
 
     def test_template_clone_pat_slot_and_attr_on_pattern_root(self):
-        template = Template(str(self.attr_path))
+        template = loaded(self.attr_path)
         link = template.clone_pat("link", url="/home", label="Home")
         self.assertEqual(link.attributes["href"], "/home")
         self.assertEqual(link.attributes["title"], "Home")
@@ -247,7 +252,7 @@ class TestTemplates(unittest.TestCase):
         self.assertIs(replaced, replacement)
 
     def test_template_clone_pat_nested_attr_slot(self):
-        template = Template(str(self.attr_path))
+        template = loaded(self.attr_path)
         card = template.clone_pat("card", title="Hello", picture="/cat.png")
         self.assertEqual(card.children[0].children, ["Hello"])
         self.assertEqual(card.children[1].attributes["src"], "/cat.png")
@@ -261,14 +266,14 @@ class TestTemplates(unittest.TestCase):
         self.assertEqual(template.clone_pat("para").tagname, "p")
 
     def test_template_clone_pat_missing(self):
-        template = Template(str(self.attr_path))
+        template = loaded(self.attr_path)
         with self.assertRaises(ValueError):
             template.clone_pat("nope")
 
     def test_template_that_failed_to_load(self):
         empty = Path(self.tmp.name) / "empty.html"
         empty.write_bytes(b" ")
-        template = Template(str(empty))
+        template = loaded(empty)
         with self.assertRaises(ValueError):
             template.clone_pat("link")
         # Slot operations on an unloaded root are no-ops.
@@ -278,27 +283,66 @@ class TestTemplates(unittest.TestCase):
         self.assertIsNone(template.root)
 
     def test_template_slot_operations(self):
-        template = Template(str(self.attr_path))
+        template = loaded(self.attr_path)
         template.fill_slots("footer", "filled")
         assert template.root is not None
         footer = template.root.children[0].children[2]
         self.assertEqual(footer.children, ["filled"])
 
-        other = Template(str(self.attr_path))
+        other = loaded(self.attr_path)
         other.append_slots("footer", "!")
         assert other.root is not None
         self.assertEqual(other.root.children[0].children[2].children, ["footer", "!"])
 
-        cleared = Template(str(self.attr_path))
+        cleared = loaded(self.attr_path)
         cleared.clear_slots("footer")
         assert cleared.root is not None
         self.assertEqual(cleared.root.children[0].children[2].children, [])
 
     def test_load_returns_self(self):
         template = Template(str(self.attr_path))
-        self.assertIs(template.load(), template)
+        self.assertIs(asyncio.run(template.load()), template)
         self.assertIsNotNone(template.template)
         self.assertIsNot(template.root, template.template)
+
+
+class TestTemplateLoading(unittest.TestCase):
+    """A template is loaded once, awaited, off the loop, and closed after"""
+
+    def test_used_before_it_is_loaded_is_an_error(self):
+        template = Template(str(HERE / "templates.html"))
+        for use in (
+            lambda: template.clone_pat("person"),
+            lambda: template.fill_slots("x", "y"),
+            lambda: template.clear_slots("x"),
+            lambda: template.append_slots("x", "y"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "await its load"):
+                use()
+
+    def test_it_is_read_in_a_thread_and_its_file_closed(self):
+        import gc
+        import threading
+        import warnings
+        from unittest import mock
+
+        threads = []
+        real = tags.parse_template
+
+        def noting(source):
+            threads.append(threading.current_thread())
+            return real(source)
+
+        with (
+            mock.patch("mumulib.tags.parse_template", noting),
+            warnings.catch_warnings(record=True) as caught,
+        ):
+            warnings.simplefilter("always", ResourceWarning)
+            template = loaded(HERE / "templates.html")
+            gc.collect()
+        self.assertIsNot(threads[0], threading.main_thread())
+        self.assertIsNotNone(template.template)
+        self.assertEqual([w for w in caught if w.category is ResourceWarning], [])
 
 
 class TestProduceHtml(unittest.TestCase):
@@ -537,7 +581,7 @@ class TestAttrSlots(unittest.TestCase):
                 f'<html><body><i data-pat="p" data-attr="{self.MESSY}">x</i>'
                 "</body></html>"
             )
-            cloned = Template(str(path)).clone_pat("p", **{"b=c": "v", "row": "r"})
+            cloned = loaded(path).clone_pat("p", **{"b=c": "v", "row": "r"})
         assert cloned is not None
         self.assertEqual((cloned.attributes["a"], cloned.attributes["id"]), ("v", "r"))
 

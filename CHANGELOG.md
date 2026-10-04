@@ -7,6 +7,13 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **`tags.Template` is loaded with `await`:
+  `template = await Template(path).load()`.** Its first `clone_pat`,
+  `fill_slots`, `clear_slots` or `append_slots` read and parsed the file on
+  the event loop, and left it open. `load()` does it in a thread now, and
+  closes it; used before it is loaded, a `Template` raises `RuntimeError`
+  rather than reading the disk where it stands. What it does once loaded is
+  in memory, and stays synchronous.
 - **Files are written off the event loop, and `Persist.write()` is a
   coroutine: `await persist.write()`.** `Resource.save()` and a `Persist`'s
   write ran the atomic write -- a temporary file, `fsync`, a rename -- on

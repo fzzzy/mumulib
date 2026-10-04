@@ -1,3 +1,4 @@
+import asyncio
 import html
 from collections.abc import AsyncIterator
 from typing import IO, TYPE_CHECKING, Any, cast
@@ -460,6 +461,11 @@ def parse_template(source: IO[bytes]) -> Stan | None:
     return root
 
 
+def _parse_file(filename: str) -> Stan | None:
+    with open(filename, "rb") as source:
+        return parse_template(source)
+
+
 class Template:
     def __init__(self, filename: str) -> None:
         self.filename: str = filename
@@ -467,16 +473,23 @@ class Template:
         self.template: Stan | None = None
         self.root: Stan | None = None
 
-    def load(self) -> Template:
+    async def load(self) -> Template:
+        """Its file, read and parsed in a thread, so the event loop is not
+        kept waiting on the disk: template = await Template(path).load().
+        What is done with it after is done in memory, and needs no await."""
+        self.template = await asyncio.to_thread(_parse_file, self.filename)
+        self.root = self.template.copy() if self.template else None
         self.loaded = True
-        self.template = parse_template(open(self.filename, "rb"))
-        if self.template:
-            self.root = self.template.copy()
         return self
 
-    def clone_pat(self, patname: str, **slots: Any) -> Stan:
+    def _check_loaded(self) -> None:
         if not self.loaded:
-            self.load()
+            raise RuntimeError(
+                f"Template {self.filename} is not loaded: await its load() first"
+            )
+
+    def clone_pat(self, patname: str, **slots: Any) -> Stan:
+        self._check_loaded()
         current = self.template
         if not current:
             raise ValueError("Template failed to load")
@@ -500,20 +513,17 @@ class Template:
             raise ValueError(f"Pattern {patname} not found in template.")
 
     def fill_slots(self, slotname: str, value: Any) -> None:
-        if not self.loaded:
-            self.load()
+        self._check_loaded()
         if self.root:
             self.root.fill_slots(slotname, value)
 
     def clear_slots(self, slotname: str) -> None:
-        if not self.loaded:
-            self.load()
+        self._check_loaded()
         if self.root:
             self.root.clear_slots(slotname)
 
     def append_slots(self, slotname: str, value: Any) -> None:
-        if not self.loaded:
-            self.load()
+        self._check_loaded()
         if self.root:
             self.root.append_slots(slotname, value)
 
