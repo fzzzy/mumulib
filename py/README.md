@@ -8,38 +8,38 @@ and `tags`. Runtime dependencies are aiofiles and python-multipart.
 
 ## API
 
-Each module's `__all__` is its public API, and what mumulib promises to keep
-working; anything else in a module is its own.
+Each module's `__all__` is its public API.
 
-- `mumulib.server`: `consumers_app(root)`, to publish an object, and
-  `EventSource()`, server-sent events to every client listening.
-- `mumulib.consumers`: `consume`, `add_consumer` to walk into a new type --
-  `container=True`, or a function of the thing, if it is a container -- and
-  the guards `GetOnly`, to publish an object read-only, and `RefuseIndex`, to
-  publish it with no index.
-- `mumulib.producers`: `produce`, and `add_producer` to render a new type.
-- `mumulib.resource`: `Resource`, a class to subclass for an object with
-  children of its own and handlers for each method.
+The main entry point is an ASGI server factory that takes a single python object. The entire tree of the web server is reachable through this object.
+
+- `mumulib.server`: `consumers_app(root)`, to publish an object.
+- `mumulib.consumers`: 
+    - `consume`: walk the HTTP request path down the object tree.
+    - `add_consumer`: register a function used to consume an arbitrary python type
+    - guards `GetOnly` to publish an object read-only, and `RefuseIndex` to
+        publish it with no index.
+- `mumulib.producers`:
+    - `produce`: find the serializer function for the URL's file 
+        extension and convert into bytes
+    - `add_producer` to render an arbitrary python type.
+- `mumulib.resource`: `Resource`, a base class for an object with
+    children of its own and handlers for each method.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
-  `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
-- `mumulib.tags`: `Stan`, `Template`, `parse_template`, the slot functions,
-  `produce_html`, `Markup`, and the tag groups -- `tags.every.<element>` for
-  any element. Written out, a tree's text is escaped and its attributes too,
-  so a slot filled with what a visitor sent shows it rather than running
-  it. A tree in a tree is markup, and so is `Markup("<i>mine</i>")`, for HTML
-  you wrote yourself; `<script>` and `<style>` are written as they are.
-  The template attributes have short names in Stan: `t.tr(pat="row")` is a
-  pattern, `data-pat`; `t.td(slt="name")` a slot, `data-slot` -- `slot` is
-  HTML's own, for shadow DOM; and `t.a(attr="href=url")`, or
-  `attr={"href": "url"}`, fills attributes from slots, `data-attr`; and
-  `live=True` marks an element live.js keeps up to date. An attribute that is
-  `True` is written by its name, `required`, and one that is `False` or
-  `None` is left out, as boolean attributes must be. `page(title, *content,
-stylesheets=, scripts=, live=)` is a whole page: the doctype, a UTF-8
-  charset and a viewport, the title, the stylesheets and scripts, and the
-  content as its body.
-- `mumulib.mumutypes`: the ASGI and mumulib types those use, `SpecialResponse`
-  and the HTTP responses, and `content_type_for`.
+    `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
+- `mumulib.tags`: a domain specific language for constructing HTML in python.
+    - `Stan`: used to express a tree of HTML in python.
+    - `Template`: loads in a tree of Stan from an HTML file.
+    - `parse_template`: loads in a tree of Stan from an HTML string
+    - `fill_slots`: Fill the named slots in a Stan tree. Slots usually contain
+        placeholder data until filled.
+    - `Markup`: Used to represent a string which is already html. Normal python
+        strings are html escaped when rendering.
+    - `tags.every`: Every html element, such as `every.div`, as Stan.
+    - `page(title, *content, stylesheets=, scripts=, live=)`: Returns a stan tree
+        with a doctype, a UTF-8 charset and a viewport, the title, the 
+        stylesheets and scripts, and the content as its body.
+- `mumulib.mumutypes`: `SpecialResponse` and the HTTP responses,
+    `content_type_for`, and the base types mumulib defines.
 
 ## URLs
 
