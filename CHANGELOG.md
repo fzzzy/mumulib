@@ -7,6 +7,13 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **Files are written off the event loop, and `Persist.write()` is a
+  coroutine: `await persist.write()`.** `Resource.save()` and a `Persist`'s
+  write ran the atomic write -- a temporary file, `fsync`, a rename -- on
+  the loop, so every request and event stream waited on the disk. They run
+  it in a thread now, as both `load()`s do their reads. A file's writes are
+  made in turn, in the order asked for, so a slow one never lands after a
+  later one; the JSON is made on the loop first, the state as it was then.
 - **An error's message is no longer the exception's.** A 500, 400 or 413
   said `str(exc)` to the client -- an internal error's text, a parser's, a
   built page's directory -- and a 500 printed its traceback. The client is

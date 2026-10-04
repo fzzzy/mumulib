@@ -135,13 +135,13 @@ class TestPersist(PersistCase):
             status = self.call("GET", "/n.json", root={"n": nested})[0]
         self.assertEqual(status, 500)
         with self.assertRaisesRegex(TypeError, "/n/a/0 is a Persist"):
-            nested.write()
+            asyncio.run(nested.write())
 
     def test_with_no_data_directory_it_is_kept_in_memory(self):
         thing = Persist()
         self.assertIsNone(thing.file)
         asyncio.run(thing.load())
-        thing.write()
+        asyncio.run(thing.write())
 
         async def go():
             # Asked for with no file: the document, made into JSON

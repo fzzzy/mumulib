@@ -35,8 +35,9 @@ from mumulib.consumers import (
     answer,
     consume,
     plain,
+    read_file,
     refuse,
-    write_atomically,
+    write_file,
 )
 from mumulib.mumutypes import (
     Chunk,
@@ -67,17 +68,20 @@ class Persist(Located):
         written there now."""
         if self.file is None:
             return
-        if self.file.exists():
-            self.document = json.loads(self.file.read_text(encoding="utf-8"))
+        text = await read_file(self.file)
+        if text is not None:
+            self.document = json.loads(text)
         else:
-            self.write()
+            await self.write()
 
-    def write(self) -> None:
-        """The whole document, to its file, atomically. With no file -- no
+    async def write(self) -> None:
+        """The whole document, to its file, atomically, and in a thread, so
+        the event loop is not kept waiting on the disk. With no file -- no
         data directory -- it is kept in memory alone."""
         plain(self.document, self.url or type(self).__name__)
         if self.file is not None:
-            write_atomically(self.file, json.dumps(self.document))
+            # The document as it is now, made on the loop; written in a thread
+            await write_file(self.file, json.dumps(self.document))
 
 
 def _succeeded(result: Any) -> bool:
@@ -91,7 +95,7 @@ async def _consume_persist(
 ) -> Any:
     result = await consume(parent.document, segments, state, send)
     if state.get("method", "GET").upper() != "GET" and _succeeded(result):
-        parent.write()
+        await parent.write()
     return result
 
 
@@ -100,7 +104,7 @@ async def _produce_persist_json(thing: Persist, state: State) -> AsyncIterator[C
     method = state.get("method", "GET").upper()
     if method == "PUT":
         thing.document = state.get("parsed_body")
-        thing.write()
+        await thing.write()
         raise answer(204)
     if method != "GET":
         raise refuse("GET, HEAD, PUT")

@@ -32,7 +32,8 @@ from mumulib.consumers import (
     add_consumer,
     consume,
     plain,
-    write_atomically,
+    read_file,
+    write_file,
 )
 from mumulib.mumutypes import Chunk, NotFoundResponse, Send, SpecialResponse, State
 from mumulib.producers import (
@@ -108,8 +109,11 @@ class Resource(Located):
 
     async def load(self) -> None:
         """Its file, if it has one, as self.state; else the state it has."""
-        if self.file is not None and self.file.exists():
-            self.state = json.loads(self.file.read_text(encoding="utf-8"))
+        if self.file is None:
+            return
+        text = await read_file(self.file)
+        if text is not None:
+            self.state = json.loads(text)
 
     async def save(self) -> None:
         """Write self.state to its file, whole, as its .json answers.
@@ -124,7 +128,9 @@ class Resource(Located):
                 "has not reached it, or the app has no data directory"
             )
         plain(self.state, self.url or type(self).__name__)
-        write_atomically(self.file, json.dumps(self.state, default=custom_serializer))
+        # The state as it is now, made on the loop; written in a thread
+        text = json.dumps(self.state, default=custom_serializer)
+        await write_file(self.file, text)
 
     async def get_child(self, segments: list[str], request: State, send: Send) -> Any:
         """The child the next segment names, its child_ attribute, or None.

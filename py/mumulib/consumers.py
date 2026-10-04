@@ -24,10 +24,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import asyncio
 import json
 import os
 import sys
 import tempfile
+import weakref
 from collections.abc import AsyncIterator, Callable, Iterable
 from io import BufferedReader, TextIOWrapper
 from pathlib import Path
@@ -266,6 +268,40 @@ def write_atomically(file: Path, text: str) -> None:
     except BaseException:
         os.unlink(temporary)
         raise
+
+
+# A lock for each file being written, while anything holds or awaits it
+_writing: weakref.WeakValueDictionary[Path, asyncio.Lock] = (
+    weakref.WeakValueDictionary()
+)
+
+
+async def write_file(file: Path, text: str) -> None:
+    """write_atomically, in a thread: the event loop goes on answering while
+    the disk is written to and flushed.
+
+    One file's writes are made in turn, in the order they were asked for --
+    an asyncio.Lock is first come, first served -- so a slow write cannot
+    finish after a later one and leave the older text in the file. Make text
+    before awaiting this, on the loop, so it is the state as it was then.
+    """
+    lock = _writing.get(file)
+    if lock is None:
+        lock = _writing[file] = asyncio.Lock()
+    async with lock:
+        await asyncio.to_thread(write_atomically, file, text)
+
+
+def _read(file: Path) -> str | None:
+    try:
+        return file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+
+
+async def read_file(file: Path) -> str | None:
+    """A file's text, read in a thread; None if there is no such file."""
+    return await asyncio.to_thread(_read, file)
 
 
 async def _locate(thing: Located, segments: list[str], state: State) -> None:

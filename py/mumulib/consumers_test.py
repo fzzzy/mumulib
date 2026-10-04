@@ -777,3 +777,127 @@ class TestLocated(unittest.TestCase):
         self.assertEqual(file_for(data, "/"), data / "index.json")
         with self.assertRaises(ValueError):
             file_for(data, "/../etc/passwd")
+
+
+class TestWritingOffTheLoop(unittest.TestCase):
+    """Files are written and read in a thread, one file's writes in turn"""
+
+    def setUp(self):
+        import tempfile
+
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.data = Path(directory.name)
+
+    def slow_writes(self, delay):
+        """write_atomically, patched to sleep first and note its thread"""
+        import threading
+        import time
+        from unittest import mock
+
+        from mumulib import consumers
+
+        real = consumers.write_atomically
+        self.threads = []
+
+        def slow(file, text):
+            self.threads.append(threading.current_thread())
+            time.sleep(delay(text))
+            real(file, text)
+
+        return mock.patch("mumulib.consumers.write_atomically", slow)
+
+    def test_the_loop_answers_while_the_disk_is_written(self):
+        import threading
+
+        from mumulib.consumers import write_file
+
+        ticks = 0
+
+        async def go():
+            nonlocal ticks
+            writing = asyncio.ensure_future(write_file(self.data / "a.json", "1"))
+            while not writing.done():
+                ticks += 1
+                await asyncio.sleep(0.01)
+
+        with self.slow_writes(lambda text: 0.2):
+            asyncio.run(go())
+        self.assertGreater(ticks, 5)
+        self.assertIsNot(self.threads[0], threading.main_thread())
+        self.assertEqual((self.data / "a.json").read_text(), "1")
+
+    def test_one_files_writes_finish_in_the_order_asked(self):
+        from mumulib.consumers import write_file
+
+        async def go():
+            await asyncio.gather(
+                *(write_file(self.data / "a.json", str(n)) for n in range(5))
+            )
+
+        # The first asked for is the slowest: without turns it would finish last
+        with self.slow_writes(lambda text: (5 - int(text)) * 0.02):
+            asyncio.run(go())
+        self.assertEqual((self.data / "a.json").read_text(), "4")
+
+    def test_a_file_not_there_reads_as_none(self):
+        from mumulib.consumers import read_file
+
+        self.assertIsNone(asyncio.run(read_file(self.data / "missing.json")))
+
+    def test_a_resource_and_a_persist_save_in_a_thread(self):
+        import threading
+
+        from mumulib.persist import Persist
+        from mumulib.resource import Resource
+
+        class Note(Resource):
+            async def handle_POST(self, request):
+                self.state["text"] = request["parsed_body"]
+                await self.save()
+                return self.state
+
+        root = {"note": Note(), "kept": Persist({"a": 1})}
+        app = consumers_app(root, data=self.data)
+
+        async def request(method, path, body):
+            async def receive():
+                return {
+                    "type": "http.request",
+                    "body": json.dumps(body).encode(),
+                    "more_body": False,
+                }
+
+            async def send(message):
+                pass
+
+            scope = {
+                "type": "http",
+                "method": method,
+                "path": path,
+                "headers": [(b"content-type", b"application/json")],
+                "state": {},
+            }
+            await app(scope, receive, send)
+
+        async def go():
+            await request("POST", "/note.json", "hello")
+            await request("PUT", "/kept/a.json", 2)
+
+        with self.slow_writes(lambda text: 0):
+            asyncio.run(go())
+        self.assertTrue(self.threads)
+        for thread in self.threads:
+            self.assertIsNot(thread, threading.main_thread())
+        self.assertEqual(
+            json.loads((self.data / "note.json").read_text()), {"text": "hello"}
+        )
+        self.assertEqual(json.loads((self.data / "kept.json").read_text()), {"a": 2})
+
+    def test_a_resource_with_no_file_loads_nothing(self):
+        from mumulib.resource import Resource
+
+        resource = Resource({"kept": True})
+        self.assertIsNone(resource.file)
+        asyncio.run(resource.load())
+        self.assertEqual(resource.state, {"kept": True})
