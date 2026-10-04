@@ -398,6 +398,10 @@ def consumers_app(
     The app serves it itself, read-only, at /mumulib/changes.sse, with
     /mumulib/live.js, the script that keeps a page's data-live elements up
     to date by it -- a page made with tags.page(..., live=True) links it.
+
+    Everyone who can open the stream hears every change: an app given
+    changes has no secret URLs, since a resource at one is announced to all
+    the first time it is written to.
     """
     data_directory = Path(data).resolve()
     vite_directory = Path(vite).resolve() if vite is not None else None
@@ -744,6 +748,8 @@ class EventSource:
 
     For events meant for one user, publish an EventSource of their own at a
     URL no one else can guess: {"events": {secrets.token_urlsafe(): ...}}.
+    Not in an app given changes= with anything of theirs written to: the
+    change stream announces every changed resource's URL to everyone.
 
     put is called from the event loop's thread, as asyncio's queues are.
     """

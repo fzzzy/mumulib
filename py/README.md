@@ -401,6 +401,9 @@ key = secrets.token_urlsafe()
 streams[key] = EventSource()  # /events/<key>.sse is theirs alone
 ```
 
+Not in an app given `changes`, if anything of theirs is written: the change
+stream tells everyone the URL, as below.
+
 ### Changes
 
 Given an `EventSource` as `changes`, `consumers_app` puts on it the URL of
@@ -438,6 +441,16 @@ the object, not a representation of it, so it has no extension, and a
 listener adds the extension it wants. It is put as the response's final
 body is produced, so a change is heard even if the client that made it has
 gone. A request that fails -- 404, 405, 500 -- puts nothing.
+
+Everyone hears every change. Anyone who can open `/mumulib/changes.sse` is
+told the URL of each container written to, by anyone, and the stream has no
+way to tell one listener less than another. So an app given `changes` has
+no secret URLs: a resource published at a URL no one else can guess --
+`/notes/<secrets.token_urlsafe()>` -- is announced to every listener the
+first time it is written to, and from then on anyone may read it and write
+it. Only a resource is named: a write to a plain dict or list with no
+resource above it puts `/`. Keep what one user may see out of an app with a
+change stream, or behind something that checks who is asking.
 
 A resource learns its URL from the path a request first reaches it by, and
 keeps it, as `url`: `/todos` for `/todos.json`, `/todos.html` and
