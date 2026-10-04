@@ -4,7 +4,7 @@ Python utilities for ASGI request handling, traversing and updating objects,
 producing responses, validating data shapes, and HTML templating.
 
 The package includes `consumers`, `producers`, `server`, `shaped`, `mumutypes`,
-and `tags`. Runtime dependencies are aiofiles and lxml.
+and `tags`. Runtime dependencies are aiofiles and python-multipart.
 
 ## API
 
@@ -536,7 +536,7 @@ uv run --directory py --extra dev --locked pyright
 ```
 
 The development extra includes pytest with pytest-cov, ruff, pyright and
-lxml-stubs. The package is checked with pyright in strict mode and ships its
+uvicorn. The package is checked with pyright in strict mode and ships its
 inline annotations with `py.typed`; the tests (`*_test.py`, next to the
 modules) are checked at pyright's standard level.
 

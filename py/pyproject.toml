@@ -13,7 +13,6 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "aiofiles>=24.1.0",
-    "lxml>=5.3.0",
     "python-multipart>=0.0.20",
 ]
 classifiers = [
@@ -29,9 +28,6 @@ dev = [
     "pyright>=1.1.411",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    # lxml ships no type information; without these, pyright strict cannot
-    # see lxml.etree at all (reportMissingTypeStubs in tags.py).
-    "lxml-stubs>=0.5.1",
     # To run the examples; mumulib itself needs no particular ASGI server
     "uvicorn>=0.52.4",
 ]
@@ -70,10 +66,8 @@ omit = ["*_test.py"]
 [tool.coverage.report]
 show_missing = true
 precision = 1
-# Measured on the package alone, tests omitted: 99.8%. The two partial
-# branches left are defensive ones in tags.parse_template that lxml's
-# iterparse never takes.
-fail_under = 99.8
+# Measured on the package alone, tests omitted: every line and branch.
+fail_under = 100
 
 # The one package, named rather than discovered: discovery also finds var/,
 # the data a test or an example leaves here, and refuses to build

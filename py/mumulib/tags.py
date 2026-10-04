@@ -1,9 +1,8 @@
 import asyncio
 import html
 from collections.abc import AsyncIterator
+from html.parser import HTMLParser
 from typing import IO, TYPE_CHECKING, Any, cast
-
-from lxml import etree
 
 from mumulib import mumutypes, producers
 from mumulib.mumutypes import State
@@ -421,43 +420,63 @@ web_components = TagGroup(*WEB_COMPONENTS)
 every = TagGroup(*ALL_ELEMENTS)
 
 
+class _TemplateParser(HTMLParser):
+    """A template's elements as Stan, as the standard library's parser reads
+    them: character references decoded, in text and attribute values alike;
+    comments and the doctype passed over; text that is only whitespace
+    dropped, and any other kept where it is."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.top: list[Any] = []
+        self.open: list[Stan] = []
+
+    def _add(self, child: Any) -> None:
+        (self.open[-1].children if self.open else self.top).append(child)
+
+    def _element(self, tag: str, attrs: list[tuple[str, str | None]]) -> Stan:
+        # An attribute with no value, disabled, is its own name, as HTML has it
+        node = Stan(tag, 0, **{k: k if v is None else v for k, v in attrs})
+        self._add(node)
+        return node
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        node = self._element(tag, attrs)
+        # A void element, <img>, has no end tag, and nothing inside it
+        if tag not in VOID_ELEMENTS_SET:
+            self.open.append(node)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._element(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        # The element it names closes, and any left open inside it; an end
+        # tag with nothing of its name open is passed over
+        for depth in range(len(self.open) - 1, -1, -1):
+            if self.open[depth].tagname == tag:
+                del self.open[depth:]
+                return
+
+    def handle_data(self, data: str) -> None:
+        if data.strip():
+            self._add(data)
+
+
 def parse_template(source: IO[bytes]) -> Stan | None:
-    context = etree.iterparse(
-        source, events=("start", "end"), html=True, encoding="UTF-8"
-    )
-
-    root: Stan | None = None
-    current: Stan | None = None
-    stack: list[Stan] = []
-    indent = 0
-
-    for event, elem in context:
-        if event == "start":
-            newtag = Stan(elem.tag.lower(), indent, **elem.attrib)
-            indent += 1
-            if current is None:
-                root = newtag
-                current = newtag
-            else:
-                stack.append(current)
-                current[newtag]
-                current = newtag
-
-            if elem.text and elem.text.replace("\n", "").replace(" ", ""):
-                current[elem.text]
-
-        elif event == "end":
-            if elem.tail and elem.tail.strip() and current:
-                current[elem.tail]
-
-            if current and current.tagname == elem.tag:
-                if stack:
-                    indent -= 1
-                    current = stack.pop()
-                else:
-                    current = None
-            # Clean up to free memory
-            elem.clear()
+    """A template, read as UTF-8 HTML, as a tree of Stan: a whole page as
+    its <html>, and a fragment put in a <body> in one, as a browser would.
+    None if it has no element at all."""
+    parser = _TemplateParser()
+    parser.feed(source.read().decode("utf-8"))
+    parser.close()
+    if not any(isinstance(child, Stan) for child in parser.top):
+        return None
+    first = parser.top[0]
+    if len(parser.top) == 1 and isinstance(first, Stan) and first.tagname == "html":
+        root = first
+    else:
+        root = Stan("html", 0, Stan("body", 1, *parser.top))
+    reindent_tree(root, 0)
     return root
 
 
@@ -610,7 +629,7 @@ async def produce_child(child: Any, state: State) -> AsyncIterator[str]:
 
 async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
     # A whole page says it is HTML: without the doctype, a browser renders it
-    # in quirks mode. parse_template drops a template's own, as lxml reads it.
+    # in quirks mode. parse_template drops a template's own, as it reads it.
     if thing.tagname == "html":
         yield "<!doctype html>\n"
     indent = "    " * thing.indent

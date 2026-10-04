@@ -223,10 +223,58 @@ class TestTemplates(unittest.TestCase):
         assert root is not None
         div = root.children[0].children[0]
         self.assertEqual(div.tagname, "div")
+        # The text after <b> is the <div>'s, after it, where it is
         self.assertEqual(div.children[0].tagname, "b")
-        # The tail is kept, though today it lands inside <b> rather than
-        # after it in <div>.
-        self.assertIn(" tail", repr(div))
+        self.assertEqual(div.children[0].children, ["bold"])
+        self.assertEqual(div.children[1], " tail")
+
+    def test_parse_template_as_a_browser_reads_it(self):
+        def body(source):
+            root = parse_template(io.BytesIO(source))
+            assert root is not None
+            return root.children[0]
+
+        def shape(node):
+            if isinstance(node, Stan):
+                return [
+                    node.tagname,
+                    node.attributes,
+                    [shape(c) for c in node.children],
+                ]
+            return node
+
+        # A void element has no end tag, and holds nothing; a valueless
+        # attribute is its own name
+        self.assertEqual(
+            shape(body(b"<p><img src=a.png><input disabled>after</p>")),
+            [
+                "body",
+                {},
+                [
+                    [
+                        "p",
+                        {},
+                        [
+                            ["img", {"src": "a.png"}, []],
+                            ["input", {"disabled": "disabled"}, []],
+                            "after",
+                        ],
+                    ]
+                ],
+            ],
+        )
+        # An end tag closes what it names, and what is left open inside it;
+        # one with nothing of its name open is passed over; what is open at
+        # the end is closed
+        self.assertEqual(
+            shape(body(b"<div><b>x</div><p>y</span>z")),
+            ["body", {}, [["div", {}, [["b", {}, ["x"]]]], ["p", {}, ["y", "z"]]]],
+        )
+        # Indents follow the tree, the <body> put around a fragment included
+        root = parse_template(io.BytesIO(b"<ul><li>a</li></ul>"))
+        assert root is not None
+        ul = root.children[0].children[0]
+        self.assertEqual((ul.indent, ul.children[0].indent), (2, 3))
 
     def test_parse_template_without_elements(self):
         self.assertIsNone(parse_template(io.BytesIO(b" ")))
@@ -449,7 +497,7 @@ class TestEscaping(unittest.TestCase):
         self.assertIn("a > b {}", out)
 
     def test_an_entity_in_a_template_comes_back_an_entity(self):
-        # lxml reads &amp; as &; written out, it is &amp; again
+        # Read as &, from &amp;; written out, it is &amp; again
         page = parse_template(io.BytesIO(b"<p>Fish &amp; chips &lt;3</p>"))
         self.assertIn("Fish &amp; chips &lt;3", render(page))
 

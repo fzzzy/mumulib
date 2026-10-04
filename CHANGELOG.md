@@ -7,6 +7,15 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **lxml is gone: templates are parsed by the standard library's
+  `html.parser`.** lxml, a large C extension, was used for nothing else.
+  Every template here parses to the same tree, but for one fix: text after
+  an element is its parent's, after it -- in `<div><b>bold</b> tail</div>`,
+  " tail" had been put inside the `<b>`. A fragment is still put in a
+  `<body>` in an `<html>`; what lxml repaired beyond that in malformed HTML
+  -- a `<p>` closed by the next `<p>`, say -- is not repaired: an end tag
+  closes the element it names and what is open inside it, and what is open
+  at the end is closed.
 - **TypeScript: in Node, import `mumulib/node`.** `mumulib`'s Node bundles
   set domino's `document` and element classes on `globalThis` as they were
   imported, whatever the importer wanted. Now `mumulib` sets nothing, and
