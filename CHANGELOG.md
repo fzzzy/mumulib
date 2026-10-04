@@ -338,6 +338,15 @@ Python package). Breaking changes come first under each release.
   them, and a dialog's `returnValue` too. And a fill stops at what is already
   filled: a pattern's slots and `data-attr` are its own, so filling a page's
   `name` no longer overwrites the `name` of every row already put in a list.
+- The `.sfc.html` plugin and checker read a component as HTML does, not by
+  regular expression. A `<template>` inside the template ended it at the
+  inner one's end tag; a `<script>` inside the template, or a comment
+  mentioning one, was taken for the component's script. Now, at the top
+  level, a `<template>` ends at its own end tag, past nested ones, comments
+  and raw text such as a `<style>`; a `<script>` at its first `</script>`;
+  and anything else there -- text, another element, a second `<template>`
+  or `<script>` -- is an error naming its line and column, where it had
+  been dropped without a word.
 - `state`: a change of state no longer wipes what is being typed. Every
   `set_state` wrote the state into every bound control, the field being
   typed in too, so a change from elsewhere -- `sync`'s, as the server

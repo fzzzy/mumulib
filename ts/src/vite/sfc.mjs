@@ -102,6 +102,165 @@ function mappings(source, start, length, before) {
   return ';'.repeat(before) + out.join(';')
 }
 
+// Elements whose content is text to their own end tag, however much it looks
+// like markup: inside a template, a `</template>` in one does not end it
+const RAW = new Set(['script', 'style', 'textarea', 'title'])
+
+// A tag's name where one starts at `<`, and whether it is an end tag
+const TAG = /<(\/?)([a-zA-Z][^\s/>]*)/y
+
+/** Line and column, from 1, of an index. @param {string} source @param {number} at */
+function where(source, at) {
+  const before = source.slice(0, at).split('\n')
+  return `${before.length}:${before[before.length - 1].length + 1}`
+}
+
+/** @param {string} source @param {number} at */
+function tagAt(source, at) {
+  TAG.lastIndex = at
+  const match = TAG.exec(source)
+  return match && { closing: match[1] === '/', name: match[2].toLowerCase() }
+}
+
+/**
+ * The index after the `>` that ends the tag at `at`: a quoted attribute value
+ * is read whole, so `title="a>b"` does not end it.
+ *
+ * @param {string} source
+ * @param {number} at
+ * @param {string} filename
+ */
+function tagEnd(source, at, filename) {
+  let quote = ''
+  for (let i = at + 1; i < source.length; i++) {
+    const c = source[i]
+    if (quote) {
+      if (c === quote) quote = ''
+    } else if (c === '"' || c === "'") {
+      quote = c
+    } else if (c === '>') {
+      return i + 1
+    }
+  }
+  throw new Error(`${filename}:${where(source, at)}: a tag is not closed`)
+}
+
+/** The index after the comment at `at`. @param {string} source @param {number} at @param {string} filename */
+function commentEnd(source, at, filename) {
+  const end = source.indexOf('-->', at + 4)
+  if (end < 0) {
+    throw new Error(`${filename}:${where(source, at)}: a comment is not closed`)
+  }
+  return end + 3
+}
+
+/**
+ * Where the end tag of a raw text element starts, from `from`: its first
+ * `</name`, as HTML has it, whatever comes between.
+ *
+ * @param {string} source
+ * @param {number} from
+ * @param {string} name
+ * @param {string} filename
+ */
+function rawClose(source, from, name, filename) {
+  const close = new RegExp(`</${name}[\\s/>]`, 'ig')
+  close.lastIndex = from
+  const match = close.exec(source)
+  if (!match) {
+    throw new Error(
+      `${filename}:${where(source, from)}: <${name}> is not closed`
+    )
+  }
+  return match.index
+}
+
+/**
+ * Where the `</template>` that closes a template starts, from its content's
+ * start: one inside it opens another that must close first, and a comment, or
+ * a raw text element's content, is passed over whole, whatever it mentions.
+ *
+ * @param {string} source
+ * @param {number} from
+ * @param {string} filename
+ */
+function templateClose(source, from, filename) {
+  let depth = 1
+  let i = from
+  for (;;) {
+    const lt = source.indexOf('<', i)
+    if (lt < 0) {
+      throw new Error(
+        `${filename}:${where(source, from)}: <template> is not closed`
+      )
+    }
+    if (source.startsWith('<!--', lt)) {
+      i = commentEnd(source, lt, filename)
+      continue
+    }
+    const tag = tagAt(source, lt)
+    if (!tag) {
+      i = lt + 1
+      continue
+    }
+    if (tag.name === 'template') {
+      depth += tag.closing ? -1 : 1
+      if (depth === 0) return lt
+    }
+    i = tagEnd(source, lt, filename)
+    if (!tag.closing && RAW.has(tag.name)) {
+      i = rawClose(source, i, tag.name, filename)
+    }
+  }
+}
+
+/**
+ * A `.sfc.html`'s two parts, as HTML reads them: at the top level, a
+ * `<template>` and a `<script>`, each at most once, and comments; anything
+ * else there is an error, rather than passed over. Each part is where its
+ * content starts and ends.
+ *
+ * @param {string} source
+ * @param {string} filename
+ */
+function parts(source, filename) {
+  /** @type {Record<string, { start: number, end: number }>} */
+  const found = {}
+  let i = 0
+  for (;;) {
+    const lt = source.indexOf('<', i)
+    const text = source.slice(i, lt < 0 ? source.length : lt)
+    if (text.trim()) {
+      const at = i + text.search(/\S/)
+      throw new Error(
+        `${filename}:${where(source, at)}: text outside <template> and <script>`
+      )
+    }
+    if (lt < 0) return found
+    if (source.startsWith('<!--', lt)) {
+      i = commentEnd(source, lt, filename)
+      continue
+    }
+    const tag = tagAt(source, lt)
+    const name = tag && !tag.closing ? tag.name : ''
+    if (name !== 'template' && name !== 'script') {
+      throw new Error(
+        `${filename}:${where(source, lt)}: only a <template> and a <script> may be at the top level`
+      )
+    }
+    if (found[name]) {
+      throw new Error(`${filename}:${where(source, lt)}: a second <${name}>`)
+    }
+    const start = tagEnd(source, lt, filename)
+    const end =
+      name === 'template'
+        ? templateClose(source, start, filename)
+        : rawClose(source, start, name, filename)
+    found[name] = { start, end }
+    i = tagEnd(source, end, filename)
+  }
+}
+
 /**
  * A `.sfc.html` as the TypeScript module it stands for, and where its script
  * came from: `start` and `length` in the source, and the `lines` of generated
@@ -113,12 +272,13 @@ function mappings(source, start, length, before) {
  * @returns {{ code: string, script: { start: number, length: number, lines: number } | null }}
  */
 export function parseSfc(source, filename) {
-  const template = /<template>([\s\S]*?)<\/template>/.exec(source)
-  const script = /<script[^>]*>([\s\S]*?)<\/script>/.exec(source)
+  const { template, script } = parts(source, filename)
   if (!template && !script) {
     throw new Error(`${filename}: a .sfc.html needs a <template> or a <script>`)
   }
-  const header = template ? templateCode(template[1].trim()) : ''
+  const header = template
+    ? templateCode(source.slice(template.start, template.end).trim())
+    : ''
   if (!script) {
     return {
       code: `${header}\nexport default defineComponent(template);\n`,
@@ -126,10 +286,10 @@ export function parseSfc(source, filename) {
     }
   }
   return {
-    code: header + script[1],
+    code: header + source.slice(script.start, script.end),
     script: {
-      start: script.index + script[0].indexOf('>') + 1,
-      length: script[1].length,
+      start: script.start,
+      length: script.end - script.start,
       lines: header.split('\n').length - 1,
     },
   }
