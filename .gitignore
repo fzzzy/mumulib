@@ -163,6 +163,9 @@ cython_debug/
 
 .DS_Store
 
+# Xcode's per-user state for a workspace: window layout, open files
+xcuserdata/
+
 node_modules
 test-results/
 playwright-report/
