@@ -338,6 +338,14 @@ Python package). Breaking changes come first under each release.
   them, and a dialog's `returnValue` too. And a fill stops at what is already
   filled: a pattern's slots and `data-attr` are its own, so filling a page's
   `name` no longer overwrites the `name` of every row already put in a list.
+- `state`: radio buttons and checkboxes named `this.*` or `selected.*` work.
+  A radio button's click focused it first, and its focus recorded its own
+  value as the field's, so its change was taken for none; a checkbox was
+  read by its value, `on`, never `checked`; and every render wrote the
+  state into each such control's `value`, so after one change every radio
+  button in a group stood for the same thing. A checkbox is `true` or
+  `false` in the state now, a radio group the value of the one checked, and
+  a render checks them by the state, leaving their values as they are.
 - `set_state`: a key set to `undefined` is deleted and counts as a change,
   so `onstate` hears of it; it had been deleted silently. A callback that
   throws no longer leaves every later change waiting on it forever. A field

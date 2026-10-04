@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>State Checkable Example</title>
+    <script type="module" src="./checkable_example.ts"></script>
+  </head>
+  <body>
+    <fieldset>
+      <label><input type="radio" name="this.size" value="s" /> Small</label>
+      <label><input type="radio" name="this.size" value="m" /> Medium</label>
+      <label><input type="radio" name="this.size" value="l" /> Large</label>
+    </fieldset>
+    <label><input type="checkbox" name="this.agree" /> Agree</label>
+    <button id="set">Small, and not agreed</button>
+  </body>
+</html>

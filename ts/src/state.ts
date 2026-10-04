@@ -129,11 +129,47 @@ document.addEventListener('DOMContentLoaded', async function () {
   await set_state(null)
 })
 
+// A checkbox or a radio button: what it says is whether it is checked, not
+// its value, and it says so by a change event, which only a change fires
+function checkable(el: Element): el is HTMLInputElement {
+  return (
+    el instanceof HTMLInputElement &&
+    (el.type === 'checkbox' || el.type === 'radio')
+  )
+}
+
+// What a control says, as the state holds it: a checkbox whether it is
+// checked; a radio button, which only says so as it is checked, its value
+function read(
+  el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+): string | boolean {
+  if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+    return el.checked
+  }
+  return el.value
+}
+
+// The state, shown by a control: a checkbox checked if it is truthy, a radio
+// button checked if its own value is the state's -- its value left as it is,
+// as it is what the button stands for -- and anything else given the value
+function show(
+  el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  value: unknown
+) {
+  if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+    el.checked = Boolean(value)
+  } else if (el instanceof HTMLInputElement && el.type === 'radio') {
+    el.checked = el.value === value
+  } else if (el.value !== value) {
+    el.value = value as string
+  }
+}
+
 document.addEventListener(
   'focus',
   function (e) {
     if (
-      e.target instanceof HTMLInputElement ||
+      (e.target instanceof HTMLInputElement && !checkable(e.target)) ||
       e.target instanceof HTMLTextAreaElement
     ) {
       initialValues[e.target.name] = e.target.value
@@ -161,8 +197,14 @@ function possibly_changed(e: Event) {
     return
   }
   const name = target.name
-  const value = target.value
-  if (name !== 'selected' && initialValues[name] === value) {
+  const value = read(target)
+  // A text field is compared with what it held when focused; a change event,
+  // a checkable's or a select's, is only fired by a change
+  if (
+    name !== 'selected' &&
+    !checkable(target) &&
+    initialValues[name] === value
+  ) {
     return
   }
   //console.log('Input event fired:', e.target.name, e.target.value);
@@ -191,7 +233,7 @@ document.addEventListener(
     //console.log('blur event fired:', e);
     if (
       e.target &&
-      (e.target instanceof HTMLInputElement ||
+      ((e.target instanceof HTMLInputElement && !checkable(e.target)) ||
         e.target instanceof HTMLTextAreaElement)
     ) {
       possibly_changed(e)
@@ -206,7 +248,7 @@ document.addEventListener(
     //console.log('blur event fired:', e);
     if (
       e.target &&
-      ((e.target instanceof HTMLInputElement && e.target.type === 'radio') ||
+      ((e.target instanceof Element && checkable(e.target)) ||
         e.target instanceof HTMLSelectElement)
     ) {
       possibly_changed(e)
@@ -231,27 +273,12 @@ async function update_dom_state(state: State) {
     }
     const name = el.name
     if (name.startsWith('this.')) {
-      const value = get(state, name.slice(5))
-      if (el.value !== value) {
-        el.value = value
-      }
+      show(el, get(state, name.slice(5)))
     } else if (name.startsWith('selected.')) {
       const selectedState = get(state, state['selected'])
-      const value = get(selectedState, name.slice(9))
-      if (el.value !== value) {
-        el.value = value
-      }
+      show(el, get(selectedState, name.slice(9)))
     } else if (name === 'selected') {
-      const sel = state['selected']
-      if (el instanceof HTMLInputElement && el.type === 'radio') {
-        if (el.value === sel) {
-          el.checked = true
-        } else {
-          el.checked = false
-        }
-      } else {
-        el.value = sel
-      }
+      show(el, state['selected'])
     }
   })
 }

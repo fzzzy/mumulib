@@ -243,4 +243,37 @@ test.describe('Mumulib State Tests', () => {
         'Got state {"b":2}',
       ])
   })
+
+  test('radio buttons and checkboxes say what is checked', async ({ page }) => {
+    await page.goto('examples/use_state_checkable/')
+    const last = () =>
+      page.$$eval('div[class="output"]', (divs) => divs.at(-1)?.textContent)
+    const radio = (value: string) =>
+      page.locator(`input[name="this.size"][value="${value}"]`)
+    const agree = page.locator('input[name="this.agree"]')
+    await expect.poll(last).toBe('Got state {}')
+
+    await radio('m').check()
+    await expect.poll(last).toBe('Got state {"size":"m"}')
+    await radio('l').check()
+    await expect.poll(last).toBe('Got state {"size":"l"}')
+    await agree.check()
+    await expect.poll(last).toBe('Got state {"size":"l","agree":true}')
+    await agree.uncheck()
+    await expect.poll(last).toBe('Got state {"size":"l","agree":false}')
+
+    // Each button still stands for its own value, after every render
+    const values = await page.$$eval('input[name="this.size"]', (inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value)
+    )
+    expect(values).toEqual(['s', 'm', 'l'])
+
+    // And the state set from code is what they show
+    await agree.check()
+    await page.click('#set')
+    await expect.poll(last).toBe('Got state {"size":"s","agree":false}')
+    await expect(radio('s')).toBeChecked()
+    await expect(radio('l')).not.toBeChecked()
+    await expect(agree).not.toBeChecked()
+  })
 })
