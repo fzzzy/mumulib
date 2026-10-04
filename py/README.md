@@ -234,8 +234,13 @@ method called with the request, async or not, or a plain value -- or, with
 no `slot_`, from its state's entry of that name:
 
 ```python
+# Parsed once, as the module loads, and the file closed after
+with open("todos.html", "rb") as source:
+    TODOS = parse_template(source)
+
+
 class Todos(Resource):
-    template = parse_template(open("todos.html", "rb"))
+    template = TODOS
     slot_title = "To do"
 
     async def slot_items(self, request):
