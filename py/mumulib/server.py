@@ -271,6 +271,35 @@ LIVE_SCRIPT = Path(__file__).parent / "live.js"
 # The methods that change what is published
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
+# What a browser may send from any page: everything else is checked for coming
+# from this origin
+SAFE = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def cross_origin(scope: Scope) -> bool:
+    """Whether a browser sent this request from another origin: a page on
+    another site posting a form here, say, with the visitor's cookies.
+
+    Sec-Fetch-Site says so where a browser sends it, and same-origin or none
+    -- the visitor's own doing, a bookmark -- is all that is from here. Where
+    it does not, Origin says so: from here if its host is the request's
+    Host, the scheme left aside, which a proxy in front may have changed.
+    With neither, it is no browser's -- curl, a script -- and not a cross-
+    origin request in the sense meant.
+    """
+    headers: dict[bytes, bytes] = {
+        key.lower(): value for key, value in scope["headers"]
+    }
+    site = headers.get(b"sec-fetch-site")
+    if site is not None:
+        return site not in (b"same-origin", b"none")
+    origin = headers.get(b"origin")
+    if origin is None:
+        return False
+    host = headers.get(b"host")
+    origin_host = parse.urlsplit(origin.decode("latin-1")).netloc
+    return host is None or origin_host.lower() != host.decode("latin-1").lower()
+
 
 def _announce_changes(send: Send, changes: EventSource, state: State) -> Send:
     """send, for a request that may change something: once its response has
@@ -397,6 +426,14 @@ def consumers_app(
         if head:
             scope = {**scope, "method": "GET"}
             send = _headers_only(send)
+        if scope["method"] not in SAFE and cross_origin(scope):
+            await send_error_response(
+                send,
+                403,
+                "Forbidden",
+                f"A {scope['method']} from another origin is refused",
+            )
+            return
         if changes is not None and scope["method"] in MUTATING:
             send = _announce_changes(send, changes, state)
 

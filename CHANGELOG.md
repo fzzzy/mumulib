@@ -7,6 +7,11 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **A write from another origin is refused, 403.** A `POST`, `PUT`,
+  `PATCH` or `DELETE` a browser sends from another site's page -- by
+  `Sec-Fetch-Site`, or else by an `Origin` whose host is not the request's
+  `Host` -- is refused before its body is read. One with neither header,
+  from `curl` or a script, is let through.
 - **A multipart file is a `mumutypes.Upload`**, its `filename`,
   `content_type` and `data`, in place of its bytes alone. Multipart is read
   by python-multipart, a new dependency: the hand-written parser filed a

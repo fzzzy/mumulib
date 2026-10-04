@@ -2501,3 +2501,73 @@ class TestHead(unittest.TestCase):
         }
         asyncio.run(consumers_app(app_root, changes=changes)(scope, receive, send))
         self.assertEqual(events, [])
+
+
+class TestCrossOrigin(unittest.TestCase):
+    """A write a browser sends from another origin is refused, 403"""
+
+    def request(self, method, headers, root=None, changes=None):
+        root = {"notes": {"a": "first"}} if root is None else root
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return {"type": "http.request", "body": b'"changed"', "more_body": False}
+
+        scope = {
+            "type": "http",
+            "method": method,
+            "path": "/notes/a.json",
+            "headers": [(b"content-type", b"application/json"), *headers],
+            "state": {},
+        }
+        asyncio.run(consumers_app(root, changes=changes)(scope, receive, send))
+        return sent[0]["status"], root
+
+    def test_what_is_from_here_writes(self):
+        for headers in [
+            [],
+            [(b"sec-fetch-site", b"same-origin")],
+            [(b"sec-fetch-site", b"none")],
+            [(b"origin", b"http://example.com"), (b"host", b"example.com")],
+            # The scheme a proxy in front may have changed is left aside
+            [(b"origin", b"https://Example.com:8443"), (b"host", b"example.com:8443")],
+            [(b"Sec-Fetch-Site", b"same-origin")],
+        ]:
+            with self.subTest(headers=headers):
+                status, root = self.request("PUT", headers)
+                self.assertEqual(status, 204)
+                self.assertEqual(root["notes"]["a"], "changed")
+
+    def test_what_is_from_elsewhere_is_refused_and_changes_nothing(self):
+        for method in ("PUT", "POST", "PATCH", "DELETE"):
+            for headers in [
+                [(b"sec-fetch-site", b"cross-site")],
+                [(b"sec-fetch-site", b"same-site")],
+                # Sec-Fetch-Site is believed over Origin
+                [
+                    (b"sec-fetch-site", b"cross-site"),
+                    (b"origin", b"http://example.com"),
+                    (b"host", b"example.com"),
+                ],
+                [(b"origin", b"http://evil.example"), (b"host", b"example.com")],
+                [(b"origin", b"http://example.com:81"), (b"host", b"example.com")],
+                [(b"origin", b"null"), (b"host", b"example.com")],
+                [(b"origin", b"http://example.com")],
+            ]:
+                with self.subTest(method=method, headers=headers):
+                    changes = EventSource()
+                    events = []
+                    changes.put = events.append  # type: ignore[method-assign]
+                    status, root = self.request(method, headers, changes=changes)
+                    self.assertEqual(status, 403)
+                    self.assertEqual(root, {"notes": {"a": "first"}})
+                    self.assertEqual(events, [])
+
+    def test_reading_from_elsewhere_is_answered(self):
+        for method in ("GET", "HEAD"):
+            with self.subTest(method=method):
+                status, _ = self.request(method, [(b"sec-fetch-site", b"cross-site")])
+                self.assertEqual(status, 200)

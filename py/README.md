@@ -77,6 +77,11 @@ extension alone decides what comes back.
   never its `str()`; and in JSON, a value with no JSON form is an error, not a
   quiet `null`. A `None` is `null` in a JSON document, but is not found as a
   URL's own answer: a consumer's `None` means not found.
+- A write -- anything but `GET`, `HEAD` or `OPTIONS` -- that a browser sends
+  from another origin is 403: a page elsewhere cannot post a form here with
+  a visitor's cookies. `Sec-Fetch-Site` decides where a browser sends it;
+  else `Origin`, whose host must be the request's `Host`. A request with
+  neither, from `curl` or a script, is no browser's and is let through.
 - `HEAD` is answered wherever `GET` is, as `GET`: the same status and
   headers, and no body.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
