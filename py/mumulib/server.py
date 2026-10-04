@@ -86,34 +86,29 @@ async def send_error_response(
     )
 
 
-async def parse_json(
-    receive: Receive, max_size: int = DEFAULT_MAX_BODY_SIZE
-) -> Any | None:
+async def read_body(receive: Receive, max_size: int = DEFAULT_MAX_BODY_SIZE) -> bytes:
+    """The request's whole body, chunk by chunk, refused once it is larger
+    than max_size."""
     body = b""
-
-    # Receive request body chunks
     while True:
         message = await receive()
 
-        # Check if we've reached the end of the body
         # ASGI servers should only send http.request during body reading
         if message["type"] == "http.request":  # pragma: no branch
-            # Accumulate body chunks
             body += message.get("body", b"")
-
-            # Check if body size exceeds limit
             if len(body) > max_size:
                 raise BodyTooLarge(
                     f"Request body too large: {len(body)} bytes exceeds limit "
                     f"of {max_size} bytes"
                 )
-
-            # Check if this is the last body chunk
             if not message.get("more_body", False):
-                break
+                return body
 
-    # Process the full body
-    body_text = body.decode("utf-8")
+
+async def parse_json(
+    receive: Receive, max_size: int = DEFAULT_MAX_BODY_SIZE
+) -> Any | None:
+    body_text = (await read_body(receive, max_size)).decode("utf-8")
     if len(body_text):
         return json.loads(body_text)
     return None
@@ -122,28 +117,7 @@ async def parse_json(
 async def parse_urlencoded(
     receive: Receive, max_size: int = DEFAULT_MAX_BODY_SIZE
 ) -> dict[str, Any]:
-    body = b""
-
-    # Receive request body chunks
-    while True:
-        message = await receive()
-
-        # Check if we've reached the end of the body
-        # ASGI servers should only send http.request during body reading
-        if message["type"] == "http.request":  # pragma: no branch
-            # Accumulate body chunks
-            body += message.get("body", b"")
-
-            # Check if body size exceeds limit
-            if len(body) > max_size:
-                raise BodyTooLarge(
-                    f"Request body too large: {len(body)} bytes exceeds limit "
-                    f"of {max_size} bytes"
-                )
-
-            # Check if this is the last body chunk
-            if not message.get("more_body", False):
-                break
+    body = await read_body(receive, max_size)
     result: dict[str, Any] = {}
     # parse_qsl decodes each name and value once, which is all they are
     # encoded: decoding again made a literal %41 an A
@@ -483,8 +457,10 @@ def consumers_app(
         state["accept"] = [content_type.split(";")[0], "*/*"]
 
         try:
+            typed = False
             for key, value in scope["headers"]:
                 if key.lower() == b"content-type":
+                    typed = True
                     lowervalue = value.lower().split(b";")[0]
                     # How the body is read; what comes back is the URL's
                     if lowervalue == b"application/json":
@@ -508,6 +484,19 @@ def consumers_app(
                             f"Cannot read a body of {value.decode('latin-1')}",
                         )
                         return
+            # A write with a body but no Content-Type is refused as well: it
+            # would be handled as bodiless, and a PUT would store None. With
+            # no body at all -- a POST that only asks for something done --
+            # it goes on
+            if not typed and scope["method"] in MUTATING:
+                if await read_body(receive):
+                    await send_error_response(
+                        send,
+                        415,
+                        "Unsupported Media Type",
+                        "A body with no Content-Type cannot be read",
+                    )
+                    return
         except BodyTooLarge as exc:
             logger.info("413 for %s %s: %s", scope["method"], scope["path"], exc)
             await send_error_response(

@@ -304,7 +304,10 @@ Python package). Breaking changes come first under each release.
 - A body that does not parse -- malformed JSON or multipart, or not UTF-8
   -- is 400, not 413: the size limit's `ValueError` was caught with every
   other. An unknown `Content-Type` on a `POST`, `PUT`, `PATCH` or `DELETE`
-  is 415, where it had been printed and the request handled as bodiless.
+  is 415, where it had been printed and the request handled as bodiless --
+  and so is a body with no `Content-Type` at all, which a `PUT` had stored
+  as `None` in its place. A write with neither, no body and no type, goes
+  on.
 - A form post's values are decoded once: `parse_qsl` had decoded them, and
   they were decoded again, so a literal `%41` arrived as `A`.
 - `tags`: `t.p["a", t.b["b"]]` is two children, as a list is; it had been one

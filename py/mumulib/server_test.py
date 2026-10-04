@@ -1362,6 +1362,57 @@ class TestUnreadableBodies(unittest.TestCase):
                 self.assertIn(detail, logs.output[0])
                 self.assertNotIn(detail.encode(), sent[1]["body"])
 
+    def test_a_body_with_no_content_type_is_415_and_changes_nothing(self):
+        for body, status, stored in [
+            (b'"changed"', 415, "first"),
+            (b"x" * (DEFAULT_MAX_BODY_SIZE + 1), 413, "first"),
+        ]:
+            with self.subTest(status=status):
+                root = {"notes": {"a": "first"}}
+                sent = []
+
+                async def send(message, sent=sent):
+                    sent.append(message)
+
+                async def receive(body=body):
+                    return {"type": "http.request", "body": body, "more_body": False}
+
+                scope = {
+                    "type": "http",
+                    "method": "PUT",
+                    "path": "/notes/a.json",
+                    "headers": [],
+                    "state": {},
+                }
+                asyncio.run(consumers_app(root)(scope, receive, send))
+                self.assertEqual(sent[0]["status"], status)
+                self.assertEqual(root["notes"]["a"], stored)
+
+    def test_a_post_with_no_body_and_no_content_type_goes_on(self):
+        called = []
+
+        def act(state):
+            called.append(state.get("parsed_body"))
+            return {"done": True}
+
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/act.json",
+            "headers": [],
+            "state": {},
+        }
+        asyncio.run(consumers_app({"act": act})(scope, receive, send))
+        self.assertEqual((sent[0]["status"], called), (200, [None]))
+
     def test_unknown_content_type_on_a_write_is_415(self):
         self.assertEqual(
             self.request("POST", b"application/x-custom-type", b"test data"),
