@@ -22,11 +22,13 @@ UVICORN_FLAGS := --reload --timeout-graceful-shutdown 2
 # The TypeScript library is in ts/ and the Python one in py/. Every Python tool
 # runs through uv from py/, so each reads py/pyproject.toml and leaves its
 # caches and .coverage there; every npm script runs in ts/.
-UV := uv run --directory py --extra dev --locked
+# Given to every uv command: the dev extra, from the lock as it is
+UV_FLAGS := --extra dev --locked
+UV := uv run --directory py $(UV_FLAGS)
 # A Python example's server is the exception: it runs from the root, so the
 # data it keeps, var/data, is beside var/log -- still reading py/'s project,
 # importing from py/, and reloading as py/ changes
-SERVE := uv run --project py --extra dev --locked uvicorn --app-dir py \
+SERVE := uv run --project py $(UV_FLAGS) uvicorn --app-dir py \
 	--reload-dir py
 # Its pages from Vite's dev server, not from their build
 DEVELOPMENT := MUMULIB_DEVELOPMENT=1
@@ -73,7 +75,7 @@ dist: node_modules
 	$(NPM) run build
 
 python-sync:
-	uv sync --project py --extra dev --locked
+	uv sync --project py $(UV_FLAGS)
 
 node_modules: ts/node_modules
 
@@ -179,7 +181,7 @@ pages: node_modules
 # A Python example in production, in the foreground: its pages built, served
 # by Python under /mumulib-vite/, and no Vite running
 production: python-sync server-exists pages
-	uv run --project py --extra dev --locked uvicorn --app-dir py \
+	uv run --project py $(UV_FLAGS) uvicorn --app-dir py \
 		examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT)
 
 server-exists:
