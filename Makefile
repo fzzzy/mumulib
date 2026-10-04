@@ -3,25 +3,23 @@
 	node_modules run stop tail dev server server-exists declarations clean tags \
 	pages production
 
-# The examples' dev server, and where its output goes
-PORT := 8000
 # The dev server of the pages Python serves, ts/pages: always on this port,
 # which a page served in development names in full
 PAGES_PORT := 5757
 LOG := $(CURDIR)/var/log
 
-# make run and make server run one of py/examples: SERVER=<name> for another
-# than hello
+# make run and make server run one of py/examples.
+
+# SERVER=<name> for another than hello
 SERVER ?= hello
 SERVER_PORT ?= 5959
-# Reloading as the code changes; and on stop, waiting at most two seconds
-# for open responses. Event streams end themselves on a signal; this is for
-# anything else that would keep a stop waiting.
-UVICORN_FLAGS := --reload --timeout-graceful-shutdown 2
+# set up the Python server to reload as the code changes
+UVICORN_FLAGS := --reload
 
-# The TypeScript library is in ts/ and the Python one in py/. Every Python tool
-# runs through uv from py/, so each reads py/pyproject.toml and leaves its
-# caches and .coverage there; every npm script runs in ts/.
+# The TypeScript library is in ts/ and the Python one in py/.
+
+# Every Python tool runs through uv from py/
+#  every npm script runs in ts/.
 # Given to every uv command: the dev extra, from the lock as it is
 UV_FLAGS := --extra dev --locked
 UV := uv run --directory py $(UV_FLAGS)
