@@ -310,6 +310,10 @@ Python package). Breaking changes come first under each release.
 
 ### Fixed
 
+- `mumulib-sfc-check`: a component whose script does not call
+  `defineComponent` passes under `noUnusedLocals`. The plugin declares the
+  helper in every component, and the checker reported it as unused --
+  whichever component, at its line 1. It is marked used where it is made.
 - A body that does not parse -- malformed JSON or multipart, or not UTF-8
   -- is 400, not 413: the size limit's `ValueError` was caught with every
   other. An unknown `Content-Type` on a `POST`, `PUT`, `PATCH` or `DELETE`

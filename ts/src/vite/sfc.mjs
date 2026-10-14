@@ -42,6 +42,8 @@ function defineComponent(template: HTMLTemplateElement): CustomElementConstructo
     }
   };
 }
+// The script's to use or not: never unused, under noUnusedLocals
+void defineComponent;
 `
 }
 

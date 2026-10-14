@@ -1,0 +1,11 @@
+<template>
+  <p>Never cloned: the element makes its own</p>
+</template>
+
+<script>
+  export default class Own extends HTMLElement {
+    connectedCallback(): void {
+      this.attachShadow({ mode: 'open' }).textContent = 'made here'
+    }
+  }
+</script>

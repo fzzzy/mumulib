@@ -51,6 +51,15 @@ test.describe('Mumulib single-file component type checking', () => {
     expect(run.errors).toEqual([{ line: 2, column: 15, code: 2322 }])
   })
 
+  test('a component need use neither template nor defineComponent', () => {
+    // Under noUnusedLocals: both are the script's to use, and this one makes
+    // its element its own way
+    const unused = path.join(FIXTURES, 'unused')
+    const run = check('--project', path.join(unused, 'tsconfig.json'), unused)
+    expect(run.errors).toEqual([])
+    expect(run.status).toBe(0)
+  })
+
   test("an importer sees a component's own class", () => {
     // tally.count = 'many', where count is the component's number
     const typed = path.join(FIXTURES, 'typed')
