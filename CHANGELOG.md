@@ -310,6 +310,12 @@ Python package). Breaking changes come first under each release.
 
 ### Fixed
 
+- `mumulib-sfc-check` is executable in a built checkout. The build copied
+  it with its source's mode, 644, so a project linking the checkout --
+  `file:` rather than the registry, whose installs npm marks -- got
+  "Permission denied" from `npx mumulib-sfc-check`. The build sets the bit
+  on each command package.json names, and the Node check fails if one is
+  not executable.
 - `mumulib-sfc-check`: a component whose script does not call
   `defineComponent` passes under `noUnusedLocals`. The plugin declares the
   helper in every component, and the checker reported it as unused --

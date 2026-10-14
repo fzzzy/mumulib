@@ -11,6 +11,12 @@ await fs.copyFile('src/vite/sfc.mjs', 'dist/vite/sfc.mjs')
 await fs.copyFile('src/vite/origin.mjs', 'dist/vite/origin.mjs')
 await fs.copyFile('src/vite/sfc-check.mjs', 'dist/vite/sfc-check.mjs')
 
+// Each command package.json names, executable: copied, it has its source's
+// mode, which git keeps as 644, and a project linking this checkout runs the
+// file here -- npm sets the bit only on a package it installs from a tarball
+const { bin } = JSON.parse(await fs.readFile('package.json', 'utf-8'))
+for (const file of Object.values(bin)) await fs.chmod(file, 0o755)
+
 // mumulib/node: domino's DOM, then the library, which reads document as it
 // loads. Two imports, written here rather than bundled, so that nothing can
 // move the library ahead of the DOM; src/node.ts is the same, for its types.

@@ -101,6 +101,20 @@ const EXPECTED = {
 const root = path.dirname(import.meta.dirname)
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'mumulib-node-check-'))
 let failed = false
+
+// Each command the package names runnable as it is built, as a project that
+// links mumulib's checkout -- file:, not the registry -- runs it: npm makes a
+// published bin executable as it installs it, but not one in a linked dist
+const { bin } = JSON.parse(fs.readFileSync('package.json', 'utf-8'))
+for (const [name, file] of Object.entries(bin)) {
+  try {
+    fs.accessSync(file, fs.constants.X_OK)
+    console.log(`${name}: executable`)
+  } catch {
+    failed = true
+    console.log(`${name}: FAILED, ${file} is not executable`)
+  }
+}
 try {
   const tarball = execFileSync(
     'npm',
