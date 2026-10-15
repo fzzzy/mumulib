@@ -33,7 +33,10 @@
  *
  * Nothing else needs it: imports inside the modules are root-relative and
  * resolve against the module's own URL, and Vite answers CORS for a page on
- * another of localhost's ports by default. It changes nothing in a build,
+ * another of localhost's ports by default. mumulib's Python names the dev
+ * server on the host each page was asked of, so a page opened from another
+ * machine loads from there: for that, Vite listens beyond localhost,
+ * server.host, and answers CORS for that origin, server.cors. It changes nothing in a build,
  * whose files the other server serves itself, under the base.
  *
  * Plain JavaScript, typed with JSDoc, so that it ships as it is.

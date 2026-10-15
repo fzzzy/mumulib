@@ -44,7 +44,7 @@ class StaticCase(unittest.TestCase):
                 self.root if root is None else root, vite=self.vite if vite else None
             )
 
-    def call(self, app, path, method="GET", match=None):
+    def call(self, app, path, method="GET", match=None, host=None):
         """The status, headers and body of one request."""
         sent = []
 
@@ -55,6 +55,8 @@ class StaticCase(unittest.TestCase):
             return {"type": "http.request", "body": b"", "more_body": False}
 
         headers = [(b"if-none-match", match)] if match is not None else []
+        if host is not None:
+            headers.append((b"host", host.encode()))
         scope = {"type": "http", "method": method, "path": path, "headers": headers}
 
         async def go():
@@ -144,6 +146,30 @@ class TestDevelopment(StaticCase):
         self.assertEqual((status, body.strip()), (200, b"<p>dev</p>"))
         # What Vite answers with is its own to cache, not a file's
         self.assertNotIn(b"etag", headers)
+
+    def test_a_page_names_vite_on_the_host_it_was_asked_of(self):
+        vite_page = b'<script src="http://127.0.0.1:5757/mumulib-vite/a.js">'
+        with mock.patch.object(static, "_fetch", return_value=vite_page) as fetch:
+            _, _, body = self.call(
+                self.app(development=True), "/", host="10.0.0.5:9870"
+            )
+        # Asked of Vite where it is, and named where the browser reaches it
+        fetch.assert_called_once_with(
+            "http://127.0.0.1:5757/mumulib-vite/notes/index.html"
+        )
+        self.assertEqual(
+            body.strip(), b'<script src="http://10.0.0.5:5757/mumulib-vite/a.js">'
+        )
+
+    def test_dev_server_for_a_host(self):
+        self.assertEqual(static.dev_server_for(None), "http://127.0.0.1:5757")
+        self.assertEqual(static.dev_server_for(""), "http://127.0.0.1:5757")
+        self.assertEqual(static.dev_server_for(":9870"), "http://127.0.0.1:5757")
+        self.assertEqual(
+            static.dev_server_for("mac.local:9870"), "http://mac.local:5757"
+        )
+        self.assertEqual(static.dev_server_for("10.0.0.5"), "http://10.0.0.5:5757")
+        self.assertEqual(static.dev_server_for("[::1]:9870"), "http://[::1]:5757")
 
     def test_vite_not_answering_is_a_502(self):
         failure = urllib.error.URLError("refused")

@@ -421,6 +421,9 @@ def consumers_app(
 
         state["url"] = scope["path"]
         state["method"] = scope["method"]
+        # The host the request was made of, as its Host header names it
+        host = dict(scope.get("headers", [])).get(b"host")
+        state["host"] = host.decode("latin-1") if host is not None else None
         state["vite"] = vite_directory
         state["development"] = development
         # Vite's URLs, not the tree's: no extension names their type

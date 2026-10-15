@@ -174,6 +174,13 @@ Python package). Breaking changes come first under each release.
 
 ### Added
 
+- **In development, a page names Vite's dev server on the host it was asked
+  of.** A page asked of `10.0.0.5:8000` loads its modules from
+  `10.0.0.5:5757` rather than `127.0.0.1:5757`, which from another machine
+  is that machine itself, so a page opened from elsewhere works. Vite has
+  to listen there (`server.host`) and answer CORS for the page's origin
+  (`server.cors`). The request's Host is the handler's as `state["host"]`.
+
 - `HEAD` is answered wherever `GET` is: the same status and headers, from
   every consumer, a `Persist`, the Vite build and the ETag, and no body.
   `Allow` names `HEAD` wherever it names `GET`.

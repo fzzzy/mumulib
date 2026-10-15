@@ -22,11 +22,18 @@ in it name that server in full -- mumulib's Vite origin plugin sees to it --
 so the browser fetches the page's modules, and opens the hot reloading
 websocket, from Vite directly. Python's /mumulib-vite/ is then not found:
 nothing is asked of it.
+
+They name it on the host the page was asked of, at Vite's port: a page
+asked of 10.0.0.5:8000 loads its modules from 10.0.0.5:5757, so a page
+opened from another machine works too, where 127.0.0.1 would be that
+machine itself. For that, Vite has to listen there, server.host, and
+answer CORS for the page's origin, server.cors.
 """
 
 import asyncio
 import logging
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -112,6 +119,20 @@ def file_of(thing: object, state: State) -> Path | None:
     return None
 
 
+def dev_server_for(host: str | None) -> str:
+    """VITE_DEV_SERVER as a browser reaches it that asked host for a page:
+    the same host, at Vite's port. VITE_DEV_SERVER itself without one."""
+    if not host:
+        return VITE_DEV_SERVER
+    name = urllib.parse.urlsplit(f"//{host}").hostname
+    if not name:
+        return VITE_DEV_SERVER
+    if ":" in name:  # IPv6, bracketed in a URL
+        name = f"[{name}]"
+    vite = urllib.parse.urlsplit(VITE_DEV_SERVER)
+    return f"{vite.scheme}://{name}:{vite.port}"
+
+
 def _fetch(url: str) -> bytes:
     with urllib.request.urlopen(url, timeout=10) as response:
         return response.read()
@@ -124,12 +145,14 @@ async def _produce_page(thing: Page, state: State) -> AsyncIterator[Chunk]:
         url = f"{VITE_DEV_SERVER}{VITE_BASE}{thing.entry}"
         try:
             # TODO: an async client; a thread keeps the loop free meanwhile
-            yield await asyncio.to_thread(_fetch, url)
+            page = await asyncio.to_thread(_fetch, url)
         except (urllib.error.URLError, OSError) as exc:
             logger.warning("Vite's dev server did not answer for %s: %s", url, exc)
             raise HTTPResponse(
                 502, f"Vite's dev server did not answer for {url}\n"
             ) from exc
+        reached = dev_server_for(state.get("host"))
+        yield page.replace(VITE_DEV_SERVER.encode(), reached.encode())
         return
     file = file_of(thing, state)
     if file is None:
