@@ -174,6 +174,15 @@ Python package). Breaking changes come first under each release.
 
 ### Added
 
+- **An app can be mounted below a prefix.** Mounted as Starlette's `Mount`
+  makes it -- the full path in `path`, the prefix in `root_path` -- the app
+  routes by the path below the prefix, and a built `Page` names
+  `/mumulib-vite/` below it too, so `app.mount("/cb", consumers_app(...))`
+  serves its pages and their assets at `/cb/...`. A page's own URLs should
+  be relative. `state["url"]` stays the path the client asked for, and
+  `state["prefix"]` is the prefix. The changes an app announces, and
+  `/mumulib/live.js`, are not yet prefixed.
+
 - **In development, a page names Vite's dev server on the host it was asked
   of.** A page asked of `10.0.0.5:8000` loads its modules from
   `10.0.0.5:5757` rather than `127.0.0.1:5757`, which from another machine

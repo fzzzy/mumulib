@@ -32,6 +32,7 @@ answer CORS for the page's origin, server.cors.
 
 import asyncio
 import logging
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -133,6 +134,15 @@ def dev_server_for(host: str | None) -> str:
     return f"{vite.scheme}://{name}:{vite.port}"
 
 
+def _below(page: bytes, prefix: str) -> bytes:
+    """A built page with each URL under VITE_BASE put below prefix: wherever
+    the base follows a quote, an attribute's =, or url(."""
+    pattern = re.compile(rb"""(["'=(])""" + re.escape(VITE_BASE.encode()))
+    return pattern.sub(
+        lambda match: match[1] + prefix.encode() + VITE_BASE.encode(), page
+    )
+
+
 def _fetch(url: str) -> bytes:
     with urllib.request.urlopen(url, timeout=10) as response:
         return response.read()
@@ -161,6 +171,13 @@ async def _produce_page(thing: Page, state: State) -> AsyncIterator[Chunk]:
         # Where it was looked for is the server's to know, not the client's
         logger.error("%s is not built, in %s", thing.entry, file.parent)
         raise HTTPResponse(500, f"{thing.entry} is not built\n")
+    prefix = state.get("prefix") or ""
+    if prefix:
+        # Mounted below a prefix: what the page loads from Vite's base is
+        # below it too, as the page is
+        page = await asyncio.to_thread(file.read_bytes)
+        yield _below(page, prefix)
+        return
     start = {
         "type": "http.response.start",
         "status": 200,

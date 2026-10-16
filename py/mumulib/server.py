@@ -376,6 +376,11 @@ def consumers_app(
     Everyone who can open the stream hears every change: an app given
     changes has no secret URLs, since a resource at one is announced to all
     the first time it is written to.
+
+    The app can be mounted below a prefix, as Starlette's Mount does: it
+    routes by the path below the scope's root_path, and a built Page names
+    /mumulib-vite/ below it too. Its pages' own URLs should be relative.
+    The changes it announces, and /mumulib/live.js, are not yet prefixed.
     """
     data_directory = Path(data).resolve()
     vite_directory = Path(vite).resolve() if vite is not None else None
@@ -419,7 +424,14 @@ def consumers_app(
         if changes is not None and scope["method"] in MUTATING:
             send = _announce_changes(send, changes, state)
 
+        # Mounted below a prefix -- root_path, as Starlette's Mount sets it,
+        # with the full path in path -- the tree is walked by the path below
+        # it. state["url"] is the path the client asked for, prefix and all
+        prefix = scope.get("root_path", "")
         state["url"] = scope["path"]
+        state["prefix"] = prefix
+        if prefix and scope["path"].startswith(prefix):
+            scope = {**scope, "path": scope["path"][len(prefix) :] or "/"}
         state["method"] = scope["method"]
         # The host the request was made of, as its Host header names it
         host = dict(scope.get("headers", [])).get(b"host")

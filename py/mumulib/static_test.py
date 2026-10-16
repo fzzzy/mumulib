@@ -44,8 +44,9 @@ class StaticCase(unittest.TestCase):
                 self.root if root is None else root, vite=self.vite if vite else None
             )
 
-    def call(self, app, path, method="GET", match=None, host=None):
-        """The status, headers and body of one request."""
+    def call(self, app, path, method="GET", match=None, host=None, root=""):
+        """The status, headers and body of one request, made of an app
+        mounted at root, if one is given, as Starlette's Mount makes it."""
         sent = []
 
         async def send(message):
@@ -57,7 +58,13 @@ class StaticCase(unittest.TestCase):
         headers = [(b"if-none-match", match)] if match is not None else []
         if host is not None:
             headers.append((b"host", host.encode()))
-        scope = {"type": "http", "method": method, "path": path, "headers": headers}
+        scope = {
+            "type": "http",
+            "method": method,
+            "path": root + path,
+            "root_path": root,
+            "headers": headers,
+        }
 
         async def go():
             await app({**scope, "state": {}}, receive, send)
@@ -134,6 +141,30 @@ class TestProduction(StaticCase):
     def test_without_a_vite_directory_vite_is_the_trees(self):
         app = self.app(vite=False, root={"mumulib-vite": {"x": "from the tree"}})
         self.assertEqual(self.call(app, f"{BASE}x.txt")[2].strip(), b"from the tree")
+
+
+class TestMounted(StaticCase):
+    def test_a_page_mounted_names_vite_below_its_prefix(self):
+        status, _, body = self.call(self.app(), "/", root="/cb")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            body.strip(), PAGE.replace(b"=/mumulib-vite/", b"=/cb/mumulib-vite/")
+        )
+
+    def test_what_vite_built_is_served_below_the_prefix(self):
+        status, _, body = self.call(self.app(), ASSET, root="/cb")
+        self.assertEqual((status, body), (200, b"console.log(1)\n"))
+
+    def test_below_puts_each_quoted_or_bare_base_below_root(self):
+        page = (
+            b"""<a href="/mumulib-vite/a"><b src='/mumulib-vite/b'>"""
+            b"url(/mumulib-vite/c)"
+        )
+        self.assertEqual(
+            static._below(page, "/cb"),
+            b"""<a href="/cb/mumulib-vite/a"><b src='/cb/mumulib-vite/b'>"""
+            b"url(/cb/mumulib-vite/c)",
+        )
 
 
 class TestDevelopment(StaticCase):
