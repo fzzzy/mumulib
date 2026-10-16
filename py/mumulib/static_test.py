@@ -209,6 +209,12 @@ class TestDevelopment(StaticCase):
         self.assertEqual(status, 502)
         self.assertIn(b"did not answer", body)
 
+    def test_development_given_outweighs_the_environment(self):
+        with mock.patch.dict(os.environ, {"MUMULIB_DEVELOPMENT": "1"}):
+            app = consumers_app(self.root, vite=self.vite, development=False)
+        status, _, body = self.call(app, "/")
+        self.assertEqual((status, body.strip()), (200, PAGE))
+
     def test_vite_is_not_pythons_in_development(self):
         status, _, body = self.call(self.app(development=True), ASSET)
         self.assertEqual(status, 404)

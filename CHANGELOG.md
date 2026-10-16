@@ -174,6 +174,11 @@ Python package). Breaking changes come first under each release.
 
 ### Added
 
+- **`consumers_app(..., development=False)`** says whether the app is in
+  development whatever `MUMULIB_DEVELOPMENT` says -- for an app whose pages
+  are only ever built, started from a shell that has it set for another.
+  `None`, the default, reads the environment as before.
+
 - **An app can be mounted below a prefix.** Mounted as Starlette's `Mount`
   makes it -- the full path in `path`, the prefix in `root_path` -- the app
   routes by the path below the prefix, and a built `Page` names

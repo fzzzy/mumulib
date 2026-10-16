@@ -352,6 +352,7 @@ def consumers_app(
     changes: EventSource | None = None,
     data: str | Path = "var/data",
     vite: str | Path | None = None,
+    development: bool | None = None,
 ) -> ASGIApp:
     """The ASGI app publishing root.
 
@@ -359,7 +360,9 @@ def consumers_app(
     and for /mumulib-vite/, which is then the app's own, ahead of anything in root:
     in production what Vite built is served from there. With
     MUMULIB_DEVELOPMENT=1 in the environment as the app is made, it is in
-    development instead, and a Page is asked of Vite's dev server.
+    development instead, and a Page is asked of Vite's dev server. Given
+    development, True or False, that says which, whatever the environment
+    does: for an app whose pages are only ever built.
 
     data is the directory each Located object -- each Resource -- keeps its
     file in, named by its URL: var/data/editors/characters/c1.json. It is
@@ -384,7 +387,8 @@ def consumers_app(
     """
     data_directory = Path(data).resolve()
     vite_directory = Path(vite).resolve() if vite is not None else None
-    development = os.environ.get("MUMULIB_DEVELOPMENT") == "1"
+    if development is None:
+        development = os.environ.get("MUMULIB_DEVELOPMENT") == "1"
     mumulib = (
         GetOnly({"changes": changes, "live": LIVE_SCRIPT})
         if changes is not None
