@@ -55,28 +55,25 @@ class TestStanBuilding(unittest.TestCase):
         self.assertEqual(with_child.children, ["child"])
         self.assertEqual(t.div.children, [])
 
-    def test_call_merges_attributes_and_takes_indent(self):
-        node = Stan("div", 0, klass="a")
-        same = node(id="b", indent=3)
+    def test_call_merges_attributes(self):
+        node = Stan("div", klass="a")
+        same = node(id="b")
         self.assertIs(same, node)
         self.assertEqual(node.attributes, {"klass": "a", "id": "b"})
-        self.assertEqual(node.indent, 3)
 
     def test_getitem_single_and_list(self):
-        child = Stan("p", 0)
-        parent = Stan("div", 2)[child]
+        child = Stan("p")
+        parent = Stan("div")[child]
         self.assertEqual(parent.children, [child])
-        self.assertEqual(child.indent, 3)
 
-        other = Stan("span", 0)
+        other = Stan("span")
         parent[[other, "text"]]
         self.assertEqual(parent.children, [child, other, "text"])
-        self.assertEqual(other.indent, 3)
 
     def test_copy_is_deep_for_stan_children_and_attributes(self):
-        inner = Stan("span", 1)["text"]
-        attr_value = Stan("b", 0)
-        node = Stan("div", 0, inner, title=attr_value, id="x")
+        inner = Stan("span")["text"]
+        attr_value = Stan("b")
+        node = Stan("div", inner, title=attr_value, id="x")
         copied = node.copy()
 
         self.assertEqual(copied.tagname, "div")
@@ -94,29 +91,29 @@ class TestStanBuilding(unittest.TestCase):
         self.assertEqual(repr(t.br), "every.br")
         self.assertEqual(repr(t.hr(a=1, b=2)), "every.hr(a=1, b=2)")
 
-    def test_reindent_tree(self):
-        leaf = Stan("i", 0)
-        root = Stan("div", 0, Stan("p", 0, leaf, "text"))
-        tags.reindent_tree(root, 2)
-        self.assertEqual(root.indent, 2)
-        self.assertEqual(root.children[0].indent, 3)
-        self.assertEqual(leaf.indent, 4)
+    def test_a_tree_built_from_the_inside_out_is_indented_by_its_depth(self):
+        # Its depth is where it is written, not where it was made
+        inner = t.li["deep"]
+        tree = t.div[t.ul[inner]]
+        self.assertEqual(
+            render(tree),
+            "<div>\n    <ul>\n        <li>\n            deep\n"
+            "        </li>\n    </ul>\n</div>\n",
+        )
 
 
 class TestSlotsAndPatterns(unittest.TestCase):
     def make_tree(self):
         return Stan(
             "div",
-            0,
-            Stan("h1", 1, "old title", **{"data-slot": "title"}),
+            Stan("h1", "old title", **{"data-slot": "title"}),
             "loose text",
             Stan(
                 "ul",
-                1,
-                Stan("li", 2, "item", **{"data-pat": "item", "data-slot": "items"}),
+                Stan("li", "item", **{"data-pat": "item", "data-slot": "items"}),
                 **{"data-slot": "list"},
             ),
-            Stan("a", 1, **{"data-attr": "href=url,title=label"}),
+            Stan("a", **{"data-attr": "href=url,title=label"}),
         )
 
     def test_clone_pat(self):
@@ -125,16 +122,14 @@ class TestSlotsAndPatterns(unittest.TestCase):
         self.assertIsNotNone(item)
         assert item is not None
         self.assertEqual(item.tagname, "li")
-        self.assertEqual(item.indent, 0)
         # The original tree is untouched.
         self.assertEqual(tree.children[2].children[0].children, ["item"])
         self.assertIsNone(tree.clone_pat("missing"))
 
     def test_clone_pat_on_the_pattern_itself(self):
-        pat = Stan("li", 3, Stan("b", 4, **{"data-slot": "x"}), **{"data-pat": "p"})
+        pat = Stan("li", Stan("b", **{"data-slot": "x"}), **{"data-pat": "p"})
         clone = pat.clone_pat("p", x="value")
         assert clone is not None
-        self.assertEqual(clone.indent, 0)
         self.assertEqual(clone.children[0].children, ["value"])
 
     def test_fill_slots_with_scalar(self):
@@ -144,24 +139,22 @@ class TestSlotsAndPatterns(unittest.TestCase):
 
     def test_fill_slots_with_stan_replaces_the_slot_node(self):
         tree = self.make_tree()
-        replacement = Stan("h2", 0, "replaced")
+        replacement = Stan("h2", "replaced")
         tree.fill_slots("title", replacement)
         self.assertEqual(tree.children[0].tagname, "h2")
         self.assertIsNot(tree.children[0], replacement)
-        self.assertEqual(tree.children[0].indent, 1)
 
     def test_fill_slots_with_list(self):
         tree = self.make_tree()
-        tree.fill_slots("list", [Stan("li", 0, "one"), "two"])
+        tree.fill_slots("list", [Stan("li", "one"), "two"])
         ul = tree.children[2]
         self.assertEqual(len(ul.children), 2)
         self.assertEqual(ul.children[0].tagname, "li")
-        self.assertEqual(ul.children[0].indent, 1)
         self.assertEqual(ul.children[1], "two")
 
     def test_fill_slots_recurses_with_stan_value(self):
         tree = self.make_tree()
-        tree.fill_slots("items", Stan("li", 0, "deep"))
+        tree.fill_slots("items", Stan("li", "deep"))
         ul = tree.children[2]
         self.assertEqual(ul.children[0].children, ["deep"])
 
@@ -185,12 +178,12 @@ class TestSlotsAndPatterns(unittest.TestCase):
         tags.append_slots(tree, "title", " more")
         self.assertEqual(tree.children[0].children, ["old title", " more"])
 
-        extra = Stan("em", 0)
+        extra = Stan("em")
         tree.append_slots("title", extra)
         self.assertEqual(tree.children[0].children[2].tagname, "em")
         self.assertIsNot(tree.children[0].children[2], extra)
 
-        tree.append_slots("list", [Stan("li", 0, "x"), "y"])
+        tree.append_slots("list", [Stan("li", "x"), "y"])
         ul = tree.children[2]
         self.assertEqual(len(ul.children), 3)
         self.assertEqual(ul.children[1].children, ["x"])
@@ -270,11 +263,10 @@ class TestTemplates(unittest.TestCase):
             shape(body(b"<div><b>x</div><p>y</span>z")),
             ["body", {}, [["div", {}, [["b", {}, ["x"]]]], ["p", {}, ["y", "z"]]]],
         )
-        # Indents follow the tree, the <body> put around a fragment included
+        # Written indented as it is deep, the <body> put around it included
         root = parse_template(io.BytesIO(b"<ul><li>a</li></ul>"))
         assert root is not None
-        ul = root.children[0].children[0]
-        self.assertEqual((ul.indent, ul.children[0].indent), (2, 3))
+        self.assertIn("\n        <ul>\n            <li>\n", render(root))
 
     def test_parse_template_without_elements(self):
         self.assertIsNone(parse_template(io.BytesIO(b" ")))
@@ -295,7 +287,7 @@ class TestTemplates(unittest.TestCase):
         self.assertEqual(link.attributes["title"], "Home")
         self.assertEqual(link.children, ["Home"])
 
-        replacement = Stan("strong", 0, "bold")
+        replacement = Stan("strong", "bold")
         replaced = template.clone_pat("link", label=replacement)
         self.assertIs(replaced, replacement)
 
@@ -309,7 +301,7 @@ class TestTemplates(unittest.TestCase):
         template = Template("unused.html")
         template.loaded = True
         template.template = Stan(
-            "html", 0, "stray text", Stan("p", 1, **{"data-pat": "para"})
+            "html", 0, "stray text", Stan("p", **{"data-pat": "para"})
         )
         self.assertEqual(template.clone_pat("para").tagname, "p")
 
@@ -398,7 +390,7 @@ class TestProduceHtml(unittest.TestCase):
         node = t.div(id="x")[[t.p["hello"], "b"]]
         self.assertEqual(
             render(node),
-            '<div id="x">\n    <p>\nhello\n    </p>\nb\n</div>\n',
+            '<div id="x">\n    <p>\n        hello\n    </p>\n    b\n</div>\n',
         )
 
     def test_void_element_and_attribute_quoting(self):
@@ -406,8 +398,12 @@ class TestProduceHtml(unittest.TestCase):
             render(t.br(title='say "hi"')), '<br title="say &quot;hi&quot;" />'
         )
 
+    def test_empty_text_leaves_the_line_as_it_was(self):
+        # Still mid-line after "a": the end tag goes on a line of its own
+        self.assertEqual(render(t.div["a", ""]), "<div>\n    a\n</div>\n")
+
     def test_empty_element(self):
-        self.assertEqual(render(t.p), "<p>\n\n</p>\n")
+        self.assertEqual(render(t.p), "<p>\n</p>\n")
 
     def test_an_attribute_that_is_not_text_is_refused(self):
         with self.assertRaisesRegex(TypeError, "attribute 'title' produced bytes"):
@@ -484,7 +480,7 @@ class TestEscaping(unittest.TestCase):
         self.assertIn('title="&lt;it&#x27;s &quot;quoted&quot;&gt;"', out)
 
     def test_numbers_are_text(self):
-        self.assertIn("\n3\n", render(t.p[3]))
+        self.assertIn("\n    3\n", render(t.p[3]))
 
     def test_trees_and_markup_are_markup(self):
         out = render(t.div[[t.b["bold"], tags.Markup("<i>mine</i>")]])
@@ -513,12 +509,12 @@ class TestEscaping(unittest.TestCase):
         out = render(t.div[t.pre[t.code["a\n b"], t.br, "x"], t.p["after"]])
         self.assertIn("    <pre>\n<code>a\n b</code><br />x</pre>\n", out)
         # Laid out as before, once outside it
-        self.assertIn("    <p>\nafter\n    </p>\n", out)
+        self.assertIn("    <p>\n        after\n    </p>\n", out)
 
     def test_inline_elements_are_compact(self):
         # Laid out, the line would say "Hello world !"
         out = render(t.p["Hello ", t.b["world"], "!"])
-        self.assertEqual(out, "<p>\nHello <b>world</b>!\n</p>\n")
+        self.assertEqual(out, "<p>\n    Hello <b>world</b>!\n</p>\n")
 
     def test_what_is_in_an_inline_element_is_compact_at_any_depth(self):
         out = render(t.a(href="/")[t.span["a ", t.em["b"]], t.div["c"]])
@@ -526,8 +522,11 @@ class TestEscaping(unittest.TestCase):
 
     def test_blocks_are_laid_out_beside_inline_elements(self):
         out = render(t.div[t.label["Name ", t.input(name="n")], t.p["after"]])
-        self.assertIn('<label>Name <input name="n" /></label>', out)
-        self.assertIn("    <p>\nafter\n    </p>\n", out)
+        self.assertEqual(
+            out,
+            '<div>\n    <label>Name <input name="n" /></label>\n'
+            "    <p>\n        after\n    </p>\n</div>\n",
+        )
 
     def test_a_textarea_in_an_inline_element_is_compact_too(self):
         out = render(t.label["Note ", t.textarea["x"]])
@@ -652,14 +651,14 @@ class TestAttrSlots(unittest.TestCase):
     MESSY = "a=b=c,,stray,=nameless,slotless=,id=row"
 
     def test_only_the_first_equals_divides_and_a_broken_pair_is_no_slot(self):
-        node = Stan("b", 0, **{"data-attr": self.MESSY})
+        node = Stan("b", **{"data-attr": self.MESSY})
         self.assertEqual(tags.attr_slots(node), [("a", "b=c"), ("id", "row")])
 
     def test_filling_and_appending_read_it_so(self):
         for how in ("fill_slots", "append_slots"):
             with self.subTest(how=how):
-                inner = Stan("b", 1, **{"data-attr": self.MESSY})
-                tree = Stan("div", 0, inner)
+                inner = Stan("b", **{"data-attr": self.MESSY})
+                tree = Stan("div", inner)
                 getattr(tree, how)("b=c", "filled")
                 getattr(tree, how)("row", "r1")
                 self.assertEqual(inner.attributes["a"], "filled")
@@ -679,5 +678,5 @@ class TestAttrSlots(unittest.TestCase):
     def test_a_resource_names_the_same_slots(self):
         from mumulib.resource import slot_names
 
-        tree = Stan("div", 0, Stan("b", 1, **{"data-attr": self.MESSY}))
+        tree = Stan("div", Stan("b", **{"data-attr": self.MESSY}))
         self.assertEqual(slot_names(tree), ["b=c", "row"])

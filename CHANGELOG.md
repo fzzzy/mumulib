@@ -7,6 +7,12 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **`Stan(tagname, *children, **attributes)`: an element has no indent.**
+  Its depth is where it is written, worked out as the page is: a tree built
+  from the inside out, as Python builds one, had every element one level
+  in, whatever its depth, since each took its indent from its parent's as
+  it was put there. `Stan`'s indent argument, `indent=` and `.indent` are
+  gone, and so is `reindent_tree`, which put a template's right.
 - **lxml is gone: templates are parsed by the standard library's
   `html.parser`.** lxml, a large C extension, was used for nothing else.
   Every template here parses to the same tree, but for one fix: text after
@@ -339,6 +345,10 @@ Python package). Breaking changes come first under each release.
   children indented. The one newline after its start tag, which a browser
   drops as it reads the page, is still written, so text that begins with a
   newline keeps it.
+- Stan lays a page out by its depth: each block on lines of its own, as deep
+  as it is, and what it holds on lines below it, with no blank line before
+  an end tag, and a block after text on a line of its own rather than at
+  the end of the text's.
 - Stan writes inline elements -- `a`, `b`, `span`, `code`, `img`, `input`,
   `label` and the rest of those that sit in a line of text -- compact, with
   nothing added in or around them. Laid out, each newline and indent was a

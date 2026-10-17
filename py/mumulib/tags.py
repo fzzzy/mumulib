@@ -225,26 +225,16 @@ def attr_slots(node: Stan) -> list[tuple[str, str]]:
     return [(name, slot) for name, eq, slot in pairs if eq and name and slot]
 
 
-def reindent_tree(node: Stan, indent: int) -> None:
-    node.indent = indent
-    for child in node.children:
-        if isinstance(child, Stan):
-            reindent_tree(child, indent + 1)
-
-
 class Stan:
-    def __init__(self, tagname: str, indent: int, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, tagname: str, *args: Any, **kwargs: Any) -> None:
         self.clone: bool = False
         self.tagname: str = tagname
-        self.indent: int = indent
         self.attributes: dict[str, Any] = dict(kwargs)
         self.children: list[Any] = list(args)
 
     def __call__(self, **kwargs: Any) -> Stan:
         if self.clone:
             self = self.copy()
-        if "indent" in kwargs:
-            self.indent = kwargs.pop("indent")
         # Short names for mumulib's own attributes, none of them HTML's, so
         # they shadow nothing: pat="row" is data-pat="row", slt="name" is
         # data-slot="name" -- slot itself is HTML's, for shadow DOM --
@@ -271,14 +261,8 @@ class Stan:
             self = self.copy()
         # t.p["a", t.b["b"]] is two children, as t.p[["a", t.b["b"]]] is
         if isinstance(item, (list, tuple)):
-            items = list(cast(list[Any] | tuple[Any, ...], item))
-            for child in items:
-                if isinstance(child, Stan):
-                    child.indent = self.indent + 1
-            self.children.extend(items)
+            self.children.extend(cast(list[Any] | tuple[Any, ...], item))
         else:
-            if isinstance(item, Stan):
-                item.indent = self.indent + 1
             self.children.append(item)
         return self
 
@@ -287,13 +271,12 @@ class Stan:
         attributes = {
             k: getattr(v, "copy", lambda: v)() for k, v in self.attributes.items()
         }
-        result = Stan(self.tagname, 0, *children, **attributes)
+        result = Stan(self.tagname, *children, **attributes)
         return result
 
     def clone_pat(self, patname: str, **slots: Any) -> Stan | None:
         if self.attributes.get("data-pat") == patname:
             copy = self.copy()
-            reindent_tree(copy, 0)
 
             for k, v in slots.items():
                 copy.fill_slots(k, v)
@@ -327,21 +310,15 @@ class Stan:
                 if attrslotname == slotname:
                     child.attributes[attrname] = value
             if child.attributes.get("data-slot") != slotname:
-                if isinstance(value, Stan):
-                    reindent_tree(value, self.indent + 1)
                 child.fill_slots(slotname, value)
                 continue
             if isinstance(value, Stan):
-                node = value.copy()
-                reindent_tree(node, self.indent + 1)
-                self.children[i] = node
+                self.children[i] = value.copy()
             elif isinstance(value, list):
                 child.children = []
                 for node in cast(list[Any], value):
                     if isinstance(node, Stan):
-                        newnode = node.copy()
-                        reindent_tree(newnode, self.indent + 1)
-                        child.children.append(newnode)
+                        child.children.append(node.copy())
                     else:
                         child.children.append(node)
             else:
@@ -370,6 +347,11 @@ class Stan:
                 child.children.append(value)
 
     def __repr__(self) -> str:
+        return self.nested_repr(0)
+
+    def nested_repr(self, depth: int) -> str:
+        """Its repr, as Python that would make it, its children indented
+        below it as deep as depth says it is."""
         result = f"every.{self.tagname}"
         if self.attributes:
             result += "("
@@ -377,13 +359,13 @@ class Stan:
                 result += f"{x}={repr(self.attributes[x])}, "
             result = result[:-2] + ")"
         if self.children:
-            indent = "    " * (self.indent + 1)
-            result += "[\n" + indent
-            for x in self.children:
-                result += repr(x) + ",\n" + indent
-            unindent = "    " * self.indent
-            chars = len(indent) + 2
-            result = result[:-chars] + "\n" + unindent + "]"
+            indent = "    " * (depth + 1)
+            children = [
+                x.nested_repr(depth + 1) if isinstance(x, Stan) else repr(x)
+                for x in self.children
+            ]
+            result += "[\n" + indent + (",\n" + indent).join(children)
+            result += "\n" + "    " * depth + "]"
 
         return result
 
@@ -391,7 +373,7 @@ class Stan:
 class TagGroup:
     def __init__(self, *tags: str) -> None:
         for tag in tags:
-            newtag = Stan(tag, 0)
+            newtag = Stan(tag)
             newtag.clone = True
             setattr(self, tag, newtag)
 
@@ -436,7 +418,7 @@ class _TemplateParser(HTMLParser):
 
     def _element(self, tag: str, attrs: list[tuple[str, str | None]]) -> Stan:
         # An attribute with no value, disabled, is its own name, as HTML has it
-        node = Stan(tag, 0, **{k: k if v is None else v for k, v in attrs})
+        node = Stan(tag, **{k: k if v is None else v for k, v in attrs})
         self._add(node)
         return node
 
@@ -475,8 +457,7 @@ def parse_template(source: IO[bytes]) -> Stan | None:
     if len(parser.top) == 1 and isinstance(first, Stan) and first.tagname == "html":
         root = first
     else:
-        root = Stan("html", 0, Stan("body", 1, *parser.top))
-    reindent_tree(root, 0)
+        root = Stan("html", Stan("body", *parser.top))
     return root
 
 
@@ -644,33 +625,61 @@ async def produce_child(child: Any, state: State) -> AsyncIterator[str]:
         raise TypeError(f"a {type(child).__name__} has no HTML form") from None
 
 
+class Line:
+    """Whether what has been written of a page so far ends a line: one for
+    the whole page, shared by every element in it, so a block's tags go on
+    lines of their own, with no blank line between."""
+
+    def __init__(self) -> None:
+        self.at_start = True
+
+    def wrote(self, chunk: str) -> str:
+        """chunk, noted as written."""
+        if chunk:
+            self.at_start = chunk.endswith("\n")
+        return chunk
+
+
+# What the state carries down a page, element to element, as it is written:
+# how deep the element is, whether it is in an inline or preformatted one,
+# and the page's Line
+DEPTH = "html_depth"
+COMPACT = "html_compact"
+LINE = "html_line"
+
+# One level of a page's indent
+INDENT = "    "
+
+
 async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
-    async for chunk in _produce_html(thing, state, compact=False):
-        yield chunk
-
-
-async def _produce_html(thing: Stan, state: State, compact: bool) -> AsyncIterator[str]:
-    """thing as HTML, laid out with a newline after each tag and an indent
-    before it -- except where whitespace would show: in and around an
-    INLINE_ELEMENTS element, and in a PREFORMATTED_ELEMENTS element, where it
-    is written as it is. compact, when thing is in one of either."""
+    """thing as HTML, laid out: a block on lines of its own, as deep as it
+    is, and what it holds on lines indented below it -- except where
+    whitespace would show: in and around an INLINE_ELEMENTS element, and in a
+    PREFORMATTED_ELEMENTS element, where nothing is added. The depth, the
+    compactness and the Line come from the element it is in, in the state."""
+    line = state.get(LINE)
+    if not isinstance(line, Line):
+        line = Line()
+        state = {**state, LINE: line}
+    depth = int(state.get(DEPTH, 0))
+    compact = bool(state.get(COMPACT, False))
     # A whole page says it is HTML: without the doctype, a browser renders it
     # in quirks mode. parse_template drops a template's own, as it reads it.
     if thing.tagname == "html":
-        yield "<!doctype html>\n"
+        yield line.wrote("<!doctype html>\n")
     preformatted = thing.tagname in PREFORMATTED_ELEMENTS
     # An inline element is compact around itself, too; a pre, a block, is
     # laid out as any other, outside it
     flat = compact or thing.tagname in INLINE_ELEMENTS
-    indent = "" if flat else "    " * thing.indent
-    after = "" if flat else "\n"
-    yield f"{indent}<{thing.tagname}"
+    indent = INDENT * depth
+    before = "" if flat else ("" if line.at_start else "\n") + indent
+    yield line.wrote(f"{before}<{thing.tagname}")
     if thing.attributes:
         for k, v in thing.attributes.items():
             # A boolean attribute is so by being there at all: True writes
             # its name, and False or None leaves it out
             if v is True:
-                yield f" {k}"
+                yield line.wrote(f" {k}")
                 continue
             if v is False or v is None:
                 continue
@@ -693,30 +702,44 @@ async def _produce_html(thing: Stan, state: State, compact: bool) -> AsyncIterat
                 ) from None
             # Escaped whole, quotes and all: an attribute is never markup
             attrpartval = html.escape("".join(attrpartchunks), quote=True)
-            attrpart = f' {k}="{attrpartval}"'
-            yield attrpart
+            yield line.wrote(f' {k}="{attrpartval}"')
     if thing.tagname in VOID_ELEMENTS_SET:
-        yield f" />{after}"
+        yield line.wrote(" />" if flat else " />\n")
         return
     # A newline straight after a pre or textarea's start tag is dropped as
     # the page is read, so one is always written: then what is in it keeps
     # its own, if it begins with one
-    yield ">\n" if preformatted or not flat else ">"
-    if thing.children:
-        for child in thing.children:
-            if isinstance(child, Stan):
-                async for chunk in _produce_html(child, state, flat or preformatted):
-                    yield chunk
-            elif isinstance(child, TEXT_TYPES) and not isinstance(child, bool):
-                # Text is text: a visitor's < is shown, not obeyed
-                yield escape_text(child, thing.tagname)
-            else:
-                async for chunk in produce_child(child, state):
-                    yield chunk
-    if flat or preformatted:
-        yield f"</{thing.tagname}>{after}"
+    yield line.wrote(">\n" if preformatted or not flat else ">")
+    inner = {**state, DEPTH: depth + 1, COMPACT: flat or preformatted}
+    for child in thing.children:
+        if isinstance(child, Stan) and not (
+            inner[COMPACT] or child.tagname in INLINE_ELEMENTS
+        ):
+            # A block lays itself out
+            async for chunk in produce_html(child, inner):
+                yield chunk
+            continue
+        # Text, an inline element, or what a producer makes of a child: a
+        # line of a block begins with its indent, which a browser ignores
+        if not inner[COMPACT] and line.at_start:
+            yield line.wrote(INDENT * (depth + 1))
+        if isinstance(child, Stan):
+            async for chunk in produce_html(child, inner):
+                yield chunk
+        elif isinstance(child, TEXT_TYPES) and not isinstance(child, bool):
+            # Text is text: a visitor's < is shown, not obeyed
+            yield line.wrote(escape_text(child, thing.tagname))
+        else:
+            async for chunk in produce_child(child, inner):
+                yield line.wrote(chunk)
+    if flat:
+        yield line.wrote(f"</{thing.tagname}>")
+    elif preformatted:
+        yield line.wrote(f"</{thing.tagname}>\n")
     else:
-        yield f"\n{indent}</{thing.tagname}>\n"
+        yield line.wrote(
+            ("" if line.at_start else "\n") + f"{indent}</{thing.tagname}>\n"
+        )
 
 
 producers.add_producer(Stan, produce_html)
