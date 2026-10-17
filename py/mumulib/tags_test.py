@@ -403,7 +403,7 @@ class TestProduceHtml(unittest.TestCase):
 
     def test_void_element_and_attribute_quoting(self):
         self.assertEqual(
-            render(t.br(title='say "hi"')), '<br title="say &quot;hi&quot;" />\n'
+            render(t.br(title='say "hi"')), '<br title="say &quot;hi&quot;" />'
         )
 
     def test_empty_element(self):
@@ -500,18 +500,32 @@ class TestEscaping(unittest.TestCase):
         # Its value is what is in it: the newline after its start tag is
         # dropped as the page is read, and nothing else is added
         out = render(t.div[t.textarea(name="note")["hello"]])
-        self.assertIn('    <textarea name="note">\nhello</textarea>\n', out)
+        self.assertIn('<textarea name="note">\nhello</textarea>', out)
 
     def test_what_begins_with_a_newline_keeps_it(self):
         self.assertEqual(
             render(t.textarea["\nsecond line"]),
-            "<textarea>\n\nsecond line</textarea>\n",
+            "<textarea>\n\nsecond line</textarea>",
         )
 
     def test_nothing_is_added_inside_a_pre_at_any_depth(self):
         out = render(t.div[t.pre[t.code["a\n b"], t.br, "x"], t.p["after"]])
         self.assertIn("    <pre>\n<code>a\n b</code><br />x</pre>\n", out)
         # Laid out as before, once outside it
+        self.assertIn("    <p>\nafter\n    </p>\n", out)
+
+    def test_inline_elements_are_compact(self):
+        # Laid out, the line would say "Hello world !"
+        out = render(t.p["Hello ", t.b["world"], "!"])
+        self.assertEqual(out, "<p>\nHello <b>world</b>!\n</p>\n")
+
+    def test_what_is_in_an_inline_element_is_compact_at_any_depth(self):
+        out = render(t.a(href="/")[t.span["a ", t.em["b"]], t.div["c"]])
+        self.assertEqual(out, '<a href="/"><span>a <em>b</em></span><div>c</div></a>')
+
+    def test_blocks_are_laid_out_beside_inline_elements(self):
+        out = render(t.div[t.label["Name ", t.input(name="n")], t.p["after"]])
+        self.assertIn('<label>Name <input name="n" /></label>', out)
         self.assertIn("    <p>\nafter\n    </p>\n", out)
 
     def test_a_listing_in_a_template_is_preformatted_too(self):
@@ -576,7 +590,7 @@ class TestEscaping(unittest.TestCase):
         out = render(page)
         self.assertIn('href="/ada"', out)
         self.assertIn('value="Ada"', out)
-        self.assertIn("\nAda\n", out)
+        self.assertIn(">Ada</a>", out)
 
     def test_slot_is_left_as_htmls_own(self):
         self.assertEqual(t.span(slot="title").attributes, {"slot": "title"})

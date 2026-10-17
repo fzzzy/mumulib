@@ -604,6 +604,18 @@ RAW_TEXT_ELEMENTS = frozenset({"script", "style"})
 # would be added to it, so nothing is added inside one, at any depth
 PREFORMATTED_ELEMENTS = frozenset({"pre", "textarea", "listing"})
 
+# Elements that sit in a line of text: a newline or an indent beside one, or
+# in it, is a space in the line -- "Hello <b>world</b>!" laid out would say
+# "Hello world !" -- so each is written compact, nothing added in or around
+# it, at any depth
+INLINE_ELEMENTS = frozenset(
+    INLINE_TEXT_SEMANTICS
+    + DEMARCATING_EDITS
+    + ["img", "picture"]
+    + ["button", "input", "label", "meter", "output", "progress", "select"]
+    + ["textarea"]
+)
+
 
 # What a tree holds as text: escaped, and numbers as their digits
 TEXT_TYPES = (str, int, float)
@@ -634,25 +646,25 @@ async def produce_child(child: Any, state: State) -> AsyncIterator[str]:
 
 
 async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
-    async for chunk in _produce_html(thing, state, preformatted=False):
+    async for chunk in _produce_html(thing, state, compact=False):
         yield chunk
 
 
-async def _produce_html(
-    thing: Stan, state: State, preformatted: bool
-) -> AsyncIterator[str]:
+async def _produce_html(thing: Stan, state: State, compact: bool) -> AsyncIterator[str]:
     """thing as HTML, laid out with a newline after each tag and an indent
-    before it -- except in a PREFORMATTED_ELEMENTS element, where it is
-    written as it is: preformatted, when thing is in one."""
+    before it -- except where whitespace would show: in and around an
+    INLINE_ELEMENTS element, and in a PREFORMATTED_ELEMENTS element, where it
+    is written as it is. compact, when thing is in one of either."""
     # A whole page says it is HTML: without the doctype, a browser renders it
     # in quirks mode. parse_template drops a template's own, as it reads it.
     if thing.tagname == "html":
         yield "<!doctype html>\n"
-    own = thing.tagname in PREFORMATTED_ELEMENTS
-    # Inside, nothing is added; the element itself is laid out as any other,
-    # outside it
-    indent = "" if preformatted else "    " * thing.indent
-    after = "" if preformatted else "\n"
+    preformatted = thing.tagname in PREFORMATTED_ELEMENTS
+    # An inline element is compact around itself, too; a pre, a block, is
+    # laid out as any other, outside it
+    flat = compact or thing.tagname in INLINE_ELEMENTS
+    indent = "" if flat else "    " * thing.indent
+    after = "" if flat else "\n"
     yield f"{indent}<{thing.tagname}"
     if thing.attributes:
         for k, v in thing.attributes.items():
@@ -690,11 +702,11 @@ async def _produce_html(
     # A newline straight after a pre or textarea's start tag is dropped as
     # the page is read, so one is always written: then what is in it keeps
     # its own, if it begins with one
-    yield ">" if preformatted and not own else ">\n"
+    yield ">\n" if preformatted or not flat else ">"
     if thing.children:
         for child in thing.children:
             if isinstance(child, Stan):
-                async for chunk in _produce_html(child, state, preformatted or own):
+                async for chunk in _produce_html(child, state, flat or preformatted):
                     yield chunk
             elif isinstance(child, TEXT_TYPES) and not isinstance(child, bool):
                 # Text is text: a visitor's < is shown, not obeyed
@@ -702,7 +714,7 @@ async def _produce_html(
             else:
                 async for chunk in produce_child(child, state):
                     yield chunk
-    if preformatted or own:
+    if flat or preformatted:
         yield f"</{thing.tagname}>{after}"
     else:
         yield f"\n{indent}</{thing.tagname}>\n"

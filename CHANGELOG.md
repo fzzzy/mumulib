@@ -339,6 +339,11 @@ Python package). Breaking changes come first under each release.
   children indented. The one newline after its start tag, which a browser
   drops as it reads the page, is still written, so text that begins with a
   newline keeps it.
+- Stan writes inline elements -- `a`, `b`, `span`, `code`, `img`, `input`,
+  `label` and the rest of those that sit in a line of text -- compact, with
+  nothing added in or around them. Laid out, each newline and indent was a
+  space in the line: `p["Hello ", b["world"], "!"]` said "Hello world !",
+  and a link's underline ran on past its last word.
 - `mumulib-sfc-check` is executable in a built checkout. The build copied
   it with its source's mode, 644, so a project linking the checkout --
   `file:` rather than the registry, whose installs npm marks -- got
