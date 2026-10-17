@@ -500,12 +500,13 @@ class TestEscaping(unittest.TestCase):
         # Its value is what is in it: the newline after its start tag is
         # dropped as the page is read, and nothing else is added
         out = render(t.div[t.textarea(name="note")["hello"]])
-        self.assertIn('<textarea name="note">\nhello</textarea>', out)
+        # Laid out outside, as a pre is
+        self.assertIn('    <textarea name="note">\nhello</textarea>\n', out)
 
     def test_what_begins_with_a_newline_keeps_it(self):
         self.assertEqual(
             render(t.textarea["\nsecond line"]),
-            "<textarea>\n\nsecond line</textarea>",
+            "<textarea>\n\nsecond line</textarea>\n",
         )
 
     def test_nothing_is_added_inside_a_pre_at_any_depth(self):
@@ -527,6 +528,10 @@ class TestEscaping(unittest.TestCase):
         out = render(t.div[t.label["Name ", t.input(name="n")], t.p["after"]])
         self.assertIn('<label>Name <input name="n" /></label>', out)
         self.assertIn("    <p>\nafter\n    </p>\n", out)
+
+    def test_a_textarea_in_an_inline_element_is_compact_too(self):
+        out = render(t.label["Note ", t.textarea["x"]])
+        self.assertEqual(out, "<label>Note <textarea>\nx</textarea></label>")
 
     def test_a_listing_in_a_template_is_preformatted_too(self):
         # Obsolete, so not one of t's, but a template can still have one

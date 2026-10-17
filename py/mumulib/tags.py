@@ -613,7 +613,6 @@ INLINE_ELEMENTS = frozenset(
     + DEMARCATING_EDITS
     + ["img", "picture"]
     + ["button", "input", "label", "meter", "output", "progress", "select"]
-    + ["textarea"]
 )
 
 
