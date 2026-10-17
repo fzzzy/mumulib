@@ -331,6 +331,14 @@ Python package). Breaking changes come first under each release.
 
 ### Fixed
 
+- Stan adds nothing inside a `<textarea>`, `<pre>` or `<listing>`, at any
+  depth. The newline after each tag and the indent before it, which lay
+  out the rest of a page, were part of what was in one: a textarea's value
+  came back from its form with a newline and an indent on the end, longer
+  each time it was saved, and a `pre` showed a blank last line and its
+  children indented. The one newline after its start tag, which a browser
+  drops as it reads the page, is still written, so text that begins with a
+  newline keeps it.
 - `mumulib-sfc-check` is executable in a built checkout. The build copied
   it with its source's mode, 644, so a project linking the checkout --
   `file:` rather than the registry, whose installs npm marks -- got

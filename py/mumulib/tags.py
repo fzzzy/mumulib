@@ -599,6 +599,12 @@ class Markup(str):
 RAW_TEXT_ELEMENTS = frozenset({"script", "style"})
 
 
+# Elements whose whitespace is part of what is in them: a textarea's value,
+# a pre's text. The newlines and indents that lay out the rest of a page
+# would be added to it, so nothing is added inside one, at any depth
+PREFORMATTED_ELEMENTS = frozenset({"pre", "textarea", "listing"})
+
+
 # What a tree holds as text: escaped, and numbers as their digits
 TEXT_TYPES = (str, int, float)
 
@@ -628,11 +634,25 @@ async def produce_child(child: Any, state: State) -> AsyncIterator[str]:
 
 
 async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
+    async for chunk in _produce_html(thing, state, preformatted=False):
+        yield chunk
+
+
+async def _produce_html(
+    thing: Stan, state: State, preformatted: bool
+) -> AsyncIterator[str]:
+    """thing as HTML, laid out with a newline after each tag and an indent
+    before it -- except in a PREFORMATTED_ELEMENTS element, where it is
+    written as it is: preformatted, when thing is in one."""
     # A whole page says it is HTML: without the doctype, a browser renders it
     # in quirks mode. parse_template drops a template's own, as it reads it.
     if thing.tagname == "html":
         yield "<!doctype html>\n"
-    indent = "    " * thing.indent
+    own = thing.tagname in PREFORMATTED_ELEMENTS
+    # Inside, nothing is added; the element itself is laid out as any other,
+    # outside it
+    indent = "" if preformatted else "    " * thing.indent
+    after = "" if preformatted else "\n"
     yield f"{indent}<{thing.tagname}"
     if thing.attributes:
         for k, v in thing.attributes.items():
@@ -665,13 +685,16 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
             attrpart = f' {k}="{attrpartval}"'
             yield attrpart
     if thing.tagname in VOID_ELEMENTS_SET:
-        yield " />\n"
+        yield f" />{after}"
         return
-    yield ">\n"
+    # A newline straight after a pre or textarea's start tag is dropped as
+    # the page is read, so one is always written: then what is in it keeps
+    # its own, if it begins with one
+    yield ">" if preformatted and not own else ">\n"
     if thing.children:
         for child in thing.children:
             if isinstance(child, Stan):
-                async for chunk in produce_html(child, state):
+                async for chunk in _produce_html(child, state, preformatted or own):
                     yield chunk
             elif isinstance(child, TEXT_TYPES) and not isinstance(child, bool):
                 # Text is text: a visitor's < is shown, not obeyed
@@ -679,7 +702,10 @@ async def produce_html(thing: Stan, state: State) -> AsyncIterator[str]:
             else:
                 async for chunk in produce_child(child, state):
                     yield chunk
-    yield f"\n{indent}</{thing.tagname}>\n"
+    if preformatted or own:
+        yield f"</{thing.tagname}>{after}"
+    else:
+        yield f"\n{indent}</{thing.tagname}>\n"
 
 
 producers.add_producer(Stan, produce_html)

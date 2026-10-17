@@ -496,6 +496,30 @@ class TestEscaping(unittest.TestCase):
         self.assertIn("if (a < b && c) go()", out)
         self.assertIn("a > b {}", out)
 
+    def test_nothing_is_added_inside_a_textarea(self):
+        # Its value is what is in it: the newline after its start tag is
+        # dropped as the page is read, and nothing else is added
+        out = render(t.div[t.textarea(name="note")["hello"]])
+        self.assertIn('    <textarea name="note">\nhello</textarea>\n', out)
+
+    def test_what_begins_with_a_newline_keeps_it(self):
+        self.assertEqual(
+            render(t.textarea["\nsecond line"]),
+            "<textarea>\n\nsecond line</textarea>\n",
+        )
+
+    def test_nothing_is_added_inside_a_pre_at_any_depth(self):
+        out = render(t.div[t.pre[t.code["a\n b"], t.br, "x"], t.p["after"]])
+        self.assertIn("    <pre>\n<code>a\n b</code><br />x</pre>\n", out)
+        # Laid out as before, once outside it
+        self.assertIn("    <p>\nafter\n    </p>\n", out)
+
+    def test_a_listing_in_a_template_is_preformatted_too(self):
+        # Obsolete, so not one of t's, but a template can still have one
+        page = parse_template(io.BytesIO(b"<listing>a\n b</listing>"))
+        assert page is not None
+        self.assertIn("<listing>\na\n b</listing>", render(page))
+
     def test_an_entity_in_a_template_comes_back_an_entity(self):
         # Read as &, from &amp;; written out, it is &amp; again
         page = parse_template(io.BytesIO(b"<p>Fish &amp; chips &lt;3</p>"))
