@@ -18,6 +18,7 @@
  * one change stream, opened by its first bind.
  */
 
+import { source, type Source } from './events.js'
 import { set_path } from './state.js'
 
 const CHANGES = '/mumulib/changes.sse'
@@ -25,7 +26,7 @@ const CHANGES = '/mumulib/changes.sse'
 type Binding = { path: string; url: string; fetches: number }
 
 const bindings: Binding[] = []
-let stream: EventSource | undefined
+let stream: Source | undefined
 
 // A URL as the change stream compares them
 function watched(url: string): string {
@@ -51,7 +52,8 @@ async function refresh(binding: Binding): Promise<void> {
 }
 
 function listen(): void {
-  stream = new EventSource(CHANGES)
+  // Over the page's one stream, the hub's, with whatever else it hears
+  stream = source(CHANGES)
   stream.onmessage = (event: MessageEvent<string>) => {
     const changed = watched(JSON.parse(event.data) as string)
     for (const binding of bindings) {

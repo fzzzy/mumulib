@@ -16,14 +16,20 @@ test.describe('Mumulib sync', () => {
     // The stream: held until the test says what it announces
     let announce: (urls: string[]) => void = () => {}
     const announced = new Promise<string[]>((resolve) => (announce = resolve))
-    await page.route('**/mumulib/changes.sse', async (route) => {
+    // Over the hub's stream, the change stream's events labelled as its own
+    await page.route('**/mumulib/events.sse?*', async (route) => {
       const urls = await announced
       await route.fulfill({
         headers: { 'content-type': 'text/event-stream' },
         // retry: a long wait before reconnecting, once these are read
         body:
           'retry: 600000\n\n' +
-          urls.map((url) => `data: ${JSON.stringify(url)}\n\n`).join(''),
+          urls
+            .map(
+              (url) =>
+                `event: mumulib/changes.sse message\ndata: ${JSON.stringify(url)}\n\n`
+            )
+            .join(''),
       })
     })
     await page.goto('examples/use_sync/')
@@ -52,7 +58,7 @@ test.describe('Mumulib sync', () => {
     await page.route('**/docs/missing.json', (route) =>
       route.fulfill({ status: 404, body: 'not here' })
     )
-    await page.route('**/mumulib/changes.sse', (route) =>
+    await page.route('**/mumulib/events.sse?*', (route) =>
       route.fulfill({
         headers: { 'content-type': 'text/event-stream' },
         body:
@@ -67,7 +73,10 @@ test.describe('Mumulib sync', () => {
             '/docs/a.html?x=1#y',
             '/docs/a',
           ]
-            .map((url) => `data: ${JSON.stringify(url)}\n\n`)
+            .map(
+              (url) =>
+                `event: mumulib/changes.sse message\ndata: ${JSON.stringify(url)}\n\n`
+            )
             .join(''),
       })
     )

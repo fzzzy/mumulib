@@ -17,8 +17,12 @@ from python_multipart.multipart import (
 )
 
 # Registers XML for dicts, at .xml
-from mumulib import xml_producer  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from mumulib import (
+    streams,
+    xml_producer,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+)
 from mumulib.consumers import GetOnly, consume, is_container
+from mumulib.multiplex import multiplexed
 from mumulib.mumutypes import (
     ASGIApp,
     Message,
@@ -353,6 +357,7 @@ def consumers_app(
     data: str | Path = "var/data",
     vite: str | Path | None = None,
     development: bool | None = None,
+    multiplex: bool = True,
 ) -> ASGIApp:
     """The ASGI app publishing root.
 
@@ -367,6 +372,9 @@ def consumers_app(
     data is the directory each Located object -- each Resource -- keeps its
     file in, named by its URL: var/data/editors/characters/c1.json. It is
     relative to the directory the app is made in, unless absolute.
+
+    It has the event stream hub at /mumulib/events.sse -- a page's streams
+    over one connection, see mumulib.multiplex -- unless multiplex is False.
 
     Given changes, an EventSource, every request that changes something --
     a POST, PUT, PATCH or DELETE answered with success -- puts the URL of
@@ -679,22 +687,15 @@ def consumers_app(
             }
         )
 
-    return app
+    if not multiplex:
+        return app
+    return multiplexed(app)
 
 
-# Stands in a stream's buffer for "this stream is over": put when its
-# client has fallen too far behind to catch up, or the server is stopping
-_CLOSE = object()
-
-# Every event stream open in the process, of every EventSource
-_open_streams: set[asyncio.Queue[Any]] = set()
-
-
-def _close(stream: asyncio.Queue[Any]) -> None:
-    """Tell a stream to end: what it has not sent is dropped."""
-    while not stream.empty():
-        stream.get_nowait()
-    stream.put_nowait(_CLOSE)
+# What every event stream shares, the hub's too: see mumulib.streams
+_CLOSE = streams.CLOSE
+_open_streams = streams.open_streams
+_close = streams.close
 
 
 def _close_streams() -> None:
@@ -827,11 +828,7 @@ class EventSource:
                 item.cancel()
 
 
-async def _disconnected(receive: Receive) -> None:
-    """Returns when the client has gone: what it sends until then, if
-    anything, is not for an event stream."""
-    while (await receive())["type"] != "http.disconnect":
-        pass
+_disconnected = streams.disconnected
 
 
 async def _produce_eventsource(

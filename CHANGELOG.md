@@ -7,6 +7,10 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **`sync.bind` listens through the event stream hub.** It asks for the
+  change stream as a topic, `/mumulib/events.sse?topic=mumulib/changes.sse`,
+  which an app has unless made with `multiplex=False` -- see Added.
+
 - **`Stan(tagname, *children, **attributes)`: an element has no indent.**
   Its depth is where it is written, worked out as the page is: a tree built
   from the inside out, as Python builds one, had every element one level
@@ -179,6 +183,19 @@ Python package). Breaking changes come first under each release.
   `make run`.
 
 ### Added
+
+- **The event stream hub: a page's event streams over one connection.** A
+  browser opens six connections to a host, and each open event stream holds
+  one, so a page with several hangs once they are used up.
+  `/mumulib/events.sse?topic=a.sse&topic=b.sse` subscribes to each topic over
+  HTTP and sends every event back on one stream, named for its topic and its
+  own name: `event: a.sse message`. A topic that is no stream says
+  `<topic> error` and the rest go on; one that ends is subscribed to again.
+  `consumers_app` has it (`multiplex=False` leaves it out); any other ASGI
+  app wraps itself, `multiplexed(app)`, and another server's streams are
+  topics if it names their origins. In TypeScript, `events.source(url)` is
+  an `EventSource` over it, every source on a page sharing one connection.
+  `design/multiplex.md`.
 
 - **`consumers_app(..., development=False)`** says whether the app is in
   development whatever `MUMULIB_DEVELOPMENT` says -- for an app whose pages

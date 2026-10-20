@@ -13,64 +13,63 @@ Each module's `__all__` is its public API.
 The main entry point is an ASGI server factory that takes a single python object. The entire tree of the web server is reachable through this object.
 
 - `mumulib.server`: `consumers_app(root)`, to publish an object.
-- `mumulib.consumers`: 
-    - `consume`: walk the HTTP request path down the object tree.
-    - `add_consumer`: register a function used to consume an arbitrary python type
-    - guards `GetOnly` to publish an object read-only, and `RefuseIndex` to
-        publish it with no index.
+- `mumulib.consumers`:
+  - `consume`: walk the HTTP request path down the object tree.
+  - `add_consumer`: register a function used to consume an arbitrary python type
+  - guards `GetOnly` to publish an object read-only, and `RefuseIndex` to
+    publish it with no index.
 - `mumulib.producers`:
-    - `produce`: find the serializer function for the URL's file 
-        extension and convert into bytes
-    - `add_producer` to render an arbitrary python type.
+  - `produce`: find the serializer function for the URL's file
+    extension and convert into bytes
+  - `add_producer` to render an arbitrary python type.
 - `mumulib.resource`: `Resource`, a base class for an object with
-    children of its own and handlers for each method.
+  children of its own and handlers for each method.
 - `mumulib.shaped`: `is_shaped`, `make_shape`, `would_retain_shape`,
-    `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
+  `anything`, and the `ShapeMismatch` and `MalformedShape` exceptions.
 - `mumulib.tags`: a domain specific language for constructing HTML in python.
-    - `Stan`: used to express a tree of HTML in python.
-    - `Template`: loads in a tree of Stan from an HTML file.
-    - `parse_template`: loads in a tree of Stan from an HTML string
-    - `fill_slots`: Fill the named slots in a Stan tree. Slots usually contain
-        placeholder data until filled.
-    - `Markup`: Used to represent a string which is already html. Normal python
-        strings are html escaped when rendering.
-    - `tags.every`: Every html element, such as `every.div`, as Stan.
-    - `page(title, *content, stylesheets=, scripts=, live=)`: Returns a stan tree
-        with a doctype, a UTF-8 charset and a viewport, the title, the 
-        stylesheets and scripts, and the content as its body.
+  - `Stan`: used to express a tree of HTML in python.
+  - `Template`: loads in a tree of Stan from an HTML file.
+  - `parse_template`: loads in a tree of Stan from an HTML string
+  - `fill_slots`: Fill the named slots in a Stan tree. Slots usually contain
+    placeholder data until filled.
+  - `Markup`: Used to represent a string which is already html. Normal python
+    strings are html escaped when rendering.
+  - `tags.every`: Every html element, such as `every.div`, as Stan.
+  - `page(title, *content, stylesheets=, scripts=, live=)`: Returns a stan tree
+    with a doctype, a UTF-8 charset and a viewport, the title, the
+    stylesheets and scripts, and the content as its body.
 - `mumulib.mumutypes`: `SpecialResponse` and the HTTP responses,
-    `content_type_for`, and the base types mumulib defines.
+  `content_type_for`, and the base types mumulib defines.
 
 ## URLs
 
 `server.consumers_app(root)` publishes a Python object: a URL's path walks
-    into it, through dicts by key and lists and tuples by index, and the URLs
-    File extension determines which content type the object is rendered into.
+into it, through dicts by key and lists and tuples by index, and the URLs
+File extension determines which content type the object is rendered into.
 
 - `/motto.json` is `root["motto"]` as JSON, and `/motto.txt` the same value as
-- A URL without an extension is 404, and so is one whose extension doesn't map 
-    to a producer.
+- A URL without an extension is 404, and so is one whose extension doesn't map
+  to a producer.
 - A container is a dict, list, tuple, directory, Persist or Resource
-    - `/todos/` is rendered as an html index page unless guarded by RefuseIndex.
-    - `/todos.json`, `/todos.txt`, and `/todos.xml` are also valid representations
-        of the same object.
+  - `/todos/` is rendered as an html index page unless guarded by RefuseIndex.
+  - `/todos.json`, `/todos.txt`, and `/todos.xml` are also valid representations
+    of the same object.
 - Containers can be replaced or deleted with PUT or DELETE unless guarded with GetOnly.
-    - The root is the one exception: it has no name in a parent, so `/` is its
-        only URL, and it cannot be replaced whole. Its data is its entries'.
+  - The root is the one exception: it has no name in a parent, so `/` is its
+    only URL, and it cannot be replaced whole. Its data is its entries'.
 - A string is text: its own content at `.txt`, and a JSON string at `.json`,
   and a number its digits at both.
-    - As anything else -- `.html`, `.js`, `.css`, `.xml` -- it is not found
-    - Any object that doesn't have a producer registered for the content type
-        of the file extension is 404 Not Found.
-    - A `None` is `null` in a JSON document, but is not found as a
-        URL's own answer: a consumer returning `None` means not found.
+  - As anything else -- `.html`, `.js`, `.css`, `.xml` -- it is not found
+  - Any object that doesn't have a producer registered for the content type
+    of the file extension is 404 Not Found.
+  - A `None` is `null` in a JSON document, but is not found as a
+    URL's own answer: a consumer returning `None` means not found.
 - Anything but `GET`, `HEAD` or `OPTIONS` that a browser sends
-    from another origin is 403
+  from another origin is 403
 - `HEAD` is answered with the same status and headers as `GET`, and no body.
 - The request's `Content-Type` says how its body is parsed (JSON, form or
   multipart) but only the urls file extension determines the response content
-    type.
-
+  type.
 
 ## Examples
 
@@ -371,6 +370,32 @@ is closed rather than buffered for without end; a browser's `EventSource`
 reconnects by itself. `listeners` is how many streams are open. Its only URL
 is `.sse`: `/events.json` is not found. `put` is called from the event
 loop's thread.
+
+### One connection for many streams
+
+A browser opens at most six connections to a host, and each open event
+stream holds one, so a page with several hangs once they are used up. An
+app made with `consumers_app` has a hub that puts them on one:
+
+```
+GET /mumulib/events.sse?topic=news.sse&topic=threads/t1/terminal.sse
+```
+
+It subscribes to each topic over HTTP -- the page's cookies sent to its own
+origin -- and sends every event back named for its topic and its own name,
+`event: news.sse message`. A topic that is no stream says `news.sse error`,
+with the status, and the others go on; one that ends is subscribed to
+again. An app built otherwise wraps itself:
+
+```python
+from mumulib.multiplex import multiplexed
+
+app = multiplexed(app, origins=["https://other.example"])
+```
+
+`origins` are other servers whose streams may be topics, reached without
+the page's cookies. In the browser, `events.source(url)` from the
+TypeScript library is an `EventSource` over it.
 
 For events meant for one user, give them an `EventSource` of their own at a
 URL no one else can guess, and tell only them where it is:
