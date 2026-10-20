@@ -64,12 +64,26 @@ class Source extends EventTarget {
     super()
   }
 
+  // As an EventSource's: a named event's listener is given a MessageEvent
+  addEventListener(
+    type: string,
+    listener: (this: Source, event: MessageEvent<string>) => unknown,
+    options?: boolean | AddEventListenerOptions
+  ): void
   addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
     options?: boolean | AddEventListenerOptions
+  ): void
+  addEventListener(
+    type: string,
+    listener:
+      | ((this: Source, event: MessageEvent<string>) => unknown)
+      | EventListenerOrEventListenerObject
+      | null,
+    options?: boolean | AddEventListenerOptions
   ): void {
-    super.addEventListener(type, listener, options)
+    super.addEventListener(type, listener as EventListener | null, options)
     this.names.add(type)
     listen(this.topic, type)
   }

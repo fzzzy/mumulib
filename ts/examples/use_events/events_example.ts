@@ -13,8 +13,9 @@ news.onopen = () => say(`news open ${news.readyState}`)
 news.onmessage = (event) => say(`news ${event.data}`)
 
 const weather = events.source('weather.sse')
-weather.addEventListener('forecast', (event) =>
-  say(`weather forecast ${(event as MessageEvent<string>).data}`)
+// A named event's listener is given a MessageEvent, as an EventSource's is
+weather.addEventListener('forecast', (event: MessageEvent<string>) =>
+  say(`weather forecast ${event.data}`)
 )
 
 // One that is no stream: an error, and closed, as an EventSource's would be
