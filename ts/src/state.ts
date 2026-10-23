@@ -24,6 +24,7 @@
 import { set, get } from 'object-path'
 import { tree as state } from './tree.js'
 import { show, drafted } from './controls.js'
+import type { Control } from './controls.js'
 
 // The caller's own data, whatever its shape: the published type says so, and
 // narrowing it here would break code that reads its state as it likes.
@@ -141,9 +142,7 @@ function checkable(el: Element): el is HTMLInputElement {
 
 // What a control says, as the state holds it: a checkbox whether it is
 // checked; a radio button, which only says so as it is checked, its value
-function read(
-  el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-): string | boolean {
+function read(el: Control): string | boolean {
   if (el instanceof HTMLInputElement && el.type === 'checkbox') {
     return el.checked
   }
@@ -163,22 +162,9 @@ document.addEventListener(
   true
 )
 
-function possibly_changed(e: Event) {
-  let target
-  if (e.target) {
-    if (e.target instanceof HTMLInputElement) {
-      target = e.target as HTMLInputElement
-    } else if (e.target instanceof HTMLSelectElement) {
-      target = e.target as HTMLSelectElement
-    } else if (e.target instanceof HTMLTextAreaElement) {
-      target = e.target as HTMLTextAreaElement
-    }
-    // An empty value is a field cleared, and goes through like any other
-    if (target && !target.name) {
-      return
-    }
-  }
-  if (!target || drafted(target)) {
+function possibly_changed(target: Control) {
+  // An empty value is a field cleared, and goes through like any other
+  if (!target.name || drafted(target)) {
     return
   }
   const name = target.name
@@ -198,7 +184,6 @@ function possibly_changed(e: Event) {
     }
     return
   }
-  //console.log('Input event fired:', e.target.name, e.target.value);
   if (name.substring(0, 5) === 'this.') {
     set(state, name.substring(5), value)
     console.log(`${name} = ${JSON.stringify(value)}`)
@@ -221,13 +206,11 @@ function possibly_changed(e: Event) {
 document.addEventListener(
   'focusout',
   function (e: Event) {
-    //console.log('blur event fired:', e);
     if (
-      e.target &&
-      ((e.target instanceof HTMLInputElement && !checkable(e.target)) ||
-        e.target instanceof HTMLTextAreaElement)
+      (e.target instanceof HTMLInputElement && !checkable(e.target)) ||
+      e.target instanceof HTMLTextAreaElement
     ) {
-      possibly_changed(e)
+      possibly_changed(e.target)
     }
   },
   true
@@ -236,13 +219,11 @@ document.addEventListener(
 document.addEventListener(
   'change',
   function (e: Event) {
-    //console.log('blur event fired:', e);
     if (
-      e.target &&
-      ((e.target instanceof Element && checkable(e.target)) ||
-        e.target instanceof HTMLSelectElement)
+      (e.target instanceof Element && checkable(e.target)) ||
+      e.target instanceof HTMLSelectElement
     ) {
-      possibly_changed(e)
+      possibly_changed(e.target)
     }
   },
   true
@@ -271,17 +252,9 @@ function bound_value(state: State, name: string): [boolean, unknown] {
 }
 
 async function update_dom_state(state: State) {
-  const elements = document.querySelectorAll('input, select, textarea')
-  elements.forEach((element) => {
-    let el
-    if (element instanceof HTMLInputElement) {
-      el = element as HTMLInputElement
-    } else if (element instanceof HTMLSelectElement) {
-      el = element as HTMLSelectElement
-    } else if (element instanceof HTMLTextAreaElement) {
-      el = element as HTMLTextAreaElement
-    }
-    if (!el || drafted(el)) {
+  const elements = document.querySelectorAll<Control>('input, select, textarea')
+  elements.forEach((el) => {
+    if (drafted(el)) {
       return
     }
     // What is being typed is not written over: a change of state from
