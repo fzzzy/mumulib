@@ -84,7 +84,7 @@ test.describe('Mumulib Dialog Tests', () => {
       await page.goto('examples/use_dialog_forms/')
       await expect(page.locator('body')).toHaveAttribute(
         'data-person',
-        'Ada 36'
+        /"name":"Ada"/
       )
     })
 
@@ -129,7 +129,7 @@ test.describe('Mumulib Dialog Tests', () => {
         .toEqual(['record {"name":"entered"}'])
     })
 
-    test('with no method, the selected inputs are set in the selected object', async ({
+    test('with no method, the selected controls are set in the selected object', async ({
       page,
     }) => {
       await page.click('#open-selected')
@@ -139,11 +139,27 @@ test.describe('Mumulib Dialog Tests', () => {
       )
       await page.locator('input[name="selected.name"]').fill('Grace')
       await page.locator('input[name="selected.age"]').fill('45')
+      // A radio button not the last, a checkbox unchecked, and the controls
+      // that are no input
+      await page.locator('input[value="medium"]').check()
+      await page.locator('input[name="selected.agreed"]').uncheck()
+      await page.locator('textarea[name="selected.bio"]').fill('Admiral')
+      await page.locator('select[name="selected.city"]').selectOption('Rome')
       await page.getByRole('button', { name: 'Save' }).click()
-      await expect(page.locator('body')).toHaveAttribute(
-        'data-person',
-        'Grace 45'
-      )
+      await expect
+        .poll(async () =>
+          JSON.parse(
+            (await page.locator('body').getAttribute('data-person')) ?? ''
+          )
+        )
+        .toEqual({
+          name: 'Grace',
+          age: '45',
+          size: 'medium',
+          agreed: false,
+          bio: 'Admiral',
+          city: 'Rome',
+        })
       await expect(page.locator('body')).toHaveAttribute('data-selected', '')
       expect(await outputs(page)).toEqual([])
     })

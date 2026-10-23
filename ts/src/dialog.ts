@@ -136,11 +136,24 @@ async function do_dialog(
           await result
         }
       } else {
-        for (const inp of Array.from(form.querySelectorAll('input'))) {
-          if (inp.name.substring(0, 9) === 'selected.') {
-            const fullname = `${state['selected']}.${inp.name.substring(9)}`
-            console.log('setting', fullname, inp.value)
-            set(state, fullname.substring(5), inp.value)
+        // Every control, as a method has them: a radio button's value only
+        // as it is checked, and a select's and a textarea's too. But a
+        // checkbox says whether it is checked, as it does bound to the state,
+        // where the form's data would have its value, and only if checked
+        const values: { [name: string]: string | string[] | boolean } =
+          form_args(form)
+        for (const box of Array.from(
+          form.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+        )) {
+          if (!box.name.endsWith('[]')) {
+            values[box.name] = box.checked
+          }
+        }
+        for (const [name, value] of Object.entries(values)) {
+          if (name.startsWith('selected.')) {
+            const fullname = `${state['selected']}.${name.substring(9)}`
+            console.log('setting', fullname, value)
+            set(state, fullname.substring(5), value)
           }
         }
       }

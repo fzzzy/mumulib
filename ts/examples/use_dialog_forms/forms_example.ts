@@ -24,6 +24,10 @@ class Recorder {
 class Person {
   name = 'Ada'
   age = '36'
+  size = 'small'
+  agreed = true
+  bio = ''
+  city = 'Paris'
 }
 
 let selected = ''
@@ -32,7 +36,7 @@ let selected = ''
 state.onstate(async (new_state) => {
   selected = new_state.selected ?? ''
   const person = new_state.person as Person | undefined
-  document.body.dataset.person = person ? `${person.name} ${person.age}` : ''
+  document.body.dataset.person = JSON.stringify(person)
   document.body.dataset.selected = selected
 })
 
