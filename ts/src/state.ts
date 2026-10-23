@@ -17,7 +17,8 @@
  * The state itself is not exported: it is read as onstate gives it.
  *
  * - debug(mode: boolean)
- *   Whether or not to log the current application state on changes.
+ *   Whether to log the state, and write it to the body's data-state, on each
+ *   change; and to log what changes it, and what dialogs do.
  *
  */
 
@@ -25,6 +26,7 @@ import { set, get } from 'object-path'
 import { tree as state } from './tree.js'
 import { show, drafted } from './controls.js'
 import type { Control } from './controls.js'
+import { set_debugging, debugging, log } from './debugging.js'
 
 // The caller's own data, whatever its shape: the published type says so, and
 // narrowing it here would break code that reads its state as it likes.
@@ -37,10 +39,9 @@ const obs: OnStateChange[] = []
 let loaded = false
 let setting = 0
 let dirty = false
-let debug_mode: boolean = false
 
 function debug(mode: boolean) {
-  debug_mode = mode
+  set_debugging(mode)
 }
 
 async function onstate(onstatechange: OnStateChange) {
@@ -85,9 +86,9 @@ async function _set_state(
   try {
     if (setting === 1) {
       update_dom_state(state)
-      if (debug_mode) {
+      if (debugging()) {
         document.body.setAttribute('data-state', JSON.stringify(state))
-        console.log('onstatechange', state)
+        log('onstatechange', state)
       }
       for (const onstatechange of obs) {
         await onstatechange(state)
@@ -186,16 +187,13 @@ function possibly_changed(target: Control) {
   }
   if (name.substring(0, 5) === 'this.') {
     set(state, name.substring(5), value)
-    console.log(`${name} = ${JSON.stringify(value)}`)
+    log(`${name} = ${JSON.stringify(value)}`)
     set_state(null)
   } else if (name.substring(0, 9) === 'selected.') {
     // should state['selected'] be prefixed with "this." for consistency
     const selected = get(state, state['selected'])
-    console.log('selected', selected)
     set(selected, name.substring(9), value)
-    if (debug_mode) {
-      console.log(`${name} = ${JSON.stringify(value)}`)
-    }
+    log(`${name} = ${JSON.stringify(value)}`)
     set_state(null)
   } else if (name === 'selected') {
     set(state, 'selected', value)

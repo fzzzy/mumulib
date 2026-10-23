@@ -129,7 +129,7 @@ Traverses the given path and sets the substate to new_substate. If the state has
 debug(mode: boolean): void
 ```
 
-Whether to log the state, and write it to the body's `data-state`, on each change.
+Whether to log the state, and write it to the body's `data-state`, on each change; and to log what changes it, and what dialogs do. Nothing is logged unless it is on.
 
 The state itself is not exported. A page reads it as `onstate` gives it, as it changes, and changes it with `set_state` and `set_path` -- never by reaching into the tree and mutating it.
 

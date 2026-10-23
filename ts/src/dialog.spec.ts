@@ -233,5 +233,22 @@ test.describe('Mumulib Dialog Tests', () => {
       await expect(control('name')).toHaveValue('Ada')
       expect(errors).toEqual([])
     })
+
+    test('a dialog logs nothing unless in debug', async ({ page }) => {
+      const logged: string[] = []
+      page.on('console', (message) => {
+        if (message.type() === 'log') logged.push(message.text())
+      })
+      await page.click('#open-lists')
+      await page.getByRole('button', { name: 'Done' }).click()
+      await expect.poll(() => outputs(page)).toHaveLength(1)
+      await page.click('#open-selected')
+      await page.getByRole('button', { name: 'Save' }).click()
+      await expect(page.locator('#selected')).toBeHidden()
+      await page.click('#open-selected')
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect(page.locator('#selected')).toBeHidden()
+      expect(logged.filter((text) => !text.startsWith('[vite]'))).toEqual([])
+    })
   })
 })

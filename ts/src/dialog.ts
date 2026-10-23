@@ -25,6 +25,7 @@ import { set_state } from './state.js'
 import { tree as state } from './tree.js'
 import { show } from './controls.js'
 import type { Control } from './controls.js'
+import { log } from './debugging.js'
 
 // May fill the dialog in place and return it, and may be async: it is awaited
 type RenderFunc = (
@@ -76,12 +77,12 @@ async function do_dialog(
 ) {
   set_state({ selected: path })
   const substate = get(state, path.substring(5))
-  console.log('SUBSTATE', state, path, substate)
+  log('SUBSTATE', state, path, substate)
 
   const dialog = document.getElementById(dialog_name)
   if (dialog && dialog instanceof HTMLDialogElement) {
     const clone = await render(dialog, substate)
-    console.log('cloned', dialog, clone)
+    log('cloned', dialog, clone)
     morphdom(dialog, clone)
     // Its selected.* controls, a draft of the selected object: filled from it
     // now, and given back only by a submit without a method
@@ -118,7 +119,7 @@ async function do_dialog(
     dialog.returnValue = ''
     dialog.showModal()
     dialog.onclose = async () => {
-      console.log('closing', dialog)
+      log('closing', dialog)
       const returnValue = dialog.returnValue
       // Escape closes the dialog without a submit, as does close() from code
       if (submitted === null || returnValue === 'cancel') {
@@ -137,9 +138,9 @@ async function do_dialog(
       ) as HTMLInputElement
       if (method) {
         const args = form_args(form)
-        console.log('calling method', method.value, args)
+        log('calling method', method.value, args)
         const got = get(state, String(args['path']).substring(5))
-        console.log('got', got)
+        log('got', got)
         delete args['method']
         delete args['path']
         const result = got[method.value].call(got, args)
@@ -163,7 +164,7 @@ async function do_dialog(
         for (const [name, value] of Object.entries(values)) {
           if (name.startsWith('selected.')) {
             const fullname = `${state['selected']}.${name.substring(9)}`
-            console.log('setting', fullname, value)
+            log('setting', fullname, value)
             set(state, fullname.substring(5), value)
           }
         }

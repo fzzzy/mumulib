@@ -210,7 +210,6 @@ async function _fill_or_append_slots(
     pat = await pat
   }
   for (const slot of slots) {
-    // console.log("got a slots", slot, pat);
     if (pat instanceof Element) {
       if (append) {
         slot.appendChild(pat.cloneNode(true) as Element)

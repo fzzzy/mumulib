@@ -339,6 +339,7 @@ test.describe('Mumulib State Tests', () => {
       .toEqual({
         name: 'Grace',
       })
+    expect(logged).toContain('this.title = "second"')
     expect(logged).toContain('selected.name = "Grace"')
     const changes = () =>
       logged.filter((text) => text.startsWith('onstatechange')).length
@@ -352,6 +353,7 @@ test.describe('Mumulib State Tests', () => {
     await page.locator('input[name="this.title"]').focus()
     await expect(page.locator('input[name="this.title"]')).toHaveValue('third')
     expect((await shown()).title).toBe('second')
+    expect(logged).not.toContain('this.title = "third"')
     expect(logged).not.toContain('selected.name = "Hopper"')
     expect(changes()).toBe(logged_before)
   })
