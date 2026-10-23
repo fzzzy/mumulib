@@ -88,7 +88,7 @@ test.describe('Mumulib Dialog Tests', () => {
       )
     })
 
-    test('a method is given lists, names given twice, and text, but no files', async ({
+    test('a method is given lists, empty ones, names given twice, and text, but no files', async ({
       page,
     }) => {
       await page.click('#open-lists')
@@ -102,6 +102,9 @@ test.describe('Mumulib Dialog Tests', () => {
               one: ['only'],
               color: ['cyan', 'magenta'],
               notes: 'written',
+              // Nothing checked or chosen; and nothing for the disabled
+              unchecked: [],
+              unchosen: [],
             }),
         ])
     })
@@ -139,8 +142,8 @@ test.describe('Mumulib Dialog Tests', () => {
       )
       await page.locator('input[name="selected.name"]').fill('Grace')
       await page.locator('input[name="selected.age"]').fill('45')
-      // A radio button not the last, a checkbox unchecked, and the controls
-      // that are no input
+      // A radio button not the last, a checkbox unchecked, the controls that
+      // are no input, and a list of checkboxes left with none checked
       await page.locator('input[value="medium"]').check()
       await page.locator('input[name="selected.agreed"]').uncheck()
       await page.locator('textarea[name="selected.bio"]').fill('Admiral')
@@ -159,6 +162,7 @@ test.describe('Mumulib Dialog Tests', () => {
           agreed: false,
           bio: 'Admiral',
           city: 'Rome',
+          tags: [],
         })
       await expect(page.locator('body')).toHaveAttribute('data-selected', '')
       expect(await outputs(page)).toEqual([])

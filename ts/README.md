@@ -369,8 +369,9 @@ The method is called with every value the form has, by name: a `<textarea>`
 and a `<select>` as well as each `<input>`, and a form-associated custom
 element as any control. A name ending in `[]` is always a list, without the
 brackets, so a `<select multiple name="members[]">` with one choice gives
-`{members: ['c1']}`; a name given twice is a list too. The render function may
-fill the dialog in place and return it, and may be async.
+`{members: ['c1']}`, and with none `{members: []}`, unless it is disabled; a
+name given twice is a list too. The render function may fill the dialog in
+place and return it, and may be async.
 
 ### dialog api
 

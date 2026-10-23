@@ -32,7 +32,8 @@ type RenderFunc = (
 
 // What a form's method is called with: each control's value by its name. A
 // name ending in [] is always a list, without the brackets -- a multiple
-// select with one choice is still a list -- and a name given twice is too.
+// select with one choice is still a list, and one with none an empty list --
+// and a name given twice is a list too.
 type FormArgs = { [key: string]: string | string[] }
 
 function form_args(form: HTMLFormElement): FormArgs {
@@ -52,6 +53,15 @@ function form_args(form: HTMLFormElement): FormArgs {
       args[name] = [before, value]
     } else {
       args[name] = listed ? [value] : value
+    }
+  }
+  // A list nothing was sent for -- no box checked, no option chosen -- is
+  // empty, as the server's form.texts has it; but not one whose controls are
+  // all disabled, which the form does not send at all
+  for (const control of Array.from(form.elements)) {
+    const key = control.getAttribute('name')
+    if (key?.endsWith('[]') && !control.matches(':disabled')) {
+      args[key.slice(0, -2)] ??= []
     }
   }
   return args

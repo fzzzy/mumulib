@@ -27,6 +27,14 @@
         <input name="color" value="magenta" />
         <input type="file" name="upload" />
         <textarea name="notes">written</textarea>
+        <input type="checkbox" name="unchecked[]" value="x" />
+        <select multiple name="unchosen[]">
+          <option>x</option>
+        </select>
+        <input type="checkbox" name="disabled[]" value="x" checked disabled />
+        <fieldset disabled>
+          <input type="checkbox" name="fenced[]" value="x" checked />
+        </fieldset>
         <input type="submit" value="Done" />
       </form>
     </dialog>
@@ -62,6 +70,8 @@
         <input type="radio" name="selected.size" value="medium" />
         <input type="radio" name="selected.size" value="large" />
         <input type="checkbox" name="selected.agreed" checked />
+        <input type="checkbox" name="selected.tags[]" value="red" />
+        <input type="checkbox" name="selected.tags[]" value="green" />
         <textarea name="selected.bio"></textarea>
         <select name="selected.city">
           <option>Paris</option>

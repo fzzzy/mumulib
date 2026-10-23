@@ -28,6 +28,7 @@ class Person {
   agreed = true
   bio = ''
   city = 'Paris'
+  tags = ['red']
 }
 
 let selected = ''
