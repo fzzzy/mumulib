@@ -45,17 +45,13 @@ type SyncPattern =
 
 type Pattern = Promise<SyncPattern> | SyncPattern
 
-function isAsyncIterable(value: unknown): value is AsyncIterable<Pattern> {
-  return (
-    typeof (value as { [Symbol.asyncIterator]?: unknown })?.[
-      Symbol.asyncIterator
-    ] === 'function'
-  )
-}
+// What a pattern comes to: elements and text
+type Part = Element | string
 
 // A pattern's parts in order, however deep: each promise awaited, and each
-// array or generator, of either kind, gone through in its place
-async function* parts(pat: Pattern): AsyncGenerator<Element | string> {
+// array or generator, of either kind, gone through in its place. What the
+// slots of a name took, its parts, is a pattern too
+async function* parts(pat: Pattern | Part | Part[]): AsyncGenerator<Part> {
   pat = await pat
   if (pat instanceof Element) {
     yield pat
@@ -209,7 +205,7 @@ async function _fill_or_append_slots(
     (el) => el.getAttribute('data-slot') === slotname,
     true
   )
-  const calculated_slot: (Element | string)[] = []
+  const calculated_slot: Part[] = []
   if (pat instanceof Promise) {
     pat = await pat
   }
@@ -283,39 +279,17 @@ async function _fill_or_append_slots(
   }
 }
 
-// A pattern as an attribute's value: an iterable's parts run together, and
-// no element anywhere in it
-async function attribute_value(
-  pat: SyncPattern | (Element | string)[]
-): Promise<string> {
-  if (pat instanceof Element) {
-    throw new Error("Can't set attr to Element")
-  } else if (
-    pat instanceof Array ||
-    (typeof pat === 'object' && 'next' in pat && 'throw' in pat)
-  ) {
-    let patstr = ''
-    if (isAsyncIterable(pat)) {
-      for await (const p of pat) {
-        if (p instanceof Element) {
-          throw new Error("Can't set attr to Element")
-        } else {
-          patstr += p.toString()
-        }
-      }
-    } else {
-      for (const p of pat as Generator<Pattern>) {
-        if (p instanceof Element) {
-          throw new Error("Can't set attr to Element")
-        } else {
-          patstr += p.toString()
-        }
-      }
+// A pattern as an attribute's value: its parts run together, and no element
+// anywhere in it
+async function attribute_value(pat: Pattern | Part[]): Promise<string> {
+  let value = ''
+  for await (const p of parts(pat)) {
+    if (p instanceof Element) {
+      throw new Error("Can't set attr to Element")
     }
-    return patstr
-  } else {
-    return pat.toString()
+    value += p
   }
+  return value
 }
 
 async function clone_pat(

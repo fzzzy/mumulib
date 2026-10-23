@@ -49,7 +49,7 @@ window.onload = async () => {
   await patslot.append_to_slots(byId('appended'), 'note', ', world')
   await patslot.append_to_slots(byId('appended'), 'more', ['second', 'third'])
 
-  // An attribute takes an iterable's parts as one string
+  // An attribute takes an iterable's parts as one string, however deep
   await patslot.fill(byId('attrs'), {
     words: ['a', 'b', 'c'],
     generated: (function* () {
@@ -60,6 +60,13 @@ window.onload = async () => {
       yield 'p'
       yield 'q'
     })(),
+    nested: [
+      'x',
+      Promise.resolve('y'),
+      (function* (): Generator<Pattern> {
+        yield ['z', '1']
+      })(),
+    ],
   })
 
   // Patterns inside patterns, however deep, each part in its place

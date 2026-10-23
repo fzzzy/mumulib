@@ -215,6 +215,8 @@ test.describe('Mumulib PatSlot Tests', () => {
     await expect(attrs).toHaveAttribute('title', 'abc')
     await expect(attrs).toHaveAttribute('data-sync', 'xy')
     await expect(attrs).toHaveAttribute('data-async', 'pq')
+    // A promise in an array, and an array from a generator
+    await expect(attrs).toHaveAttribute('data-nested', 'xyz1')
 
     // An array of generators, one yielding an array with a promise in it
     await expect(page.locator('#nested')).toHaveText('abcde5')
