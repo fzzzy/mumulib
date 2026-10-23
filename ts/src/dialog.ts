@@ -86,39 +86,25 @@ async function do_dialog(
     for (const d of Array.from(dialog.querySelectorAll('form'))) {
       d.onsubmit = (event) => {
         event.preventDefault()
-        if (event.target) {
-          let target = event.target as HTMLElement
-          while (!(target instanceof HTMLDialogElement)) {
-            if (target.parentNode) {
-              target = target.parentNode as HTMLElement
-            } else {
-              console.error('Dialog target not found')
-              return
-            }
-          }
-          submitted = d
-          // What method="dialog" would have done: the button's value is the
-          // dialog's returnValue, so a Cancel button cancels
-          const button = event.submitter
-          target.close(
-            button instanceof HTMLButtonElement ||
-              button instanceof HTMLInputElement
-              ? button.value
-              : ''
-          )
-        }
+        submitted = d
+        // What method="dialog" would have done: the button's value is the
+        // dialog's returnValue, so a Cancel button cancels
+        const button = event.submitter
+        dialog.close(
+          button instanceof HTMLButtonElement ||
+            button instanceof HTMLInputElement
+            ? button.value
+            : ''
+        )
       }
     }
     // A dialog keeps its returnValue from one showing to the next: a Cancel
     // last time would make this one's Save a cancel too
     dialog.returnValue = ''
     dialog.showModal()
-    dialog.onclose = async (ev) => {
-      console.log('closing', ev.target)
-      if (!ev.target) {
-        return
-      }
-      const returnValue = (ev.target as HTMLDialogElement).returnValue
+    dialog.onclose = async () => {
+      console.log('closing', dialog)
+      const returnValue = dialog.returnValue
       // Escape closes the dialog without a submit, as does close() from code
       if (submitted === null || returnValue === 'cancel') {
         set_state({ selected: undefined })
@@ -127,9 +113,9 @@ async function do_dialog(
       // The name compared as text, not built into a selector, so any
       // returnValue is a name; and the attribute, which a control named
       // "name" does not hide as it does form.name
-      const named = Array.from(
-        (ev.target as HTMLElement).querySelectorAll('form')
-      ).find((f) => f.getAttribute('name') === returnValue)
+      const named = Array.from(dialog.querySelectorAll('form')).find(
+        (f) => f.getAttribute('name') === returnValue
+      )
       const form = (returnValue && named) || submitted
       const method = form.querySelector(
         'input[name="method"]'
