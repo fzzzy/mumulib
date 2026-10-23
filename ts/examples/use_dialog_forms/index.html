@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dialog Forms Example</title>
+    <script type="module" src="./forms_example.ts"></script>
+  </head>
+
+  <body>
+    <button id="open-lists">Lists</button>
+    <button id="open-named">Named</button>
+    <button id="open-implicit">Implicit</button>
+    <button id="open-selected">Selected</button>
+    <button id="open-missing">Missing</button>
+    <div id="not_a_dialog"></div>
+
+    <dialog id="lists">
+      <form>
+        <input type="hidden" name="path" value="this.recorder" />
+        <input type="hidden" name="method" value="record" />
+        <input type="checkbox" name="tags[]" value="red" checked />
+        <input type="checkbox" name="tags[]" value="green" />
+        <input type="checkbox" name="tags[]" value="blue" checked />
+        <input name="one[]" value="only" />
+        <input name="color" value="cyan" />
+        <input name="color" value="magenta" />
+        <input type="file" name="upload" />
+        <textarea name="notes">written</textarea>
+        <input type="submit" value="Done" />
+      </form>
+    </dialog>
+
+    <dialog id="named">
+      <form name="draft">
+        <input type="hidden" name="path" value="this.recorder" />
+        <input type="hidden" name="method" value="record" />
+        <input name="name" value="draft" />
+        <button value="final">Final</button>
+      </form>
+      <form name="final">
+        <input type="hidden" name="path" value="this.recorder" />
+        <input type="hidden" name="method" value="record_later" />
+        <input name="name" value="final" />
+      </form>
+    </dialog>
+
+    <dialog id="implicit">
+      <form>
+        <input type="hidden" name="path" value="this.recorder" />
+        <input type="hidden" name="method" value="record" />
+        <input name="name" />
+      </form>
+    </dialog>
+
+    <dialog id="selected">
+      <form>
+        <input name="selected.name" />
+        <input name="selected.age" />
+        <input name="unrelated" value="left alone" />
+        <button>Save</button>
+      </form>
+    </dialog>
+  </body>
+</html>

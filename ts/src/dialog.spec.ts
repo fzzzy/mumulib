@@ -73,4 +73,95 @@ test.describe('Mumulib Dialog Tests', () => {
       )
       .toEqual(['saved dotted'])
   })
+
+  test.describe('forms of every kind', () => {
+    const outputs = (page: import('@playwright/test').Page) =>
+      page.$$eval('div[class="output"]', (divs) =>
+        divs.map((div) => div.textContent)
+      )
+
+    test.beforeEach(async ({ page }) => {
+      await page.goto('examples/use_dialog_forms/')
+      await expect(page.locator('body')).toHaveAttribute(
+        'data-person',
+        'Ada 36'
+      )
+    })
+
+    test('a method is given lists, names given twice, and text, but no files', async ({
+      page,
+    }) => {
+      await page.click('#open-lists')
+      await page.getByRole('button', { name: 'Done' }).click()
+      await expect
+        .poll(() => outputs(page))
+        .toEqual([
+          'record ' +
+            JSON.stringify({
+              tags: ['red', 'blue'],
+              one: ['only'],
+              color: ['cyan', 'magenta'],
+              notes: 'written',
+            }),
+        ])
+    })
+
+    test('a button names another form to save, and an async method is waited for', async ({
+      page,
+    }) => {
+      await page.click('#open-named')
+      await page.getByRole('button', { name: 'Final' }).click()
+      await expect
+        .poll(() => outputs(page))
+        .toEqual([
+          'record_later {"name":"final"} while this.recorder is selected',
+        ])
+      await expect(page.locator('body')).toHaveAttribute('data-selected', '')
+    })
+
+    test('a form with no button is submitted by Enter', async ({ page }) => {
+      await page.click('#open-implicit')
+      await page.locator('#implicit input[name="name"]').fill('entered')
+      await page.keyboard.press('Enter')
+      await expect(page.locator('#implicit')).toBeHidden()
+      await expect
+        .poll(() => outputs(page))
+        .toEqual(['record {"name":"entered"}'])
+    })
+
+    test('with no method, the selected inputs are set in the selected object', async ({
+      page,
+    }) => {
+      await page.click('#open-selected')
+      await expect(page.locator('body')).toHaveAttribute(
+        'data-selected',
+        'this.person'
+      )
+      await page.locator('input[name="selected.name"]').fill('Grace')
+      await page.locator('input[name="selected.age"]').fill('45')
+      await page.getByRole('button', { name: 'Save' }).click()
+      await expect(page.locator('body')).toHaveAttribute(
+        'data-person',
+        'Grace 45'
+      )
+      await expect(page.locator('body')).toHaveAttribute('data-selected', '')
+      expect(await outputs(page)).toEqual([])
+    })
+
+    test('a dialog that is not there, or is no dialog, is said', async ({
+      page,
+    }) => {
+      const errors: string[] = []
+      page.on('console', (message) => {
+        if (message.type() === 'error') errors.push(message.text())
+      })
+      await page.click('#open-missing')
+      await expect
+        .poll(() => errors)
+        .toEqual([
+          'Dialog missing not found.',
+          'Dialog not_a_dialog not found.',
+        ])
+    })
+  })
 })
