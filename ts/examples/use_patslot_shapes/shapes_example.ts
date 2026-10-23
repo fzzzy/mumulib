@@ -62,6 +62,15 @@ window.onload = async () => {
     })(),
   })
 
+  // A generator into a slot and attributes of its name, and into attributes
+  // alone: each takes all it gives
+  const tags = function* () {
+    yield 'red'
+    yield 'green'
+  }
+  await patslot.fill_slots(byId('shared'), 'tags', tags())
+  await patslot.fill_slots(byId('attributes'), 'tags', tags())
+
   // An element is no attribute's value, however it comes
   const element = () => document.createElement('i')
   await refused(() => patslot.clone_pat('nowhere', {}).then(() => {}))

@@ -216,6 +216,21 @@ test.describe('Mumulib PatSlot Tests', () => {
     await expect(attrs).toHaveAttribute('data-sync', 'xy')
     await expect(attrs).toHaveAttribute('data-async', 'pq')
 
+    // One generator, whatever takes it: a slot and attributes, or several
+    // attributes alone
+    await expect(page.locator('#shared p')).toHaveText('redgreen')
+    for (const selector of ['#shared p', '#shared b', '#attributes > *']) {
+      for (const tagged of await page.locator(selector).all()) {
+        await expect(tagged).toHaveAttribute('title', 'redgreen')
+      }
+    }
+    for (const selector of ['#shared b', '#attributes b']) {
+      await expect(page.locator(selector)).toHaveAttribute(
+        'data-tags',
+        'redgreen'
+      )
+    }
+
     // A pattern that is not there, and an element for an attribute, however
     // it comes: as itself, from a generator, or from an async one
     await expect(page.locator('#errors li')).toHaveText([

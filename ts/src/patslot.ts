@@ -265,43 +265,54 @@ async function _fill_or_append_slots(
     false
   )
 
+  // One value for every attribute of the slot's name, made once: an iterator
+  // runs through once, so what the slots took of it, if they took any, is
+  // what the attributes take too
+  let value: string | undefined
   for (const attrslot of attrslots) {
-    const mappings = attr_slots(attrslot)
-    const results: Promise<void>[] = mappings.map(async (mapping) => {
-      const [attribute_name, attribute_slot] = mapping
-      if (attribute_slot !== slotname) {
-        return
+    for (const [attribute_name, attribute_slot] of attr_slots(attrslot)) {
+      if (attribute_slot === slotname) {
+        value ??= await attribute_value(
+          calculated_slot.length !== 0 ? calculated_slot : pat
+        )
+        attrslot.setAttribute(attribute_name, value)
       }
-      if (pat instanceof Element) {
-        throw new Error("Can't set attr to Element")
-      } else if (
-        pat instanceof Array ||
-        (typeof pat === 'object' && 'next' in pat && 'throw' in pat)
-      ) {
-        let patstr = ''
-        if (isAsyncIterable(pat)) {
-          for await (const p of pat) {
-            if (p instanceof Element) {
-              throw new Error("Can't set attr to Element")
-            } else {
-              patstr += p.toString()
-            }
-          }
+    }
+  }
+}
+
+// A pattern as an attribute's value: an iterable's parts run together, and
+// no element anywhere in it
+async function attribute_value(
+  pat: SyncPattern | (Element | string)[]
+): Promise<string> {
+  if (pat instanceof Element) {
+    throw new Error("Can't set attr to Element")
+  } else if (
+    pat instanceof Array ||
+    (typeof pat === 'object' && 'next' in pat && 'throw' in pat)
+  ) {
+    let patstr = ''
+    if (isAsyncIterable(pat)) {
+      for await (const p of pat) {
+        if (p instanceof Element) {
+          throw new Error("Can't set attr to Element")
         } else {
-          for (const p of pat as Generator<Pattern>) {
-            if (p instanceof Element) {
-              throw new Error("Can't set attr to Element")
-            } else {
-              patstr += p.toString()
-            }
-          }
+          patstr += p.toString()
         }
-        attrslot.setAttribute(attribute_name, patstr)
-      } else {
-        attrslot.setAttribute(attribute_name, pat.toString())
       }
-    })
-    await Promise.all(results)
+    } else {
+      for (const p of pat as Generator<Pattern>) {
+        if (p instanceof Element) {
+          throw new Error("Can't set attr to Element")
+        } else {
+          patstr += p.toString()
+        }
+      }
+    }
+    return patstr
+  } else {
+    return pat.toString()
   }
 }
 
