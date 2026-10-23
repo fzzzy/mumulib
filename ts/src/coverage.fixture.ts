@@ -17,11 +17,11 @@ export const test = base.extend<{ saveCoverage: void }>({
       )
       if (coverage) {
         fs.mkdirSync(COVERAGE_DIR, { recursive: true })
-        const name =
-          `${testInfo.project.name}-${testInfo.titlePath.join('-')}`.replace(
-            /[^A-Za-z0-9_.-]+/g,
-            '_'
-          )
+        // Readable, and made unique by the test's id: titles that differ only
+        // in what the replace drops would otherwise write over each other
+        const name = `${testInfo.project.name}-${testInfo.titlePath.join('-')}`
+          .replace(/[^A-Za-z0-9_.-]+/g, '_')
+          .concat(`-${testInfo.testId}`)
         fs.writeFileSync(
           path.join(COVERAGE_DIR, `${name}.json`),
           JSON.stringify(coverage)
