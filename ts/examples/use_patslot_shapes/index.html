@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pattern Shapes Example</title>
+    <script type="module" src="./shapes_example.ts"></script>
+  </head>
+
+  <body>
+    <div hidden>
+      <li data-pat="row" data-slot="label"></li>
+    </div>
+    <main>
+      <section id="element">
+        <p data-slot="badge">placeholder</p>
+        <p data-slot="badge">placeholder</p>
+      </section>
+      <p id="promised" data-slot="later">placeholder</p>
+      <section id="sync">
+        <ol data-slot="rows">
+          <li>old</li>
+        </ol>
+        <ol data-slot="rows"></ol>
+      </section>
+      <section id="async">
+        <ol data-slot="rows">
+          <li>old</li>
+        </ol>
+        <ol data-slot="rows"></ol>
+      </section>
+      <section id="appended">
+        <ul data-slot="items">
+          <li>first</li>
+        </ul>
+        <p data-slot="note">Hello</p>
+        <ol data-slot="more">
+          <li>first</li>
+        </ol>
+      </section>
+      <b
+        id="attrs"
+        data-attr="title=words,data-sync=generated,data-async=streamed"
+      ></b>
+      <ul id="errors"></ul>
+    </main>
+  </body>
+</html>

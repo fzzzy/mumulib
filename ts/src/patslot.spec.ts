@@ -172,4 +172,57 @@ test.describe('Mumulib PatSlot Tests', () => {
       ['Grace', 'Grace'],
     ])
   })
+
+  test('each shape of pattern fills a slot, appends to one, or sets an attribute', async ({
+    page,
+  }) => {
+    await page.goto('examples/use_patslot_shapes/')
+    await expect(page.locator('body')).toHaveAttribute('data-filled', 'yes')
+
+    // One element: a clone in each slot of the name, named as the slot
+    await expect(page.locator('#element > *')).toHaveCount(2)
+    await expect(page.locator('#element span[data-slot="badge"]')).toHaveText([
+      'new',
+      'new',
+    ])
+    await expect(page.locator('#promised')).toHaveText('kept')
+
+    // A generator, and an async one: what was in each slot is gone, both
+    // slots of the name are filled, and each generator was run through once
+    for (const [id, filled] of [
+      ['#sync', ['onetwo', 'onetwo']],
+      ['#async', ['threefour', 'threefour']],
+    ] as const) {
+      await expect(page.locator(`${id} ol`)).toHaveText(filled)
+      await expect(page.locator(`${id} li[data-slot="label"]`)).toHaveCount(2)
+    }
+    await expect(page.locator('body')).toHaveAttribute('data-generated', '1 1')
+
+    // Appended after what is there: an element, text, and an array's parts
+    await expect(page.locator('#appended [data-slot="items"] li')).toHaveText([
+      'first',
+      'second',
+    ])
+    await expect(page.locator('#appended [data-slot="note"]')).toHaveText(
+      'Hello, world'
+    )
+    await expect(page.locator('#appended [data-slot="more"]')).toHaveText(
+      /^\s*first\s*secondthird$/
+    )
+
+    // An array, a generator and an async one, each as one attribute
+    const attrs = page.locator('#attrs')
+    await expect(attrs).toHaveAttribute('title', 'abc')
+    await expect(attrs).toHaveAttribute('data-sync', 'xy')
+    await expect(attrs).toHaveAttribute('data-async', 'pq')
+
+    // A pattern that is not there, and an element for an attribute, however
+    // it comes: as itself, from a generator, or from an async one
+    await expect(page.locator('#errors li')).toHaveText([
+      'No pat named nowhere',
+      "Can't set attr to Element",
+      "Can't set attr to Element",
+      "Can't set attr to Element",
+    ])
+  })
 })
