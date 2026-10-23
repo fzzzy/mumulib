@@ -190,7 +190,8 @@ function possibly_changed(target: Control) {
     log(`${name} = ${JSON.stringify(value)}`)
     set_state(null)
   } else if (name.substring(0, 9) === 'selected.') {
-    // should state['selected'] be prefixed with "this." for consistency
+    // selected is a key in the state, without "this.": the one a dialog sets
+    // has it, but a dialog's selected.* controls are its own, never here
     const selected = get(state, state['selected'])
     set(selected, name.substring(9), value)
     log(`${name} = ${JSON.stringify(value)}`)
