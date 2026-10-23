@@ -53,6 +53,24 @@ function isAsyncIterable(value: unknown): value is AsyncIterable<Pattern> {
   )
 }
 
+// A pattern's parts in order, however deep: each promise awaited, and each
+// array or generator, of either kind, gone through in its place
+async function* parts(pat: Pattern): AsyncGenerator<Element | string> {
+  pat = await pat
+  if (pat instanceof Element) {
+    yield pat
+  } else if (
+    pat instanceof Array ||
+    (typeof pat === 'object' && 'next' in pat && 'throw' in pat)
+  ) {
+    for await (const p of pat) {
+      yield* parts(p)
+    }
+  } else {
+    yield pat.toString()
+  }
+}
+
 // The elements under node that have attribute as value, compared as text:
 // no selector is built from a name, so any name is found as it is written
 function having(node: Element, attribute: string, value: string): Element[] {
@@ -222,28 +240,12 @@ async function _fill_or_append_slots(
           }
         }
       } else {
-        if (isAsyncIterable(pat)) {
-          for await (const p of pat) {
-            if (p instanceof Element) {
-              calculated_slot.push(p)
-              slot.appendChild(p.cloneNode(true) as Element)
-            } else {
-              calculated_slot.push(p.toString())
-              slot.appendChild(document.createTextNode(p.toString()))
-            }
-          }
-        } else {
-          for (let p of pat as Generator<Pattern>) {
-            if (p instanceof Promise) {
-              p = await p
-            }
-            if (p instanceof Element) {
-              calculated_slot.push(p)
-              slot.appendChild(p.cloneNode(true) as Element)
-            } else {
-              calculated_slot.push(p.toString())
-              slot.appendChild(document.createTextNode(p.toString()))
-            }
+        for await (const p of parts(pat)) {
+          calculated_slot.push(p)
+          if (p instanceof Element) {
+            slot.appendChild(p.cloneNode(true) as Element)
+          } else {
+            slot.appendChild(document.createTextNode(p))
           }
         }
       }

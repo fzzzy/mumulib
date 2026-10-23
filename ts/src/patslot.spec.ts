@@ -216,6 +216,10 @@ test.describe('Mumulib PatSlot Tests', () => {
     await expect(attrs).toHaveAttribute('data-sync', 'xy')
     await expect(attrs).toHaveAttribute('data-async', 'pq')
 
+    // An array of generators, one yielding an array with a promise in it
+    await expect(page.locator('#nested')).toHaveText('abcde5')
+    await expect(page.locator('#nested li[data-slot="label"]')).toHaveText('e')
+
     // One generator, whatever takes it: a slot and attributes, or several
     // attributes alone
     await expect(page.locator('#shared p')).toHaveText('redgreen')

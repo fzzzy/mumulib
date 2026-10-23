@@ -62,6 +62,19 @@ window.onload = async () => {
     })(),
   })
 
+  // Patterns inside patterns, however deep, each part in its place
+  await patslot.fill_slots(byId('nested'), 'mixed', [
+    'a',
+    (function* (): Generator<Pattern> {
+      yield 'b'
+      yield ['c', Promise.resolve('d')]
+    })(),
+    (async function* (): AsyncGenerator<Pattern> {
+      yield patslot.clone_pat('row', { label: 'e' })
+      yield 5
+    })(),
+  ])
+
   // A generator into a slot and attributes of its name, and into attributes
   // alone: each takes all it gives
   const tags = function* () {
