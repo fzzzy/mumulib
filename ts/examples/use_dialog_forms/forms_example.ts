@@ -29,6 +29,7 @@ class Person {
   bio = ''
   city = 'Paris'
   tags = ['red']
+  languages = ['en', 'de']
 }
 
 let selected = ''
@@ -55,3 +56,10 @@ open('open-selected', 'selected', 'this.person')
 // No dialog of the name, and an element of the name that is no dialog
 open('open-missing', 'missing', 'this.recorder')
 open('open-missing', 'not_a_dialog', 'this.recorder')
+
+// A change of state from elsewhere, as sync's would be, while a dialog is
+// open: from inside it, as the dialog is modal
+let changes = 0
+document.getElementById('elsewhere-inside')?.addEventListener('click', () => {
+  state.set_state({ elsewhere: ++changes })
+})

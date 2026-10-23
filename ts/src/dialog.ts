@@ -23,6 +23,8 @@ import { set, get } from 'object-path'
 import morphdom from 'morphdom'
 import { set_state } from './state.js'
 import { tree as state } from './tree.js'
+import { show } from './controls.js'
+import type { Control } from './controls.js'
 
 // May fill the dialog in place and return it, and may be async: it is awaited
 type RenderFunc = (
@@ -81,6 +83,19 @@ async function do_dialog(
     const clone = await render(dialog, substate)
     console.log('cloned', dialog, clone)
     morphdom(dialog, clone)
+    // Its selected.* controls, a draft of the selected object: filled from it
+    // now, and given back only by a submit without a method
+    for (const control of Array.from(
+      dialog.querySelectorAll<Control>('input, select, textarea')
+    )) {
+      if (control.name.startsWith('selected.')) {
+        const name = control.name.slice(9)
+        show(
+          control,
+          get(substate, name.endsWith('[]') ? name.slice(0, -2) : name)
+        )
+      }
+    }
     // The form submitted this showing; none, and the dialog was cancelled
     let submitted: HTMLFormElement | null = null
     for (const d of Array.from(dialog.querySelectorAll('form'))) {

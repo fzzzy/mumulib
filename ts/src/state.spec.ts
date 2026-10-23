@@ -316,4 +316,65 @@ test.describe('Mumulib State Tests', () => {
       'Got state {"elsewhere":1,"name":"Ada","note":"Server"}'
     )
   })
+
+  test('debug writes each change on the body, and logs it, until turned off', async ({
+    page,
+  }) => {
+    const logged: string[] = []
+    page.on('console', (message) => logged.push(message.text()))
+    await page.goto('examples/use_state_debug/')
+    const shown = async () =>
+      JSON.parse((await page.locator('body').getAttribute('data-state')) ?? '')
+    await expect
+      .poll(shown)
+      .toEqual({ title: 'first', selected: 'person', person: { name: 'Ada' } })
+
+    await page.locator('input[name="this.title"]').fill('second')
+    await page.locator('input[name="selected.name"]').focus()
+    await expect.poll(async () => (await shown()).title).toBe('second')
+    await page.locator('input[name="selected.name"]').fill('Grace')
+    await page.locator('input[name="this.title"]').focus()
+    await expect
+      .poll(async () => (await shown()).person)
+      .toEqual({
+        name: 'Grace',
+      })
+    expect(logged).toContain('selected.name = "Grace"')
+    const changes = () =>
+      logged.filter((text) => text.startsWith('onstatechange')).length
+    const logged_before = changes()
+    expect(logged_before).toBeGreaterThan(0)
+
+    // Quiet: changes go on, but are neither written nor logged
+    await page.click('#quiet')
+    await page.locator('input[name="this.title"]').fill('third')
+    await page.locator('input[name="selected.name"]').fill('Hopper')
+    await page.locator('input[name="this.title"]').focus()
+    await expect(page.locator('input[name="this.title"]')).toHaveValue('third')
+    expect((await shown()).title).toBe('second')
+    expect(logged).not.toContain('selected.name = "Hopper"')
+    expect(changes()).toBe(logged_before)
+  })
+
+  test('a callback given after the page has loaded is called at once', async ({
+    page,
+  }) => {
+    await page.goto('examples/use_state_debug/')
+    await expect(page.locator('body')).toHaveAttribute('data-state', /first/)
+    await page.click('#late')
+    const outputs = () =>
+      page.$$eval('div[class="output"]', (divs) =>
+        divs.map((div) => div.textContent)
+      )
+    await expect
+      .poll(outputs)
+      .toEqual([
+        'Late state {"title":"first","selected":"person","person":{"name":"Ada"}}',
+      ])
+    // And with each change after
+    await page.locator('input[name="this.title"]').fill('second')
+    await page.locator('input[name="selected.name"]').focus()
+    await expect.poll(async () => (await outputs()).length).toBe(2)
+    expect((await outputs())[1]).toContain('"title":"second"')
+  })
 })

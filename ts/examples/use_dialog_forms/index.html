@@ -72,12 +72,19 @@
         <input type="checkbox" name="selected.agreed" checked />
         <input type="checkbox" name="selected.tags[]" value="red" />
         <input type="checkbox" name="selected.tags[]" value="green" />
+        <select multiple name="selected.languages[]">
+          <option>en</option>
+          <option>fr</option>
+          <option>de</option>
+        </select>
         <textarea name="selected.bio"></textarea>
         <select name="selected.city">
           <option>Paris</option>
           <option>Rome</option>
         </select>
         <button>Save</button>
+        <button value="cancel">Cancel</button>
+        <button type="button" id="elsewhere-inside">Elsewhere</button>
       </form>
     </dialog>
   </body>

@@ -148,6 +148,10 @@ test.describe('Mumulib Dialog Tests', () => {
       await page.locator('input[name="selected.agreed"]').uncheck()
       await page.locator('textarea[name="selected.bio"]').fill('Admiral')
       await page.locator('select[name="selected.city"]').selectOption('Rome')
+      await page.locator('input[name="selected.tags[]"][value="red"]').uncheck()
+      await page
+        .locator('select[name="selected.languages[]"]')
+        .selectOption(['fr'])
       await page.getByRole('button', { name: 'Save' }).click()
       await expect
         .poll(async () =>
@@ -163,6 +167,7 @@ test.describe('Mumulib Dialog Tests', () => {
           bio: 'Admiral',
           city: 'Rome',
           tags: [],
+          languages: ['fr'],
         })
       await expect(page.locator('body')).toHaveAttribute('data-selected', '')
       expect(await outputs(page)).toEqual([])
@@ -182,6 +187,51 @@ test.describe('Mumulib Dialog Tests', () => {
           'Dialog missing not found.',
           'Dialog not_a_dialog not found.',
         ])
+    })
+
+    test('the selected controls open as a draft of the selected object', async ({
+      page,
+    }) => {
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      const control = (name: string) =>
+        page.locator(`#selected [name="selected.${name}"]`)
+      const person = () => page.locator('body').getAttribute('data-person')
+
+      await page.click('#open-selected')
+      await expect(control('name')).toHaveValue('Ada')
+      await expect(control('age')).toHaveValue('36')
+      await expect(page.locator('#selected input[value="small"]')).toBeChecked()
+      await expect(
+        page.locator('#selected input[value="medium"]')
+      ).not.toBeChecked()
+      await expect(control('agreed')).toBeChecked()
+      await expect(page.locator('#selected input[value="red"]')).toBeChecked()
+      await expect(
+        page.locator('#selected input[value="green"]')
+      ).not.toBeChecked()
+      await expect(control('city')).toHaveValue('Paris')
+      await expect(control('languages[]')).toHaveValues(['en', 'de'])
+
+      // Leaving a field gives nothing to the state, and a change of state
+      // meanwhile does not write over the draft
+      const before = await person()
+      await control('name').fill('Grace')
+      await control('age').focus()
+      await control('age').fill('45')
+      await control('bio').focus()
+      await page.click('#elsewhere-inside')
+      await expect(control('name')).toHaveValue('Grace')
+      await expect(control('age')).toHaveValue('45')
+      expect(await person()).toBe(before)
+
+      // Cancelled, the object is as it was, and opened again so is the draft
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect(page.locator('#selected')).toBeHidden()
+      expect(await person()).toBe(before)
+      await page.click('#open-selected')
+      await expect(control('name')).toHaveValue('Ada')
+      expect(errors).toEqual([])
     })
   })
 })

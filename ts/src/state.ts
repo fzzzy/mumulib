@@ -23,6 +23,7 @@
 
 import { set, get } from 'object-path'
 import { tree as state } from './tree.js'
+import { show, drafted } from './controls.js'
 
 // The caller's own data, whatever its shape: the published type says so, and
 // narrowing it here would break code that reads its state as it likes.
@@ -149,26 +150,6 @@ function read(
   return el.value
 }
 
-// The state, shown by a control: a checkbox checked if it is truthy, a radio
-// button checked if its own value is the state's -- its value left as it is,
-// as it is what the button stands for -- and anything else given its text
-function show(
-  el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
-  value: unknown
-) {
-  if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-    el.checked = Boolean(value)
-  } else if (el instanceof HTMLInputElement && el.type === 'radio') {
-    el.checked = el.value === value
-  } else {
-    // Nothing there is an empty field, not the text "undefined"
-    const text = value === undefined || value === null ? '' : String(value)
-    if (el.value !== text) {
-      el.value = text
-    }
-  }
-}
-
 document.addEventListener(
   'focus',
   function (e) {
@@ -197,7 +178,7 @@ function possibly_changed(e: Event) {
       return
     }
   }
-  if (!target) {
+  if (!target || drafted(target)) {
     return
   }
   const name = target.name
@@ -300,7 +281,7 @@ async function update_dom_state(state: State) {
     } else if (element instanceof HTMLTextAreaElement) {
       el = element as HTMLTextAreaElement
     }
-    if (!el) {
+    if (!el || drafted(el)) {
       return
     }
     // What is being typed is not written over: a change of state from
