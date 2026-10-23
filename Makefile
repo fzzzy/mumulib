@@ -1,6 +1,6 @@
 .PHONY: check lint fix typecheck test py-test browser-test node-test build dist \
 	python-sync \
-	node_modules run stop tail dev server server-exists declarations clean tags \
+	node_modules browsers run stop tail dev server server-exists declarations clean tags \
 	pages production
 
 # The dev server of the pages Python serves, ts/pages: always on this port,
@@ -58,7 +58,7 @@ py-test: python-sync
 	$(UV) pytest --cov=mumulib --cov-branch
 
 # Against Vite's dev server, instrumented; nyc then reports what ts/src/ ran
-browser-test: node_modules
+browser-test: node_modules browsers
 	$(NPM) run test:browser
 	$(NPM) run coverage
 
@@ -76,6 +76,12 @@ python-sync:
 	uv sync --project py $(UV_FLAGS)
 
 node_modules: ts/node_modules
+
+# The browsers the installed Playwright drives, chromium and webkit as
+# ts/playwright.config.ts names them: a version bump wants new builds, and
+# install fetches only those missing
+browsers: node_modules
+	cd ts && npx playwright install chromium webkit
 
 ts/node_modules: ts/package.json ts/package-lock.json
 	$(NPM) ci
