@@ -22,6 +22,11 @@ weather.addEventListener('forecast', (event: MessageEvent<string>) =>
 const missing = events.source('/missing.sse')
 missing.onerror = () => say(`missing error ${missing.readyState}`)
 
-// For the test: one closed, and the stream opened again without it
-Object.assign(window, { closeWeather: () => weather.close() })
+// For the test: one closed, and the stream opened again without it; each
+// one's readyState; and one more made, after the hub refused the rest
+Object.assign(window, {
+  closeWeather: () => weather.close(),
+  states: () => [news, weather, missing].map((source) => source.readyState),
+  another: () => events.source('/another.sse'),
+})
 document.body.dataset.listening = 'true'

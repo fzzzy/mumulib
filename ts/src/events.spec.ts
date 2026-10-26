@@ -46,6 +46,37 @@ test.describe('Mumulib events', () => {
     expect(asked[1]).toBe('?topic=news.sse')
   })
 
+  test('a hub that refuses closes every source, and a later one tries again', async ({
+    page,
+  }) => {
+    const asked: string[] = []
+    await page.route('**/mumulib/events.sse?*', async (route) => {
+      asked.push(new URL(route.request().url()).search)
+      await route.fulfill({ status: 404, body: 'no hub here' })
+    })
+    await page.goto('examples/use_events/')
+    await expect(page.locator('body[data-listening]')).toBeAttached()
+    // Each closed, as its own EventSource given a 404 would be
+    await expect(page.locator('#heard')).toHaveText('missing error 2\n')
+    const states = () =>
+      page.evaluate(() =>
+        (window as unknown as { states: () => number[] }).states()
+      )
+    expect(await states()).toEqual([2, 2, 2])
+    // Nor tried again, until a source is made
+    await page.waitForTimeout(200)
+    expect(asked).toHaveLength(1)
+    await page.evaluate(() =>
+      (window as unknown as { another: () => void }).another()
+    )
+    await expect
+      .poll(() => asked)
+      .toEqual([
+        '?topic=news.sse&topic=examples%2Fuse_events%2Fweather.sse&topic=missing.sse',
+        '?topic=another.sse',
+      ])
+  })
+
   for (const [at, said] of [
     ['/examples', 'without its slash'],
     ['/examples/', 'with its slash'],

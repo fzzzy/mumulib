@@ -161,14 +161,24 @@ function reopen(): void {
     const query = [...topics.keys()]
       .map((topic) => `topic=${encodeURIComponent(topic)}`)
       .join('&')
-    stream = new EventSource(
+    const opened = new EventSource(
       `${new URL(prefix, location.href).pathname}${HUB}?${query}`
     )
-    // The connection to the hub lost: each source waits, as its own would
-    stream.onerror = () => {
-      for (const sources of topics.values()) {
-        for (const source of sources) {
-          source.readyState = Source.CONNECTING
+    stream = opened
+    // The connection to the hub lost: each source waits, as its own would.
+    // The hub refused -- not there, a 404, or no event stream -- and the
+    // browser gives up on it: each closed, as its own would be, and its topic
+    // gone, so that a source made after tries again
+    opened.onerror = () => {
+      const refused = opened.readyState === EventSource.CLOSED
+      if (refused) {
+        stream = undefined
+        heard.clear()
+      }
+      for (const [topic, sources] of [...topics]) {
+        if (refused) topics.delete(topic)
+        for (const source of [...sources]) {
+          source.readyState = refused ? Source.CLOSED : Source.CONNECTING
           source.hear(new Event('error'))
         }
       }
