@@ -22,7 +22,9 @@ TypeScript; everything runs from here, through the Makefile.
   `.sfc.html` type checker over the TypeScript, ruff and pyright (strict) over
   the Python, the build, the Python tests with branch coverage (the floor is in
   `py/pyproject.toml`), and the Playwright tests in Chromium and WebKit, with
-  the coverage of `ts/src/` they reach.
+  the coverage of `ts/src/` they reach. `BROWSERS=chromium`, given to make or
+  set in the environment, runs them in Chromium alone, where WebKit cannot
+  start.
 - `make fix` applies the linters' fixes and formatting.
 - `make build` writes the npm package to `ts/dist`: the browser bundle, the
   Node ESM and CommonJS bundles, and the type declarations; and builds the
