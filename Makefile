@@ -18,6 +18,11 @@ UVICORN_FLAGS := --reload
 
 # The TypeScript library is in ts/ and the Python one in py/.
 
+# The browsers the Playwright tests run in. BROWSERS=chromium, given to make
+# or set in the environment, is for a machine WebKit cannot start on: a Linux
+# container without the system libraries it needs, for one.
+BROWSERS ?= chromium webkit
+
 # Every Python tool runs through uv from py/
 #  every npm script runs in ts/.
 # Given to every uv command: the dev extra, from the lock as it is
@@ -57,9 +62,10 @@ test: py-test browser-test node-test
 py-test: python-sync
 	$(UV) pytest --cov=mumulib --cov-branch
 
-# Against Vite's dev server, instrumented; nyc then reports what ts/src/ ran
+# Against Vite's dev server, instrumented; nyc then reports what ts/src/ ran.
+# In each of $(BROWSERS), the projects of ts/playwright.config.ts.
 browser-test: node_modules browsers
-	$(NPM) run test:browser
+	$(NPM) run test:browser -- $(addprefix --project=,$(BROWSERS))
 	$(NPM) run coverage
 
 # The package as published, installed and used from Node, with domino's DOM
@@ -77,11 +83,11 @@ python-sync:
 
 node_modules: ts/node_modules
 
-# The browsers the installed Playwright drives, chromium and webkit as
-# ts/playwright.config.ts names them: a version bump wants new builds, and
-# install fetches only those missing
+# The browsers the installed Playwright drives, as ts/playwright.config.ts
+# names them: a version bump wants new builds, and install fetches only those
+# missing
 browsers: node_modules
-	cd ts && npx playwright install chromium webkit
+	cd ts && npx playwright install $(BROWSERS)
 
 ts/node_modules: ts/package.json ts/package-lock.json
 	$(NPM) ci
