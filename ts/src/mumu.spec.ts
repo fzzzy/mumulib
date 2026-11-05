@@ -80,6 +80,115 @@ test.describe('Mumulib Mumu components', () => {
     expect(heard).toEqual(['focus', 'keydown a', 'pointercancel'])
   })
 
+  test('a view draws a component into markup already in the page', async ({
+    page,
+  }) => {
+    const seen = await page.evaluate(async () => {
+      const settle = () => new Promise((r) => setTimeout(r, 50))
+      type Api = typeof import('./index')
+      const { Mumu, mumuView } = (window as unknown as { mumu: Api }).mumu
+      const root = document.createElement('div')
+      root.innerHTML =
+        '<p data-slot="label">sample</p>' +
+        '<ul data-slot="rows"><li data-pat="foreach" data-slot="text">row</li></ul>' +
+        '<button data-attr="disabled=done">Go</button>'
+      document.body.append(root)
+      let renders = 0
+      class Counter extends Mumu<{ count: number }> {
+        static state = { count: 0 }
+        get label(): string {
+          renders++
+          return `Count ${this.state.count}`
+        }
+        get rows(): { text: string }[] {
+          return Array.from({ length: this.state.count }, (_, i) => ({
+            text: `row ${i}`,
+          }))
+        }
+        get done(): boolean {
+          return this.state.count >= 2
+        }
+        onClick(): void {
+          this.emit('go', this.state.count)
+        }
+      }
+      const asked: unknown[] = []
+      root.addEventListener('go', (e) => asked.push((e as CustomEvent).detail))
+      const view = mumuView<{ count: number }>(Counter, root)
+      await settle()
+      const first = root.querySelector('p')!.textContent
+      root.querySelector('button')!.click()
+      view.set({ count: 2 })
+      const once = renders
+      view.set({ count: 2 })
+      await settle()
+      return {
+        first,
+        label: root.querySelector('p')!.textContent,
+        rows: [...root.querySelectorAll('li')].map((li) => li.textContent),
+        disabled: root.querySelector('button')!.disabled,
+        sameRendersNothing: renders === once,
+        asked,
+      }
+    })
+    expect(seen).toEqual({
+      first: 'Count 0',
+      label: 'Count 2',
+      rows: ['row 0', 'row 1'],
+      disabled: true,
+      sameRendersNothing: true,
+      asked: [0],
+    })
+  })
+
+  test('a row in a template is inert until it is copied in', async ({
+    page,
+  }) => {
+    const seen = await page.evaluate(async () => {
+      const settle = () => new Promise((r) => setTimeout(r, 50))
+      type Api = typeof import('./index')
+      const { Mumu, mumuView } = (window as unknown as { mumu: Api }).mumu
+      const root = document.createElement('div')
+      root.innerHTML =
+        '<div data-slot="row"><template data-pat="foreach">' +
+        '<my-light data-prop="connected=on"></my-light>' +
+        '</template><p>Loading</p></div>' +
+        // A data-prop of the component's own, beside the rows: setting it
+        // passes the rows' by.
+        '<my-light class="own" data-prop="connected=lit"></my-light>'
+      document.body.append(root)
+      const before = root.querySelectorAll('[data-slot] my-light').length
+      class Lit extends Mumu<{ on: boolean[] }> {
+        static state = { on: [true, false] }
+        get row(): { on: boolean }[] {
+          return this.state.on.map((on) => ({ on }))
+        }
+        get lit(): boolean {
+          return false
+        }
+      }
+      mumuView(Lit, root)
+      await settle()
+      const lights = [...root.querySelectorAll('[data-slot] my-light')]
+      const own = root.querySelector('my-light.own')!
+      return {
+        before,
+        own: own.shadowRoot!.querySelector('.light')!.textContent,
+        faces: lights.map(
+          (l) => l.shadowRoot!.querySelector('.light')!.textContent
+        ),
+        // The template, and the sample content beside it, are replaced.
+        left: root.querySelectorAll('template, p').length,
+      }
+    })
+    expect(seen).toEqual({
+      before: 0,
+      own: '○',
+      faces: ['●', '○'],
+      left: 0,
+    })
+  })
+
   test('rows are kept from one list to the next', async ({ page }) => {
     const kept = await page.evaluate(async () => {
       const settle = () => new Promise((r) => setTimeout(r, 50))
@@ -253,6 +362,17 @@ test.describe('Mumulib Mumu components', () => {
           )
         }),
         error(() => {
+          const two = document.createElement('template')
+          two.innerHTML =
+            '<ul data-slot="rows"><template data-pat="foreach"><li></li><li></li></template></ul>'
+          mumuElement(
+            class TwoInOne extends Mumu<{ rows: object[] }> {
+              static template = two
+              static state = { rows: [] }
+            }
+          )
+        }),
+        error(() => {
           const none = document.createElement('template')
           none.innerHTML = '<ul data-slot="rows"></ul>'
           customElements.define(
@@ -290,11 +410,14 @@ test.describe('Mumulib Mumu components', () => {
       'Two\'s slot rows has 2 data-pat="foreach" rows'
     )
     expect(refused[3]).toContain(
-      'Rowless\'s rows is a list of objects, but its slot has no data-pat="foreach" row'
+      'TwoInOne\'s slot rows has a data-pat="foreach" template with 2 elements in it; a row is one'
     )
     expect(refused[4]).toContain(
+      'Rowless\'s rows is a list of objects, but its slot has no data-pat="foreach" row'
+    )
+    expect(refused[5]).toContain(
       'Typo.onClik is named for no event: "clik" is not one an element has'
     )
-    expect(refused[5]).toBe('')
+    expect(refused[6]).toBe('')
   })
 })

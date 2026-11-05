@@ -41,7 +41,8 @@
  * or removes the attribute it fills, as `disabled` wants. `data-prop` sets
  * an element's properties instead -- `data-prop="value=level"` -- which is
  * also how one component hands state to another inside it. A slot with a
- * row inside it, an element marked `data-pat="foreach"`, takes a list: each
+ * row inside it, an element marked `data-pat="foreach"` -- or a `<template>`
+ * so marked, holding the row, inert until it is copied -- takes a list: each
  * item, an object of slot values, fills a copy of the row, its `data-prop`
  * properties included -- so a row can be another component. Any slot may
  * have one, and only one; a list of objects for a slot with none is an
@@ -312,7 +313,7 @@ type Delegate = typeof Mumu<object, object>
  * pattern's own, filled once per row, and not the template's.
  */
 function slotsOf(
-  template: HTMLTemplateElement,
+  markup: ParentNode,
   name: string
 ): {
   slots: string[]
@@ -323,9 +324,9 @@ function slotsOf(
   const props = new Set<string>()
   const rows = new Map<string, Element>()
   const own = (el: Element) => !el.closest('[data-pat]')
-  for (const el of Array.from(
-    template.content.querySelectorAll('[data-slot]')
-  ).filter(own)) {
+  for (const el of Array.from(markup.querySelectorAll('[data-slot]')).filter(
+    own
+  )) {
     const slot = el.getAttribute('data-slot')!
     names.add(slot)
     // The slot's own row: not one inside another pattern in it.
@@ -337,19 +338,40 @@ function slotsOf(
         `${name}'s slot ${slot} has ${found.length} data-pat="foreach" rows; a list has one`
       )
     }
-    if (found.length) rows.set(slot, found[0])
+    if (found.length) rows.set(slot, rowOf(found[0], name, slot))
   }
-  for (const el of Array.from(
-    template.content.querySelectorAll('[data-attr]')
-  ).filter(own)) {
+  for (const el of Array.from(markup.querySelectorAll('[data-attr]')).filter(
+    own
+  )) {
     for (const [, slot] of pairs(el, 'data-attr')) names.add(slot)
   }
-  for (const el of Array.from(
-    template.content.querySelectorAll('[data-prop]')
-  ).filter(own)) {
+  for (const el of Array.from(markup.querySelectorAll('[data-prop]')).filter(
+    own
+  )) {
     for (const [, slot] of pairs(el, 'data-prop')) props.add(slot)
   }
   return { slots: [...names], rows, props: [...props] }
+}
+
+/**
+ * A slot's row: the element marked, or, if that is a `<template>`, the one
+ * element inside it. A row in a template is inert until it is copied in --
+ * a component in it is not made, and does nothing -- which a page whose
+ * markup is an app's template wants, its rows being in the page as it loads.
+ */
+function rowOf(marked: Element, name: string, slot: string): Element {
+  if (!(marked instanceof HTMLTemplateElement)) return marked
+  const elements = marked.content.children
+  if (elements.length !== 1) {
+    throw new Error(
+      `${name}'s slot ${slot} has a data-pat="foreach" template with ${elements.length} elements in it; a row is one`
+    )
+  }
+  // Marked as a row, as one written without a template is: what fills the
+  // component's own elements passes over its rows, whose are their items'.
+  const row = elements[0].cloneNode(true) as Element
+  row.setAttribute('data-pat', 'foreach')
+  return row
 }
 
 /** An element's `name=slot` pairs, from data-attr or data-prop. */
@@ -379,20 +401,30 @@ function propertiesOf(cls: Delegate): Map<string, PropertyDescriptor> {
   return found
 }
 
+/** What a component is, worked out once from its class and its markup. */
+interface Shape {
+  name: string
+  defaults: object
+  keys: string[]
+  slots: string[]
+  rows: Map<string, Element>
+  props: string[]
+  handlers: [string, string][]
+  onMount: (() => void) | undefined
+  onRender: (() => void) | undefined
+}
+
 /**
- * The element class for a component, to define. Anything that is not a Mumu
- * subclass -- an element class already -- comes back as it is.
+ * A component's shape: its state, the slots its markup fills, and the
+ * methods it has for events and for its own life. A component that would
+ * change its state, or has a method named for no event, is refused.
  */
-export function mumuElement(
-  cls: Delegate | CustomElementConstructor
-): CustomElementConstructor {
-  if (!(cls.prototype instanceof Mumu)) return cls as CustomElementConstructor
-  const component = cls as Delegate
+function shapeOf(component: Delegate, markup: ParentNode): Shape {
   const name = component.name
   const defaults = component.state
   const keys = Object.keys(defaults)
   const properties = propertiesOf(component)
-  const { slots, rows, props } = slotsOf(component.template, name)
+  const { slots, rows, props } = slotsOf(markup, name)
 
   for (const [key, d] of properties) {
     if (d.set) {
@@ -405,13 +437,6 @@ export function mumuElement(
   for (const key of keys) {
     if (properties.has(key))
       throw new Error(`${name} defines ${key}, which is a state property`)
-    // The state is the element's interface, so its names must be free on an
-    // element: `title` or `role` would hide the element's own.
-    if (key in HTMLElement.prototype || key === 'delegate') {
-      throw new Error(
-        `${name}'s state property ${key} is already a property of every element`
-      )
-    }
   }
   // Each `on` method and the event it handles. One named for no event --
   // `onClik` -- would never be called, so it is refused here instead.
@@ -427,21 +452,316 @@ export function mumuElement(
     }
     handlers.push([event, method])
   }
-  const onMount = properties.get('onMount')?.value as (() => void) | undefined
-  const onRender = properties.get('onRender')?.value as (() => void) | undefined
+  return {
+    name,
+    defaults,
+    keys,
+    slots,
+    rows,
+    props,
+    handlers,
+    onMount: properties.get('onMount')?.value as (() => void) | undefined,
+    onRender: properties.get('onRender')?.value as (() => void) | undefined,
+  }
+}
+
+/**
+ * A component drawn into a root: a component element's shadow root, or
+ * markup already in a page. It holds what was last drawn there, so that a
+ * render writes only what changed.
+ */
+class View {
+  readonly shape: Shape
+  readonly delegate: Mumu<object, object>
+  readonly link: Link
+  #root: Element | ShadowRoot | null = null
+  // What each data-prop property was last set to, per element.
+  #set = new WeakMap<Element, Map<string, unknown>>()
+  // The value each slot was last filled with.
+  #filled = new Map<string, unknown>()
+  // The list each row slot was last filled from.
+  #rowsShown = new Map<string, unknown>()
+  // Each row holder's rows, by key, with the item each was filled from.
+  #rows = new WeakMap<Element, Rows>()
+
+  constructor(shape: Shape, delegate: Mumu<object, object>, link: Link) {
+    this.shape = shape
+    this.delegate = delegate
+    this.link = link
+  }
+
+  get attached(): boolean {
+    return this.#root !== null
+  }
+
+  /**
+   * Start drawing into root, whose markup is the component's: find its
+   * refs, listen for its events, render, and let the component know it has
+   * appeared.
+   */
+  attach(root: Element | ShadowRoot): void {
+    const { name, handlers, onMount } = this.shape
+    this.#root = root
+    for (const el of Array.from(root.querySelectorAll('[data-ref]'))) {
+      if (!el.closest('[data-pat]'))
+        this.link.refs[el.getAttribute('data-ref')!] = el
+    }
+    const delegate = this.delegate as unknown as Record<
+      string,
+      (event: Event) => void
+    >
+    // In the capture phase, so that events that do not bubble -- a dialog's
+    // close, say -- are heard too.
+    for (const [event, method] of handlers) {
+      root.addEventListener(
+        event,
+        (e) => {
+          if (event === 'click') perf()?.step(`${name}.${method}`)
+          delegate[method].call(delegate, e)
+        },
+        true
+      )
+    }
+    this.render()
+    // What the component does with its own elements as it appears: opens its
+    // dialog, say. Before autofocus, which cannot reach into a dialog still
+    // closed.
+    if (typeof onMount === 'function') onMount.call(this.delegate)
+    // An element marked autofocus in the template takes the focus as the
+    // component first appears -- through a child component, too, which
+    // passes it on to its own.
+    const autofocus = root.querySelector('[autofocus]')
+    if (autofocus instanceof HTMLElement) autofocus.focus()
+  }
+
+  /**
+   * Change the state, all of the change at once, and render once. Values
+   * that are the very ones the state already has change nothing, and a
+   * change of nothing renders nothing: an owner may set its whole state again
+   * without asking what changed.
+   */
+  set(change: Record<string, unknown>): void {
+    const state = this.link.state as Record<string, unknown>
+    if (Object.keys(change).every((key) => state[key] === change[key])) return
+    this.link.state = Object.freeze({ ...state, ...change })
+    this.render()
+  }
+
+  render(): void {
+    const root = this.#root
+    if (!root) return
+    const { name, slots, rows, props, onRender } = this.shape
+    const state = this.link.state as Record<string, Pattern>
+    const delegate = this.delegate as unknown as Record<string, Pattern>
+    const values: Record<string, Pattern> = {}
+    for (const slot of slots) {
+      const value = slot in state ? state[slot] : delegate[slot]
+      // A slot whose value is the very one it was last filled with is already
+      // showing it: neither its text nor its attributes are written again, so
+      // a render touches only what changed.
+      if (this.#filled.has(slot) && this.#filled.get(slot) === value) continue
+      this.#filled.set(slot, value)
+      // A boolean fills an attribute by its presence -- `disabled`, say --
+      // which patslot cannot do: it always writes a value, and any value of a
+      // boolean attribute, "false" too, means true.
+      if (typeof value === 'boolean') {
+        this.#toggle(slot, value)
+        continue
+      }
+      // A slot holding a row pattern takes a list: one copy of the row for
+      // each item, filled with the item's own slot values.
+      const pattern = rows.get(slot)
+      if (pattern) {
+        const items = Array.isArray(value)
+          ? (value as unknown as Record<string, unknown>[])
+          : NONE
+        this.#fillRows(slot, pattern, items)
+        continue
+      }
+      // A list of objects is rows, and this slot has none to fill: patslot
+      // would show each as "[object Object]".
+      if (
+        Array.isArray(value) &&
+        value.some((v) => typeof v === 'object' && v && !(v instanceof Node))
+      ) {
+        throw new Error(
+          `${name}'s ${slot} is a list of objects, but its slot has no data-pat="foreach" row`
+        )
+      }
+      values[slot] = value
+    }
+    if (Object.keys(values).length) {
+      for (const element of Array.from(root.children)) {
+        if (
+          element instanceof HTMLElement &&
+          !(element instanceof HTMLStyleElement)
+        ) {
+          fillInOrder(element, values)
+        }
+      }
+    }
+    if (props.length) this.#setProps(root)
+    // What the component does with its own elements after each render:
+    // redraw a canvas, say. Rows still being filled may not be in yet.
+    if (typeof onRender === 'function') onRender.call(this.delegate)
+  }
+
+  /**
+   * Set each data-prop property from its slot: an input's `value`, say, or a
+   * child component's state. Only when the slot's value has changed since it
+   * was last set here. A range input the user is dragging holds its own value
+   * until its owner answers; setting the old one back on every render in
+   * between would snap it back under the pointer.
+   */
+  #setProps(root: Element | ShadowRoot): void {
+    const state = this.link.state as Record<string, unknown>
+    const delegate = this.delegate as unknown as Record<string, unknown>
+    for (const el of Array.from(root.querySelectorAll('[data-prop]'))) {
+      if (el.closest('[data-pat]')) continue
+      let set = this.#set.get(el)
+      if (!set) this.#set.set(el, (set = new Map()))
+      for (const [name, slot] of pairs(el, 'data-prop')) {
+        const value = slot in state ? state[slot] : delegate[slot]
+        if (set.has(name) && set.get(name) === value) continue
+        ;(el as unknown as Record<string, unknown>)[name] = value
+        set.set(name, value)
+      }
+    }
+  }
+
+  /**
+   * Put one copy of the row in the slot for each item, and fill it from the
+   * item: its slots and attributes by patslot, its data-prop properties here.
+   * The copies go in as they are, not cloned again as patslot would, so the
+   * properties stay -- and they are set once the copies are in the page,
+   * where a component in a row has become itself.
+   *
+   * A row is kept from one list to the next. Each is matched to an item by
+   * the item's `key`, if it has one, or else by its place in the list: so a
+   * line added to the end of a list adds a row and touches none of the
+   * others, and a list whose items come and go from anywhere -- the chat
+   * floating over the town, its oldest message leaving -- gives each item a
+   * key. A kept row is filled again only if its item's values are not the
+   * same ones, compared one by one, as the row was last filled from.
+   */
+  #fillRows(
+    slot: string,
+    pattern: Element,
+    items: Record<string, unknown>[]
+  ): void {
+    // The same list as last time is the same rows: a long one that does not
+    // change -- a map's countries -- is not even looked through.
+    if (this.#rowsShown.get(slot) === items) return
+    this.#rowsShown.set(slot, items)
+    for (const holder of Array.from(
+      this.#root!.querySelectorAll('[data-slot]')
+    )) {
+      if (
+        holder.getAttribute('data-slot') !== slot ||
+        holder.closest('[data-pat]')
+      )
+        continue
+      const before = this.#rows.get(holder)
+      const after: Rows = new Map()
+      const fill: [Element, Record<string, unknown>][] = []
+      const wanted = items.map((item, i) => {
+        let key: unknown = 'key' in item ? item.key : i
+        // Two items with one key would be one row: the second gets its own.
+        if (after.has(key)) key = Symbol('duplicate key')
+        const kept = before?.get(key)
+        const row = kept?.row ?? (pattern.cloneNode(true) as Element)
+        after.set(key, { row, item })
+        if (!kept || !sameValues(kept.item, item)) fill.push([row, item])
+        return row
+      })
+      this.#rows.set(holder, after)
+      if (!before) {
+        // The first time, the slot holds the template's own row: replaced.
+        holder.replaceChildren(...wanted)
+      } else {
+        // What has gone, first, so that what stays is moved only if it has
+        // to be: a row moved is taken out of the page and put back.
+        for (const [key, { row }] of before) {
+          if (after.get(key)?.row !== row) row.remove()
+        }
+        wanted.forEach((row, i) => {
+          const here = holder.children[i]
+          if (here !== row) holder.insertBefore(row, here ?? null)
+        })
+      }
+      for (const [row, item] of fill) {
+        fillInOrder(row, item as Record<string, Pattern>)
+        for (const el of [
+          row,
+          ...Array.from(row.querySelectorAll('[data-prop]')),
+        ]) {
+          for (const [name, from] of pairs(el, 'data-prop')) {
+            ;(el as unknown as Record<string, unknown>)[name] = item[from]
+          }
+        }
+      }
+    }
+  }
+
+  /** Add or remove every attribute a `data-attr` fills from this slot. */
+  #toggle(slot: string, on: boolean): void {
+    for (const el of Array.from(this.#root!.querySelectorAll('[data-attr]'))) {
+      for (const [name, from] of pairs(el, 'data-attr')) {
+        if (from === slot) el.toggleAttribute(name, on)
+      }
+    }
+  }
+}
+
+/** A delegate, and the link between it and what draws it. */
+function delegateFor(
+  shape: Shape,
+  component: Delegate,
+  emitFrom: () => EventTarget,
+  label: () => string
+): { delegate: Mumu<object, object>; link: Link } {
+  const delegate = new component()
+  const link: Link = {
+    state: Object.freeze({ ...shape.defaults }),
+    refs: {},
+    emit: (event, detail) => {
+      perf()?.step(`emit ${event} from ${label()}`)
+      // composed: out of every shadow root it is inside, so what a component
+      // nested in another asks for reaches the state's owner.
+      emitFrom().dispatchEvent(
+        new CustomEvent(event, { bubbles: true, composed: true, detail })
+      )
+      perf()?.handled(event)
+    },
+  }
+  links.set(delegate, link)
+  return { delegate, link }
+}
+
+/**
+ * The element class for a component, to define. Anything that is not a Mumu
+ * subclass -- an element class already -- comes back as it is.
+ */
+export function mumuElement(
+  cls: Delegate | CustomElementConstructor
+): CustomElementConstructor {
+  if (!(cls.prototype instanceof Mumu)) return cls as CustomElementConstructor
+  const component = cls as Delegate
+  const shape = shapeOf(component, component.template.content)
+  const { name, keys } = shape
+  for (const key of keys) {
+    // The state is the element's interface, so its names must be free on an
+    // element: `title` or `role` would hide the element's own.
+    if (key in HTMLElement.prototype || key === 'delegate') {
+      throw new Error(
+        `${name}'s state property ${key} is already a property of every element`
+      )
+    }
+  }
 
   class MumuHost extends HTMLElement {
     readonly delegate: Mumu<object, object>
-    #link: Link
-    #root: ShadowRoot | null = null
-    // What each data-prop property was last set to, per element.
-    #set = new WeakMap<Element, Map<string, unknown>>()
-    // The value each slot was last filled with.
-    #filled = new Map<string, unknown>()
-    // The list each row slot was last filled from.
-    #rowsShown = new Map<string, unknown>()
-    // Each row holder's rows, by key, with the item each was filled from.
-    #rows = new WeakMap<Element, Rows>()
+    #view: View
 
     constructor() {
       super()
@@ -456,244 +776,33 @@ export function mumuElement(
           )
         }
       }
-      this.delegate = new component()
-      this.#link = {
-        state: Object.freeze({ ...defaults }),
-        refs: {},
-        emit: (event, detail) => {
-          perf()?.step(`emit ${event} from <${this.localName}>`)
-          // composed: out of every shadow root it is inside, so what a
-          // component nested in another asks for reaches the state's owner.
-          this.dispatchEvent(
-            new CustomEvent(event, { bubbles: true, composed: true, detail })
-          )
-          perf()?.handled(event)
-        },
-      }
-      links.set(this.delegate, this.#link)
+      const { delegate, link } = delegateFor(
+        shape,
+        component,
+        () => this,
+        () => `<${this.localName}>`
+      )
+      this.delegate = delegate
+      this.#view = new View(shape, delegate, link)
     }
 
-    /**
-     * Called by each state property's setter. The very value it already has
-     * changes nothing, and renders nothing: an owner may set its whole state
-     * again without asking what changed.
-     */
+    /** Called by each state property's setter. */
     [UPDATE](key: string, value: unknown): void {
-      if ((this.#link.state as Record<string, unknown>)[key] === value) return
-      this.#link.state = Object.freeze({ ...this.#link.state, [key]: value })
-      this.#render()
+      this.#view.set({ [key]: value })
     }
 
     connectedCallback(): void {
       // Once only: an element moved in the DOM is connected again, and a
       // shadow root cannot be attached twice.
-      if (!this.#root) {
-        // delegatesFocus: focusing the element focuses the first thing in it
-        // that takes focus, so an owner can focus a component's input.
-        this.#root = this.attachShadow({ mode: 'open', delegatesFocus: true })
-        this.#root.appendChild(component.template.content.cloneNode(true))
-        for (const el of Array.from(
-          this.#root.querySelectorAll('[data-ref]')
-        )) {
-          if (!el.closest('[data-pat]'))
-            this.#link.refs[el.getAttribute('data-ref')!] = el
-        }
-        const delegate = this.delegate as unknown as Record<
-          string,
-          (event: Event) => void
-        >
-        // In the capture phase, so that events that do not bubble -- a
-        // dialog's close, say -- are heard too.
-        for (const [event, method] of handlers) {
-          this.#root.addEventListener(
-            event,
-            (e) => {
-              if (event === 'click') perf()?.step(`${name}.${method}`)
-              delegate[method].call(delegate, e)
-            },
-            true
-          )
-        }
-        this.#render()
-        // What the component does with its own elements as it appears: opens
-        // its dialog, say. Before autofocus, which cannot reach into a dialog
-        // still closed.
-        if (typeof onMount === 'function') onMount.call(this.delegate)
-        // An element marked autofocus in the template takes the focus as the
-        // component first appears -- through a child component, too, which
-        // passes it on to its own.
-        const autofocus = this.#root.querySelector('[autofocus]')
-        if (autofocus instanceof HTMLElement) autofocus.focus()
+      if (this.#view.attached) {
+        this.#view.render()
         return
       }
-      this.#render()
-    }
-
-    #render(): void {
-      if (!this.#root) return
-      const state = this.#link.state as Record<string, Pattern>
-      const delegate = this.delegate as unknown as Record<string, Pattern>
-      const values: Record<string, Pattern> = {}
-      for (const slot of slots) {
-        const value = slot in state ? state[slot] : delegate[slot]
-        // A slot whose value is the very one it was last filled with is
-        // already showing it: neither its text nor its attributes are written
-        // again, so a render touches only what changed.
-        if (this.#filled.has(slot) && this.#filled.get(slot) === value) continue
-        this.#filled.set(slot, value)
-        // A boolean fills an attribute by its presence -- `disabled`, say --
-        // which patslot cannot do: it always writes a value, and any value
-        // of a boolean attribute, "false" too, means true.
-        if (typeof value === 'boolean') {
-          this.#toggle(slot, value)
-          continue
-        }
-        // A slot holding a row pattern takes a list: one copy of the row for
-        // each item, filled with the item's own slot values.
-        const pattern = rows.get(slot)
-        if (pattern) {
-          const items = Array.isArray(value)
-            ? (value as unknown as Record<string, unknown>[])
-            : NONE
-          this.#fillRows(slot, pattern, items)
-          continue
-        }
-        // A list of objects is rows, and this slot has none to fill: patslot
-        // would show each as "[object Object]".
-        if (
-          Array.isArray(value) &&
-          value.some((v) => typeof v === 'object' && v && !(v instanceof Node))
-        ) {
-          throw new Error(
-            `${name}'s ${slot} is a list of objects, but its slot has no data-pat="foreach" row`
-          )
-        }
-        values[slot] = value
-      }
-      if (Object.keys(values).length) {
-        for (const element of Array.from(this.#root.children)) {
-          if (
-            element instanceof HTMLElement &&
-            !(element instanceof HTMLStyleElement)
-          ) {
-            fillInOrder(element, values)
-          }
-        }
-      }
-      if (props.length) this.#setProps()
-      // What the component does with its own elements after each render:
-      // redraw a canvas, say. Rows still being filled may not be in yet.
-      if (typeof onRender === 'function') onRender.call(this.delegate)
-    }
-
-    /**
-     * Set each data-prop property from its slot: an input's `value`, say, or
-     * a child component's state. Only when the slot's value has changed since
-     * it was last set here. A range input the user is dragging holds its own
-     * value until its owner answers; setting the old one back on every render
-     * in between would snap it back under the pointer.
-     */
-    #setProps(): void {
-      const state = this.#link.state as Record<string, unknown>
-      const delegate = this.delegate as unknown as Record<string, unknown>
-      for (const el of Array.from(
-        this.#root!.querySelectorAll('[data-prop]')
-      )) {
-        if (el.closest('[data-pat]')) continue
-        let set = this.#set.get(el)
-        if (!set) this.#set.set(el, (set = new Map()))
-        for (const [name, slot] of pairs(el, 'data-prop')) {
-          const value = slot in state ? state[slot] : delegate[slot]
-          if (set.has(name) && set.get(name) === value) continue
-          ;(el as unknown as Record<string, unknown>)[name] = value
-          set.set(name, value)
-        }
-      }
-    }
-
-    /**
-     * Put one copy of the row in the slot for each item, and fill it from the
-     * item: its slots and attributes by patslot, its data-prop properties
-     * here. The copies go in as they are, not cloned again as patslot would,
-     * so the properties stay -- and they are set once the copies are in the
-     * page, where a component in a row has become itself.
-     *
-     * A row is kept from one list to the next. Each is matched to an item by
-     * the item's `key`, if it has one, or else by its place in the list: so a
-     * line added to the end of a list adds a row and touches none of the
-     * others, and a list whose items come and go from anywhere -- the chat
-     * floating over the town, its oldest message leaving -- gives each item
-     * a key. A kept row is filled again only if its item's values are not the
-     * same ones, compared one by one, as the row was last filled from.
-     */
-    #fillRows(
-      slot: string,
-      pattern: Element,
-      items: Record<string, unknown>[]
-    ): void {
-      // The same list as last time is the same rows: a long one that does not
-      // change -- a map's countries -- is not even looked through.
-      if (this.#rowsShown.get(slot) === items) return
-      this.#rowsShown.set(slot, items)
-      for (const holder of Array.from(
-        this.#root!.querySelectorAll('[data-slot]')
-      )) {
-        if (
-          holder.getAttribute('data-slot') !== slot ||
-          holder.closest('[data-pat]')
-        )
-          continue
-        const before = this.#rows.get(holder)
-        const after: Rows = new Map()
-        const fill: [Element, Record<string, unknown>][] = []
-        const wanted = items.map((item, i) => {
-          let key: unknown = 'key' in item ? item.key : i
-          // Two items with one key would be one row: the second gets its own.
-          if (after.has(key)) key = Symbol('duplicate key')
-          const kept = before?.get(key)
-          const row = kept?.row ?? (pattern.cloneNode(true) as Element)
-          after.set(key, { row, item })
-          if (!kept || !sameValues(kept.item, item)) fill.push([row, item])
-          return row
-        })
-        this.#rows.set(holder, after)
-        if (!before) {
-          // The first time, the slot holds the template's own row: replaced.
-          holder.replaceChildren(...wanted)
-        } else {
-          // What has gone, first, so that what stays is moved only if it has
-          // to be: a row moved is taken out of the page and put back.
-          for (const [key, { row }] of before) {
-            if (after.get(key)?.row !== row) row.remove()
-          }
-          wanted.forEach((row, i) => {
-            const here = holder.children[i]
-            if (here !== row) holder.insertBefore(row, here ?? null)
-          })
-        }
-        for (const [row, item] of fill) {
-          fillInOrder(row, item as Record<string, Pattern>)
-          for (const el of [
-            row,
-            ...Array.from(row.querySelectorAll('[data-prop]')),
-          ]) {
-            for (const [name, from] of pairs(el, 'data-prop')) {
-              ;(el as unknown as Record<string, unknown>)[name] = item[from]
-            }
-          }
-        }
-      }
-    }
-
-    /** Add or remove every attribute a `data-attr` fills from this slot. */
-    #toggle(slot: string, on: boolean): void {
-      for (const el of Array.from(
-        this.#root!.querySelectorAll('[data-attr]')
-      )) {
-        for (const [name, from] of pairs(el, 'data-attr')) {
-          if (from === slot) el.toggleAttribute(name, on)
-        }
-      }
+      // delegatesFocus: focusing the element focuses the first thing in it
+      // that takes focus, so an owner can focus a component's input.
+      const root = this.attachShadow({ mode: 'open', delegatesFocus: true })
+      root.appendChild(component.template.content.cloneNode(true))
+      this.#view.attach(root)
     }
   }
 
@@ -712,4 +821,32 @@ export function mumuElement(
     })
   }
   return MumuHost
+}
+
+/**
+ * A component drawn into markup already in the page, rather than into an
+ * element's shadow root: root's contents are its template, and it renders
+ * there. What it emits is dispatched from root. `set` changes its state, all
+ * of a change at once, rendering once.
+ *
+ * For an app, whose markup is the page itself. A component that goes in a
+ * page is an element, and mumuElement makes it.
+ */
+export function mumuView<S extends object>(
+  cls: Delegate,
+  root: Element
+): { delegate: Mumu<S, object>; set(change: Partial<S>): void } {
+  const shape = shapeOf(cls, root)
+  const { delegate, link } = delegateFor(
+    shape,
+    cls,
+    () => root,
+    () => shape.name
+  )
+  const view = new View(shape, delegate, link)
+  view.attach(root)
+  return {
+    delegate: delegate as Mumu<S, object>,
+    set: (change) => view.set(change as Record<string, unknown>),
+  }
 }

@@ -134,6 +134,12 @@ that name.
   </ul>
   ```
 
+  The row may instead be the one element inside a `<template
+data-pat="foreach">`. A template's content is inert -- a component in it
+  is not made -- until the row is copied into the page, which is what a page
+  whose markup is in the HTML wants: its rows are not running before there
+  is anything to show.
+
   ```typescript
   get people() {
     return this.state.people.map((p) => ({ key: p.id, name: p.name, kind: p.role }))
