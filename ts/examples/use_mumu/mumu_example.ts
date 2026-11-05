@@ -4,7 +4,7 @@
  * The page owns the state: it sets the elements' properties, and changes
  * them when a component asks.
  */
-import { Mumu, mumuElement, mumuView } from 'mumulib'
+import { App, Mumu, mountApp, mumuElement, mumuView } from 'mumulib'
 import Opener from './opener.sfc.html'
 import Light from './light.sfc.html'
 import Lights from './lights.sfc.html'
@@ -29,4 +29,4 @@ opener.addEventListener('toggle', () => {
 })
 
 // For the tests, which define components of their own.
-Object.assign(window, { mumu: { Mumu, mumuElement, mumuView } })
+Object.assign(window, { mumu: { App, Mumu, mountApp, mumuElement, mumuView } })

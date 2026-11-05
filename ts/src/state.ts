@@ -24,7 +24,7 @@
 
 import { set, get } from 'object-path'
 import { tree as state } from './tree.js'
-import { show, drafted } from './controls.js'
+import { show, drafted, checkable, read, inClaimed } from './controls.js'
 import type { Control } from './controls.js'
 import { set_debugging, debugging, log } from './debugging.js'
 
@@ -132,24 +132,6 @@ document.addEventListener('DOMContentLoaded', async function () {
   await set_state(null)
 })
 
-// A checkbox or a radio button: what it says is whether it is checked, not
-// its value, and it says so by a change event, which only a change fires
-function checkable(el: Element): el is HTMLInputElement {
-  return (
-    el instanceof HTMLInputElement &&
-    (el.type === 'checkbox' || el.type === 'radio')
-  )
-}
-
-// What a control says, as the state holds it: a checkbox whether it is
-// checked; a radio button, which only says so as it is checked, its value
-function read(el: Control): string | boolean {
-  if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-    return el.checked
-  }
-  return el.value
-}
-
 document.addEventListener(
   'focus',
   function (e) {
@@ -165,7 +147,7 @@ document.addEventListener(
 
 function possibly_changed(target: Control) {
   // An empty value is a field cleared, and goes through like any other
-  if (!target.name || drafted(target)) {
+  if (!target.name || drafted(target) || inClaimed(target)) {
     return
   }
   const name = target.name
@@ -253,7 +235,7 @@ function bound_value(state: State, name: string): [boolean, unknown] {
 async function update_dom_state(state: State) {
   const elements = document.querySelectorAll<Control>('input, select, textarea')
   elements.forEach((el) => {
-    if (drafted(el)) {
+    if (drafted(el) || inClaimed(el)) {
       return
     }
     // What is being typed is not written over: a change of state from

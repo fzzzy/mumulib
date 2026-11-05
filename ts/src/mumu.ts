@@ -77,6 +77,8 @@
  */
 import * as patslot from './patslot.js'
 import type { Pattern } from './patslot.js'
+import { show, read, isControl, form_args, claimed } from './controls.js'
+import type { FormArgs } from './controls.js'
 
 /**
  * Interaction timing, if a page installs it as `globalThis.__mumuPerf`: told
@@ -265,6 +267,60 @@ interface Link {
   state: object
   emit: (name: string, detail?: unknown) => void
   refs: Record<string, Element>
+  /**
+   * The owner of the state, if this is it -- an app -- which takes a bound
+   * control's change as a change of its state. Anything else hands the
+   * change up to its owner, the way it came.
+   */
+  commit?: (change: Record<string, unknown>) => void
+}
+
+/** A control's name that binds it to the state: `this.draft`, the state's draft. */
+const BOUND = 'this.'
+const BOUND_SELECTOR = '[name^="this."]'
+/** What a component sends up, for its owner, as a bound control changes. */
+const BIND = 'mumu-bind'
+
+interface Bind {
+  path: string[]
+  value: unknown
+}
+
+/** The path in the state a control's name binds it to, if it is bound. */
+function boundPath(el: Element): string[] | null {
+  const name = el.getAttribute('name')
+  return name?.startsWith(BOUND) ? name.slice(BOUND.length).split('.') : null
+}
+
+/** What is at a path in a value. */
+function getIn(value: unknown, path: string[]): unknown {
+  for (const key of path) {
+    if (value === null || typeof value !== 'object') return undefined
+    value = (value as Record<string, unknown>)[key]
+  }
+  return value
+}
+
+/**
+ * A value with what is at a path in it replaced: each object along the path
+ * copied, and frozen, and everything off it the very same, so that what did
+ * not change is still `===` what it was.
+ */
+function setIn(value: unknown, path: string[], to: unknown): unknown {
+  if (!path.length) return to
+  const [key, ...rest] = path
+  const copy = (
+    Array.isArray(value) ? [...(value as unknown[])] : { ...(value as object) }
+  ) as Record<string, unknown>
+  copy[key] = setIn(copy[key], rest, to)
+  return Object.freeze(copy)
+}
+
+/** The elements under node, itself included, matching a selector. */
+function within(node: ParentNode, selector: string): Element[] {
+  const found = Array.from(node.querySelectorAll(selector))
+  if (node instanceof Element && node.matches(selector)) found.unshift(node)
+  return found
 }
 
 const links = new WeakMap<object, Link>()
@@ -452,6 +508,7 @@ function shapeOf(component: Delegate, markup: ParentNode): Shape {
     }
     handlers.push([event, method])
   }
+  checkBindings(name, markup, rows, keys, properties)
   return {
     name,
     defaults,
@@ -462,6 +519,61 @@ function shapeOf(component: Delegate, markup: ParentNode): Shape {
     handlers,
     onMount: properties.get('onMount')?.value as (() => void) | undefined,
     onRender: properties.get('onRender')?.value as (() => void) | undefined,
+  }
+}
+
+/**
+ * What binds to the state, and what a dialog calls, checked as the component
+ * is defined. A bound control binds through the state: its path starts with
+ * a state property -- not a getter, which only presents the state and has
+ * nothing to write to -- and one in a row binds through the row's item, so
+ * the row's list is a state property. A dialog does not bind: what is typed
+ * in it is a draft, given to the method its form names, as it is submitted.
+ */
+function checkBindings(
+  name: string,
+  markup: ParentNode,
+  rows: Map<string, Element>,
+  keys: string[],
+  properties: Map<string, PropertyDescriptor>
+): void {
+  const own = within(markup, BOUND_SELECTOR).filter(
+    (el) => !el.closest('[data-pat]')
+  )
+  const scopes: [Element[], string | null][] = [[own, null]]
+  for (const [slot, row] of rows)
+    scopes.push([within(row, BOUND_SELECTOR), slot])
+  for (const [bound, slot] of scopes) {
+    for (const el of bound) {
+      const what = el.getAttribute('name')!
+      if (el.closest('dialog')) {
+        throw new Error(
+          `${name} binds ${what} in a dialog: a dialog's form is a draft, ` +
+            'given to its method as it is submitted'
+        )
+      }
+      const top = slot ?? boundPath(el)![0]
+      if (!keys.includes(top)) {
+        throw new Error(
+          slot
+            ? `${name}'s ${slot} rows bind ${what}, but ${slot} is not in its state: ` +
+                'a getter only presents the state, and cannot be written to'
+            : `${name} binds ${what}, but ${top} is not in its state: ` +
+                'a getter only presents the state, and cannot be written to'
+        )
+      }
+    }
+  }
+  const forms = [markup, ...rows.values()].flatMap((node) =>
+    within(node, 'dialog form input[name="method"]')
+  )
+  for (const input of forms) {
+    const method = (input as HTMLInputElement).value
+    if (typeof properties.get(method)?.value !== 'function') {
+      throw new Error(
+        `${name} has no method ${method}, which its dialog's form calls`
+      )
+    }
   }
 }
 
@@ -483,6 +595,8 @@ class View {
   #rowsShown = new Map<string, unknown>()
   // Each row holder's rows, by key, with the item each was filled from.
   #rows = new WeakMap<Element, Rows>()
+  // What each bound control was last shown.
+  #shown = new WeakMap<Element, unknown>()
 
   constructor(shape: Shape, delegate: Mumu<object, object>, link: Link) {
     this.shape = shape
@@ -522,6 +636,14 @@ class View {
         true
       )
     }
+    // Bound controls, both ways: what the state says shows in them as it
+    // renders, and what is typed goes to the state's owner. Listened for as
+    // they bubble, so the innermost component hears its own first.
+    root.addEventListener('input', (e) => this.#input(e))
+    root.addEventListener(BIND, (e) => this.#bind(e as CustomEvent<Bind>))
+    root.addEventListener('submit', (e) => this.#submit(e as SubmitEvent))
+    // Markup in the page: its this.* controls are not the state module's.
+    if (root instanceof Element) claimed.add(root)
     this.render()
     // What the component does with its own elements as it appears: opens its
     // dialog, say. Before autofocus, which cannot reach into a dialog still
@@ -601,6 +723,7 @@ class View {
       }
     }
     if (props.length) this.#setProps(root)
+    this.#showBound(root)
     // What the component does with its own elements after each render:
     // redraw a canvas, say. Rows still being filled may not be in yet.
     if (typeof onRender === 'function') onRender.call(this.delegate)
@@ -627,6 +750,116 @@ class View {
         set.set(name, value)
       }
     }
+  }
+
+  /**
+   * Show the state in each bound control, when what it binds to has changed
+   * since it was last shown. A control being typed in shows what was typed,
+   * which is already what the state has; one the state changes under it --
+   * a draft cleared as it is added -- shows the change.
+   */
+  #showBound(root: Element | ShadowRoot): void {
+    const state = this.link.state
+    for (const el of Array.from(root.querySelectorAll(BOUND_SELECTOR))) {
+      if (el.closest('[data-pat]') || !isControl(el)) continue
+      const value = getIn(state, boundPath(el)!)
+      if (this.#shown.has(el) && this.#shown.get(el) === value) continue
+      this.#shown.set(el, value)
+      show(el, value)
+    }
+  }
+
+  /** Where in the state what is in a row is: the row's list, and its place. */
+  #scopeOf(el: Element): string[] {
+    const row = el.closest('[data-pat="foreach"]')
+    if (!row) return []
+    const holder = row.parentElement!
+    const slot = holder.getAttribute('data-slot')!
+    if (!this.shape.keys.includes(slot)) {
+      throw new Error(
+        `${this.shape.name}'s ${slot} rows bind, but ${slot} is not in its state: ` +
+          'a getter only presents the state, and cannot be written to'
+      )
+    }
+    const items = this.#rowsShown.get(slot) as unknown[]
+    for (const { row: shown, item } of this.#rows.get(holder)?.values() ?? []) {
+      if (shown === row) return [slot, String(items.indexOf(item))]
+    }
+    throw new Error(`${this.shape.name}'s ${slot} has a row it did not draw`)
+  }
+
+  /** A bound control of this component's changed: the state's, there. */
+  #input(e: Event): void {
+    const el = e.target
+    if (!isControl(el)) return
+    const path = boundPath(el)
+    if (!path || el.closest('dialog')) return
+    this.#commit([...this.#scopeOf(el), ...path], read(el))
+  }
+
+  /**
+   * A component inside this one changed its state, there: the state it was
+   * given by data-prop, so this component's, where that came from.
+   */
+  #bind(e: CustomEvent<Bind>): void {
+    e.stopPropagation()
+    const host = e.target as Element
+    const [key, ...rest] = e.detail.path
+    const from = pairs(host, 'data-prop').find(([name]) => name === key)?.[1]
+    if (!from) {
+      throw new Error(
+        `<${host.localName}> binds its ${key}, which ${this.shape.name} does not give it by data-prop`
+      )
+    }
+    const scope = this.#scopeOf(host)
+    if (!scope.length && !this.shape.keys.includes(from)) {
+      throw new Error(
+        `<${host.localName}> binds its ${key}, which ${this.shape.name} gives it from ${from}: ` +
+          'a getter only presents the state, and cannot be written to'
+      )
+    }
+    this.#commit([...scope, from, ...rest], e.detail.value)
+  }
+
+  /** Change the state at a path: the app's own, or else its owner's. */
+  #commit(path: string[], value: unknown): void {
+    const state = this.link.state as Record<string, unknown>
+    if (getIn(state, path) === value) return
+    if (this.link.commit) {
+      const [key, ...rest] = path
+      this.link.commit({ [key]: setIn(state[key], rest, value) })
+    } else {
+      this.link.emit(BIND, { path, value } satisfies Bind)
+    }
+  }
+
+  /**
+   * A dialog's form submitted: its method, named by its `method` input, is
+   * called with the form's values, and the dialog closes. A submit button
+   * whose value is `cancel` closes it and calls nothing, as Escape does.
+   */
+  #submit(e: SubmitEvent): void {
+    const form = e.target
+    if (!(form instanceof HTMLFormElement)) return
+    const dialog = form.closest('dialog')
+    const named = form.querySelector<HTMLInputElement>('input[name="method"]')
+    if (!dialog || !named) return
+    e.preventDefault()
+    const button = e.submitter
+    const returnValue =
+      button instanceof HTMLButtonElement || button instanceof HTMLInputElement
+        ? button.value
+        : ''
+    if (returnValue !== 'cancel') {
+      const args: FormArgs = form_args(form)
+      delete args['method']
+      const delegate = this.delegate as unknown as Record<
+        string,
+        (args: FormArgs) => void
+      >
+      delegate[named.value].call(delegate, args)
+    }
+    dialog.close(returnValue)
   }
 
   /**
@@ -664,12 +897,14 @@ class View {
       const before = this.#rows.get(holder)
       const after: Rows = new Map()
       const fill: [Element, Record<string, unknown>][] = []
+      const made: Element[] = []
       const wanted = items.map((item, i) => {
         let key: unknown = 'key' in item ? item.key : i
         // Two items with one key would be one row: the second gets its own.
         if (after.has(key)) key = Symbol('duplicate key')
         const kept = before?.get(key)
         const row = kept?.row ?? (pattern.cloneNode(true) as Element)
+        if (!kept) made.push(row)
         after.set(key, { row, item })
         if (!kept || !sameValues(kept.item, item)) fill.push([row, item])
         return row
@@ -698,6 +933,16 @@ class View {
           for (const [name, from] of pairs(el, 'data-prop')) {
             ;(el as unknown as Record<string, unknown>)[name] = item[from]
           }
+        }
+        for (const el of within(row, BOUND_SELECTOR)) {
+          if (isControl(el)) show(el, getIn(item, boundPath(el)!))
+        }
+      }
+      // A dialog that is a row -- one of none or one, there while the state
+      // says so -- opens as it appears.
+      for (const row of made) {
+        if (row instanceof HTMLDialogElement && row.isConnected && !row.open) {
+          row.showModal()
         }
       }
     }
@@ -834,7 +1079,8 @@ export function mumuElement(
  */
 export function mumuView<S extends object>(
   cls: Delegate,
-  root: Element
+  root: Element,
+  commit?: (change: Partial<S>) => void
 ): { delegate: Mumu<S, object>; set(change: Partial<S>): void } {
   const shape = shapeOf(cls, root)
   const { delegate, link } = delegateFor(
@@ -843,6 +1089,7 @@ export function mumuView<S extends object>(
     () => root,
     () => shape.name
   )
+  link.commit = commit as Link['commit']
   const view = new View(shape, delegate, link)
   view.attach(root)
   return {

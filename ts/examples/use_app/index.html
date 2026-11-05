@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App</title>
+    <script type="module" src="./app_example.ts"></script>
+  </head>
+  <!-- The app's template: the body, drawn by app_example.ts. What is here
+       shows until the first render; the list's row and the dialog are in
+       templates, so that they do nothing until copied in. -->
+  <body>
+    <h1 data-slot="title">Things to do</h1>
+    <!-- Bound to the state: what is typed is the state's, and the state's
+         is what shows. No form, and no method, for either. -->
+    <my-field class="title" data-prop="label=titleLabel,text=title"></my-field>
+    <input name="this.draft" placeholder="Something to do" />
+    <button class="add" data-attr="disabled=empty" data-on="click=add">
+      Add
+    </button>
+    <!-- Rows from the state's own list, so a row's controls bind to its
+         item: this.done is items.<its place>.done. -->
+    <ul data-slot="items">
+      <template data-pat="foreach">
+        <li data-attr="data-key=key">
+          <input type="checkbox" name="this.done" />
+          <span data-slot="text">Water the plants</span>
+          <button class="edit" data-on="click=edit">Edit</button>
+          <button class="remove" data-on="click=remove">Remove</button>
+        </li>
+      </template>
+      <li>Loading…</li>
+    </ul>
+    <p class="count" data-slot="count">No things</p>
+    <my-opener data-prop="open=open" data-on="toggle=toggle"></my-opener>
+    <!-- Editing one: a dialog, a list of none or one, which opens as it
+         appears. Its field is a draft, filled as it is drawn, and given to
+         save() by its form's method as it is submitted. -->
+    <div data-slot="editor">
+      <template data-pat="foreach">
+        <dialog class="editor" data-on="close=stopEditing">
+          <form>
+            <input type="hidden" name="method" value="save" />
+            <input type="hidden" name="key" data-prop="value=key" />
+            <input name="text" data-prop="value=text" />
+            <button>Save</button>
+            <button value="cancel">Cancel</button>
+          </form>
+        </dialog>
+      </template>
+    </div>
+  </body>
+</html>

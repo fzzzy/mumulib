@@ -23,8 +23,8 @@ import { set, get } from 'object-path'
 import morphdom from 'morphdom'
 import { set_state } from './state.js'
 import { tree as state } from './tree.js'
-import { show } from './controls.js'
-import type { Control } from './controls.js'
+import { show, form_args } from './controls.js'
+import type { Control, FormArgs } from './controls.js'
 import { log } from './debugging.js'
 
 // May fill the dialog in place and return it, and may be async: it is awaited
@@ -32,43 +32,6 @@ type RenderFunc = (
   el: HTMLElement,
   state: object
 ) => HTMLElement | Promise<HTMLElement>
-
-// What a form's method is called with: each control's value by its name. A
-// name ending in [] is always a list, without the brackets -- a multiple
-// select with one choice is still a list, and one with none an empty list --
-// and a name given twice is a list too.
-type FormArgs = { [key: string]: string | string[] }
-
-function form_args(form: HTMLFormElement): FormArgs {
-  const args: FormArgs = {}
-  // FormData, not the form's <input>s: a <textarea>, a <select> and a
-  // form-associated custom element are values too
-  for (const [key, value] of new FormData(form)) {
-    if (typeof value !== 'string') {
-      continue
-    }
-    const listed = key.endsWith('[]')
-    const name = listed ? key.slice(0, -2) : key
-    const before = args[name]
-    if (Array.isArray(before)) {
-      before.push(value)
-    } else if (before !== undefined) {
-      args[name] = [before, value]
-    } else {
-      args[name] = listed ? [value] : value
-    }
-  }
-  // A list nothing was sent for -- no box checked, no option chosen -- is
-  // empty, as the server's form.texts has it; but not one whose controls are
-  // all disabled, which the form does not send at all
-  for (const control of Array.from(form.elements)) {
-    const key = control.getAttribute('name')
-    if (key?.endsWith('[]') && !control.matches(':disabled')) {
-      args[key.slice(0, -2)] ??= []
-    }
-  }
-  return args
-}
 
 async function do_dialog(
   dialog_name: string,

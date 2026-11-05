@@ -22,7 +22,12 @@ export default defineConfig(({ mode }) => ({
     // a .sfc.html takes the ordinary path. The sfc example is counted too, as
     // proof that a component's script can be.
     istanbul({
-      include: ['src/**', 'examples/use_sfc/**', 'examples/use_mumu/**'],
+      include: [
+        'src/**',
+        'examples/use_sfc/**',
+        'examples/use_mumu/**',
+        'examples/use_app/**',
+      ],
       extension: ['.ts', '.html'],
       requireEnv: true,
     }),
