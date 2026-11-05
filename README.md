@@ -3,9 +3,10 @@ mumulib
 
 Two libraries, released together as one version:
 
-- [`ts/`](ts/README.md), the TypeScript library on npm: `state` for app state,
-  `patslot` for HTML templates filled from data, `dialog` for forms in
-  `<dialog>`s, and `mumulib/vite-plugin-sfc` for single-file components.
+- [`ts/`](ts/README.md), the TypeScript library on npm: components, each one
+  `.sfc.html` file of an HTML template and the class that fills it, and
+  `state` for the page's state; and beneath them `patslot` for HTML templates
+  filled from code, `dialog` for forms in `<dialog>`s, `events` and `sync`.
 - [`py/`](py/README.md), the Python package on PyPI: an ASGI server that
   publishes a Python object at URLs, with shape checking and server-side HTML
   templates in the same `data-slot` markup `patslot` fills.

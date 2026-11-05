@@ -1,0 +1,300 @@
+import { test, expect } from './coverage.fixture'
+
+// The components are examples/use_mumu's. Each test makes its own elements
+// on that page, sets their state as an owner would, and reads what shows.
+
+test.describe('Mumulib Mumu components', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('examples/use_mumu/')
+  })
+
+  test('a component renders its state, and asks for changes', async ({
+    page,
+  }) => {
+    const button = page.locator('my-opener button')
+    const panel = page.locator('my-opener .panel')
+    await expect(button).toHaveText('Open')
+    await expect(panel).toBeHidden()
+
+    await button.click()
+    await expect(button).toHaveText('Close')
+    await expect(button).toHaveClass('open')
+    // A boolean adds or removes the attribute it fills.
+    await expect(panel).toBeVisible()
+
+    await button.click()
+    await expect(button).toHaveText('Open')
+    await expect(panel).toBeHidden()
+  })
+
+  test('a component hands state to the components inside it', async ({
+    page,
+  }) => {
+    // data-prop, on one element and on each row of a list.
+    await expect(page.locator('my-lights .main .light')).toHaveText('○')
+    await expect(
+      page.locator('my-lights [data-pat="foreach"] .light')
+    ).toHaveText(['●', '○', '●'])
+    // The opener's toggle turns the main light on, through the page's state.
+    await page.locator('my-opener button').click()
+    await expect(page.locator('my-lights .main .light')).toHaveText('●')
+  })
+
+  test('a method named for an event, in any case, handles it', async ({
+    page,
+  }) => {
+    const heard = await page.evaluate(() => {
+      type Api = typeof import('./index')
+      const { Mumu, mumuElement } = (window as unknown as { mumu: Api }).mumu
+      const template = document.createElement('template')
+      template.innerHTML = '<input />'
+      const heard: string[] = []
+      customElements.define(
+        'my-hearing',
+        mumuElement(
+          class Hearing extends Mumu<object> {
+            static template = template
+            // focus does not bubble: heard all the same.
+            onFocus(): void {
+              heard.push('focus')
+            }
+            onKeydown(event: KeyboardEvent): void {
+              heard.push(`keydown ${event.key}`)
+            }
+            onPointerCancel(): void {
+              heard.push('pointercancel')
+            }
+          }
+        )
+      )
+      const el = document.createElement('my-hearing')
+      document.body.append(el)
+      const input = el.shadowRoot!.querySelector('input')!
+      input.focus()
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'a', bubbles: true })
+      )
+      input.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true }))
+      return heard
+    })
+    expect(heard).toEqual(['focus', 'keydown a', 'pointercancel'])
+  })
+
+  test('rows are kept from one list to the next', async ({ page }) => {
+    const kept = await page.evaluate(async () => {
+      const settle = () => new Promise((r) => setTimeout(r, 50))
+      type Props = HTMLElement & Record<string, unknown>
+      const rows = (el: Element, sel: string) => [
+        ...el.shadowRoot!.querySelectorAll(sel),
+      ]
+
+      // By position: lines that only grow.
+      const lines = document.createElement('my-lines') as Props
+      document.body.append(lines)
+      lines.lines = ['one', 'two']
+      await settle()
+      const [one, two] = rows(lines, '.line')
+      lines.lines = ['one', 'two', 'three']
+      await settle()
+      const grown = rows(lines, '.line')
+      const grownTexts = grown.map((r) => r.textContent!.trim())
+      lines.lines = ['one', 'TWO', 'three']
+      await settle()
+      const changed = rows(lines, '.line')
+
+      // By key: the oldest message leaves from the top.
+      const chat = document.createElement('my-messages') as Props
+      document.body.append(chat)
+      chat.messages = [
+        { id: 1, text: 'a' },
+        { id: 2, text: 'b' },
+        { id: 3, text: 'c' },
+      ]
+      await settle()
+      const [, b, c] = rows(chat, '.message')
+      chat.messages = [
+        { id: 2, text: 'b' },
+        { id: 3, text: 'c' },
+      ]
+      await settle()
+      const left = rows(chat, '.message')
+      return {
+        grownKept: grown[0] === one && grown[1] === two,
+        grownTexts,
+        changedSameRow: changed[1] === two,
+        changedText: changed[1].textContent!.trim(),
+        chatKept: left[0] === b && left[1] === c,
+        chatTexts: left.map((r) => r.textContent!.trim()),
+      }
+    })
+    expect(kept).toEqual({
+      grownKept: true,
+      grownTexts: ['one', 'two', 'three'],
+      changedSameRow: true,
+      changedText: 'TWO',
+      chatKept: true,
+      chatTexts: ['b', 'c'],
+    })
+  })
+
+  test('a render writes only what changed', async ({ page }) => {
+    const written = await page.evaluate(async () => {
+      const settle = () => new Promise((r) => setTimeout(r, 50))
+      const light = document.createElement('my-light') as HTMLElement &
+        Record<string, unknown>
+      document.body.append(light)
+      light.connected = true
+      await settle()
+      const changes: string[] = []
+      const watch = new MutationObserver((records) => {
+        for (const r of records) {
+          changes.push(r.type === 'attributes' ? r.attributeName! : r.type)
+        }
+      })
+      watch.observe(light.shadowRoot!, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+      })
+      light.holder = 'wizard'
+      await settle()
+      watch.disconnect()
+      return [...new Set(changes)]
+    })
+    // The tooltip, and not the face, which did not change.
+    expect(written).toEqual(['title'])
+  })
+
+  test('setting the same value renders nothing', async ({ page }) => {
+    const renders = await page.evaluate(() => {
+      const light = document.createElement('my-light') as HTMLElement &
+        Record<string, unknown>
+      document.body.append(light)
+      // Count renders by the getter each one reads.
+      let count = 0
+      const delegate = light.delegate as object
+      const face = Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(delegate),
+        'face'
+      )!.get!
+      Object.defineProperty(delegate, 'face', {
+        get() {
+          count++
+          return face.call(this)
+        },
+      })
+      light.connected = true
+      const once = count
+      light.connected = true
+      return [once, count]
+    })
+    expect(renders).toEqual([1, 1])
+  })
+
+  test('properties set together all show', async ({ page }) => {
+    // The first render's fill, still under way, does not land over the
+    // second's.
+    const shown = await page.evaluate(async () => {
+      const room = document.createElement('my-room') as HTMLElement &
+        Record<string, unknown>
+      document.body.append(room)
+      room.number = '1 1'
+      room.person = { name: 'Coolio' }
+      await new Promise((r) => setTimeout(r, 50))
+      const div = room.shadowRoot!.querySelector('div')!
+      return [div.className, div.textContent!.replace(/\s+/g, ' ').trim()]
+    })
+    expect(shown).toEqual(['room occupied', '101 Coolio'])
+  })
+
+  test('a component that is defined, or given a list, wrongly is refused', async ({
+    page,
+  }) => {
+    const refused = await page.evaluate(() => {
+      type Api = typeof import('./index')
+      const { Mumu, mumuElement } = (window as unknown as { mumu: Api }).mumu
+      const template = document.createElement('template')
+      const error = (make: () => unknown) => {
+        try {
+          make()
+          return ''
+        } catch (e) {
+          return (e as Error).message
+        }
+      }
+      return [
+        error(() =>
+          mumuElement(
+            class Setter extends Mumu<{ open: boolean }> {
+              static template = template
+              static state = { open: false }
+              set open(_: boolean) {}
+            }
+          )
+        ),
+        error(() =>
+          mumuElement(
+            class Titled extends Mumu<{ title: string }> {
+              static template = template
+              static state = { title: '' }
+            }
+          )
+        ),
+        error(() => {
+          const two = document.createElement('template')
+          two.innerHTML =
+            '<ul data-slot="rows"><li data-pat="foreach"></li><li data-pat="foreach"></li></ul>'
+          mumuElement(
+            class Two extends Mumu<{ rows: object[] }> {
+              static template = two
+              static state = { rows: [] }
+            }
+          )
+        }),
+        error(() => {
+          const none = document.createElement('template')
+          none.innerHTML = '<ul data-slot="rows"></ul>'
+          customElements.define(
+            'my-rowless',
+            mumuElement(
+              class Rowless extends Mumu<{ rows: object[] }> {
+                static template = none
+                static state = { rows: [] }
+              }
+            )
+          )
+          const el = document.createElement('my-rowless') as HTMLElement &
+            Record<string, unknown>
+          document.body.append(el)
+          el.rows = [{ name: 'Ada' }]
+        }),
+        error(() =>
+          mumuElement(
+            class Typo extends Mumu<object> {
+              static template = template
+              onClik(): void {}
+            }
+          )
+        ),
+        // Not a component: an element class already, given back as it is.
+        error(() => {
+          if (mumuElement(HTMLElement) !== HTMLElement)
+            throw new Error('changed')
+        }),
+      ]
+    })
+    expect(refused[0]).toContain('Setter defines a setter for open')
+    expect(refused[1]).toContain('already a property of every element')
+    expect(refused[2]).toContain(
+      'Two\'s slot rows has 2 data-pat="foreach" rows'
+    )
+    expect(refused[3]).toContain(
+      'Rowless\'s rows is a list of objects, but its slot has no data-pat="foreach" row'
+    )
+    expect(refused[4]).toContain(
+      'Typo.onClik is named for no event: "clik" is not one an element has'
+    )
+    expect(refused[5]).toBe('')
+  })
+})

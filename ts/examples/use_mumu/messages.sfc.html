@@ -1,0 +1,27 @@
+<!--
+  Messages, a row each, matched to the messages by their ids: so the oldest
+  leaving takes its own row with it and leaves the others be.
+-->
+<template>
+  <div data-slot="rows">
+    <div class="message" data-pat="foreach" data-slot="text"></div>
+  </div>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  interface Message {
+    id: number
+    text: string
+  }
+
+  export default class Messages extends Mumu<{ messages: Message[] }> {
+    static template = template
+    static state = { messages: [] as Message[] }
+
+    get rows(): { key: number; text: string }[] {
+      return this.state.messages.map(({ id, text }) => ({ key: id, text }))
+    }
+  }
+</script>

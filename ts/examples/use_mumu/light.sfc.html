@@ -1,0 +1,23 @@
+<!--
+  A light: its face from `connected`, its tooltip from `holder`, so that a
+  change to one rewrites only what it shows.
+-->
+<template>
+  <span class="light" data-slot="face" data-attr="title=tooltip"></span>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  export default class Light extends Mumu<{ connected: boolean; holder: string }> {
+    static template = template
+    static state = { connected: false, holder: '' }
+
+    get face(): string {
+      return this.state.connected ? '●' : '○'
+    }
+    get tooltip(): string {
+      return this.state.holder || 'nobody'
+    }
+  }
+</script>

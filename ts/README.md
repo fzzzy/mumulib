@@ -1,37 +1,231 @@
 # mumulib
 
-mumulib is a simple typescript state management, html templating, and form processing library. It contains four modules: state, patslot, dialog, and sync.
+mumulib builds web pages from components and state, in TypeScript, with
+templates in plain HTML.
 
-state provides a simple method for managing state and a way to register onstate callbacks to react to state changes.
+A component is one `.sfc.html` file: a `<template>` of ordinary HTML, marked
+with a few `data-` attributes, and a class that says what the template shows.
+Set a component's properties and it fills its template; it asks for changes
+by sending events. The page keeps its state with the `state` module and
+gives each component its part of it.
 
-patslot provides a simple html templating api, with html templates that can be filled with sample data and all logic being performed in normal TypeScript or JavaScript code.
-
-dialog provides functionality to show html dialog elements populated with state from the state module, and automatically update the state when form inputs in the dialog change.
-
-sync binds a path in the state to a URL on mumulib's Python server, and keeps it the same as the server's, as anyone changes it.
-
-## Node
-
-In Node, import `mumulib/node`: the library, with a DOM made first by
-[domino](https://github.com/fgnass/domino) -- `document`, and the element
-classes mumulib needs, set on `globalThis`. A DOM already there, such as
-jsdom's, is left alone.
-
-```js
-import { state, patslot } from 'mumulib/node'
-// or
-const { state, patslot } = require('mumulib/node')
-```
-
-`mumulib` itself sets nothing on import. Where you have a DOM of your own,
-import it instead; with none, it cannot load, as it reads `document` as it
-does.
+Beside them are the parts the components are built on, each usable alone:
+`patslot` fills a template from code, `dialog` shows forms in `<dialog>`s,
+`events` shares event streams, and `sync` keeps part of the state the same
+as mumulib's Python server's.
 
 ## Examples
 
 The links below go to the examples as `make run` serves them, from the
 [repository](https://github.com/fzzzy/mumulib), which also says how to build
 and check the library.
+
+## Components
+
+A component is a `.sfc.html` file: a `<template>`, which may hold a
+`<style>`, and a `<script>` in TypeScript whose class extends `Mumu`.
+`mumulib/vite-plugin-sfc` makes each one a module, and `mumuElement` makes
+the custom element that stands in front of the class.
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { sfcPlugin } from 'mumulib/vite-plugin-sfc'
+
+export default defineConfig({ plugins: [sfcPlugin()] })
+```
+
+```html
+<!-- opener.sfc.html -->
+<template>
+  <button data-slot="label" data-attr="class=classes">Open</button>
+  <p class="panel" data-attr="hidden=closed">Opened</p>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  export default class Opener extends Mumu<{ open: boolean }> {
+    static template = template
+    static state = { open: false }
+
+    get label(): string {
+      return this.state.open ? 'Close' : 'Open'
+    }
+    get classes(): string {
+      return this.state.open ? 'open' : ''
+    }
+    get closed(): boolean {
+      return !this.state.open
+    }
+    onClick(): void {
+      this.emit('toggle')
+    }
+  }
+</script>
+```
+
+```typescript
+/// <reference types="mumulib/sfc-client" />
+import { mumuElement } from 'mumulib'
+import Opener from './opener.sfc.html'
+
+customElements.define('my-opener', mumuElement(Opener))
+
+const opener = document.querySelector('my-opener')!
+opener.addEventListener('toggle', () => (opener.open = !opener.open))
+```
+
+The class never touches the page. It reads its state, works out what to
+show in getters, and asks for changes with `emit`; the element does the
+rest. Whoever owns the element -- the page, or a component around it --
+keeps the state, sets it, and listens for what the component asks.
+
+[http://127.0.0.1:8000/examples/use_mumu/](http://127.0.0.1:8000/examples/use_mumu/)
+
+### State
+
+`static state` names the component's state and gives each its default.
+Each is a property of the element: its owner sets it, `opener.open = true`,
+and the component reads it as `this.state.open`. The component cannot change
+its state -- a setter in its class is an error -- and asks its owner to,
+with `emit`.
+
+- **Setting a property renders.** Setting one to the very value it already
+  has does nothing, so an owner can set all of a component's state again on
+  every change without asking what changed.
+- **A change is a new value.** Whether something changed is decided with
+  `===`, so a list or an object changed in place looks the same and shows
+  nothing. Give the component a new one: `{ ...town, name }`, `[...lines,
+line]`.
+- **Properties, not attributes.** `<my-opener open>` does not set the
+  state: an attribute is a string, and the state is any value. Set the
+  property, from code, or from a component around it with `data-prop`.
+- **Names an element already has are refused.** A state property is a
+  property of the element, so `title`, `role`, `hidden` and every other name
+  an element has would hide the element's own. `mumuElement` throws, naming
+  it, when the component is defined.
+
+### The template
+
+Four attributes mark what a template shows. Each names a slot, and a slot's
+value is the state property of that name, or else the component's getter of
+that name.
+
+- **`data-slot="label"`** fills the element's content with the slot's value,
+  as text.
+- **`data-attr="class=classes,title=hint"`** fills attributes: `class` from
+  the slot `classes`, `title` from `hint`. A boolean adds the attribute or
+  takes it away -- `data-attr="hidden=closed"`, `disabled=busy` -- as an
+  attribute's presence, and not its value, is what it means.
+- **`data-prop="value=level"`** sets the element's property `value` from the
+  slot `level`. That is how a component hands state to a component inside
+  it, `<my-light data-prop="connected=online">`, and how an `<input>` is
+  given its `value`.
+- **`data-pat="foreach"`** inside a slot makes the slot a list. Its value is
+  a list of objects, and the element marked is copied once for each, its own
+  `data-slot`, `data-attr` and `data-prop` filled from the object's fields.
+  A component may have as many lists as it has slots. A slot with two rows is
+  an error, and so is a list of objects given to a slot with none.
+
+  ```html
+  <ul data-slot="people">
+    <li data-pat="foreach" data-attr="class=kind" data-slot="name">Ada</li>
+  </ul>
+  ```
+
+  ```typescript
+  get people() {
+    return this.state.people.map((p) => ({ key: p.id, name: p.name, kind: p.role }))
+  }
+  ```
+
+A render writes only what changed: a slot whose value is the very one it
+last had is not written again. A list's rows are kept from one render to the
+next, matched to the items by each item's `key`, or by its place in the list
+if it has none, and a kept row is filled again only when its item's values
+change. Give items a `key` when they come and go from anywhere but the end.
+
+The template is plain HTML, so it can be opened and edited with its sample
+content in it: "Open", "Ada". What a slot holds in the file is replaced as
+the component renders.
+
+### Events
+
+A method named `on` and an event, in any case -- `onClick`, `onInput`,
+`onKeyDown`, `onPointerCancel` -- is called for that event anywhere inside
+the component, whether or not the event bubbles: `onFocus` hears a focus,
+and `onClose` a `<dialog>`'s close. The events are those of elements in the
+HTML standard and the standards beside it: mouse, pointer and touch,
+keyboard and composition, focus, forms, clipboard, drag and drop, dialogs and
+popovers, scrolling, animations and transitions, and media. A method named
+for an event that no element has, `onClik`, is an error.
+
+`this.emit(name, detail)` dispatches a custom event from the element, for
+its owner. It bubbles out of every component it is inside, to wherever the
+state is kept.
+
+### Its own elements
+
+The state is the owner's, but the component's own elements are its own, to
+do with what it likes: open a dialog, read a form, draw on a canvas.
+
+- **`data-ref="dialog"`** puts the element in `this.refs.dialog`.
+- **`onMount()`** is called once, as the component first appears: to open
+  its dialog, say.
+- **`onRender()`** is called after every render: to redraw a canvas.
+- **`autofocus`** on an element in the template gives it the focus as the
+  component appears. The element passes the focus it is given to what is
+  inside it.
+- **`<style>`** in the template styles the component alone: its template is
+  in a shadow root.
+
+Define the elements before anything makes one: an element made, and its
+state set, ahead of `customElements.define` would hide its state
+properties, and it throws as it is defined, saying so.
+
+### Without Mumu
+
+A `.sfc.html` whose class `extends HTMLElement` is a custom element as it
+is, and `mumuElement` gives it back unchanged. One with no `<script>` is an
+element that shows its template. The script sees `template`, the parsed
+`<template>`, and `defineComponent(template)`, which makes that element.
+
+[http://127.0.0.1:8000/examples/use_sfc/](http://127.0.0.1:8000/examples/use_sfc/)
+
+### Type checking
+
+A component's script has a source map back to its own lines in the
+`.sfc.html`, and coverage tools such as vite-plugin-istanbul count it -- give
+them `.html` among their extensions.
+
+Vite strips a component's types without checking them, and tsc cannot see
+into a `.sfc.html`, so `mumulib-sfc-check` checks them: with the project's
+tsconfig, each error at its line and column in the component, exiting 1 if
+there are any. Give it the directories to look in, or it searches the working
+directory; `--project` names a tsconfig. It needs `typescript` installed.
+
+```sh
+npx mumulib-sfc-check src
+```
+
+Given a tsconfig with `--project`, it checks the files that tsconfig names
+too, in the same program, and an import of a `.sfc.html` in any of them is
+the component's own class: `InstanceType<typeof Counter>` has the counter's
+properties, where tsc alone knows only `sfc-client`'s "some custom element".
+Run it so in place of tsc, as `make check` does over the examples:
+
+```sh
+npx mumulib-sfc-check --project tsconfig.examples.json examples
+```
+
+With `--declarations` it also writes each component's declarations beside
+it, `counter.sfc.html.d.ts`, which TypeScript reads for an import of
+`./counter.sfc.html` with no setting needed. Then tsc, and any editor, knows
+the component's own class too, not only the checker. They are generated from
+the component, so leave them out of git -- `*.sfc.html.d.ts` in
+`.gitignore` -- and write them whenever the components may have changed, as
+this repository's `make check` and `make run` do.
 
 ## state
 
@@ -99,6 +293,29 @@ state.onstate(async (new_state) => {
 ```
 
 [http://127.0.0.1:8000/examples/use_state_selected/](http://127.0.0.1:8000/examples/use_state_selected/)
+
+### state and components
+
+A page keeps its state with `state`, and draws itself from it with one
+`onstate` callback: it sets each component's properties from the state,
+every time, all of them. That is cheap however little changed, as a
+component set to what it already has does nothing. What a component asks
+for, the page does with `set_state`, and the state comes round again.
+
+```typescript
+import { state } from 'mumulib'
+
+const opener = document.querySelector('my-opener')!
+const lights = document.querySelector('my-lights')!
+
+state.onstate(async (s) => {
+  opener.open = s.open
+  lights.connected = s.open
+})
+opener.addEventListener('toggle', () => state.set_state({ open: !opener.open }))
+
+state.set_state({ open: false })
+```
 
 ### state api
 
@@ -458,64 +675,6 @@ bind(path: string, url: string): Promise<void>
 
 Fetch `<url>.json` into the state at path, and fetch it again whenever the change stream announces url -- compared as paths on this origin, without an extension, a query or a fragment, a trailing slash kept. Resolves once the first fetch is in place.
 
-## single-file components
-
-`mumulib/vite-plugin-sfc` is a Vite plugin for components written as one HTML
-file: a `<template>`, which may hold a `<style>`, and a `<script>` in
-TypeScript. Importing a `.sfc.html` gives the custom element class its script
-exports as default. With no script, it is a class that renders the template
-into its shadow root. The script sees `template`, the parsed `<template>`, and
-`defineComponent(template)`, which makes that default class.
-
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite'
-import { sfcPlugin } from 'mumulib/vite-plugin-sfc'
-
-export default defineConfig({ plugins: [sfcPlugin()] })
-```
-
-```typescript
-/// <reference types="mumulib/sfc-client" />
-import Counter from './counter.sfc.html'
-
-customElements.define('my-counter', Counter)
-```
-
-A component's script has a source map back to its own lines in the
-`.sfc.html`, and coverage tools such as vite-plugin-istanbul count it -- give
-them `.html` among their extensions.
-
-Vite strips a component's types without checking them, and tsc cannot see
-into a `.sfc.html`, so `mumulib-sfc-check` checks them: with the project's
-tsconfig, each error at its line and column in the component, exiting 1 if
-there are any. Give it the directories to look in, or it searches the working
-directory; `--project` names a tsconfig. It needs `typescript` installed.
-
-```sh
-npx mumulib-sfc-check src
-```
-
-Given a tsconfig with `--project`, it checks the files that tsconfig names
-too, in the same program, and an import of a `.sfc.html` in any of them is
-the component's own class: `InstanceType<typeof Counter>` has the counter's
-properties, where tsc alone knows only `sfc-client`'s "some custom element".
-Run it so in place of tsc, as `make check` does over the examples:
-
-```sh
-npx mumulib-sfc-check --project tsconfig.examples.json examples
-```
-
-With `--declarations` it also writes each component's declarations beside
-it, `counter.sfc.html.d.ts`, which TypeScript reads for an import of
-`./counter.sfc.html` with no setting needed. Then tsc, and any editor, knows
-the component's own class too, not only the checker. They are generated from
-the component, so leave them out of git -- `*.sfc.html.d.ts` in
-`.gitignore` -- and write them whenever the components may have changed, as
-this repository's `make check` and `make run` do.
-
-[http://127.0.0.1:8000/examples/use_sfc/](http://127.0.0.1:8000/examples/use_sfc/)
-
 ## The origin plugin
 
 `mumulib/vite-plugin-origin` is for pages another server serves -- mumulib's
@@ -546,3 +705,20 @@ Vite puts under the base. A relative `src`, or a relative `href` on a
 refuses the entry, naming it and the URL, in development and in a build
 alike. It changes nothing else in a build. This repository's
 `ts/vite.pages.config.mts` uses it, for `ts/pages`.
+
+## Node
+
+In Node, import `mumulib/node`: the library, with a DOM made first by
+[domino](https://github.com/fgnass/domino) -- `document`, and the element
+classes mumulib needs, set on `globalThis`. A DOM already there, such as
+jsdom's, is left alone.
+
+```js
+import { state, patslot } from 'mumulib/node'
+// or
+const { state, patslot } = require('mumulib/node')
+```
+
+`mumulib` itself sets nothing on import. Where you have a DOM of your own,
+import it instead; with none, it cannot load, as it reads `document` as it
+does.

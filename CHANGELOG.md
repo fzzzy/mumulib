@@ -184,6 +184,14 @@ Python package). Breaking changes come first under each release.
 
 ### Added
 
+- **`Mumu` and `mumuElement`: components as plain classes.** A `.sfc.html`
+  script extends `Mumu`, reads its state, shows it through `data-slot`,
+  `data-attr` and `data-prop`, and asks for changes with `emit`;
+  `mumuElement` makes the custom element in front of it. A render writes only
+  what changed, and a list's rows are kept from one list to the next, by key
+  or by position. Moved from ltui, where it was written. See the README's
+  "Mumu components" and `examples/use_mumu`.
+
 - **The event stream hub: a page's event streams over one connection.** A
   browser opens six connections to a host, and each open event stream holds
   one, so a page with several hangs once they are used up.

@@ -1,0 +1,30 @@
+<!--
+  A button that asks for `toggle`, and what it opens: the label and the
+  panel follow `open`, which only the owner changes.
+-->
+<template>
+  <button data-slot="label" data-attr="class=classes">Open</button>
+  <p class="panel" data-attr="hidden=closed">Opened</p>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  export default class Opener extends Mumu<{ open: boolean }> {
+    static template = template
+    static state = { open: false }
+
+    get label(): string {
+      return this.state.open ? 'Close' : 'Open'
+    }
+    get classes(): string {
+      return this.state.open ? 'open' : ''
+    }
+    get closed(): boolean {
+      return !this.state.open
+    }
+    onClick(): void {
+      this.emit('toggle')
+    }
+  }
+</script>

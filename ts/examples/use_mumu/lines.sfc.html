@@ -1,0 +1,21 @@
+<!--
+  Lines of text, a row each, matched to the lines by position.
+-->
+<template>
+  <div data-slot="rows">
+    <div class="line" data-pat="foreach" data-slot="text"></div>
+  </div>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  export default class Lines extends Mumu<{ lines: string[] }> {
+    static template = template
+    static state = { lines: [] as string[] }
+
+    get rows(): { text: string }[] {
+      return this.state.lines.map((text) => ({ text }))
+    }
+  }
+</script>
