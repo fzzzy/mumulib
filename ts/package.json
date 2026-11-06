@@ -1,9 +1,15 @@
 {
   "name": "mumulib",
   "version": "1.0.16",
-  "description": "mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.",
+  "description": "mumulib builds web pages from single-file components and an app that keeps their state, with templates in plain HTML; its parts -- mumu, app, state, patslot, dialog, events, sync -- each import alone.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fzzzy/mumulib.git",
+    "directory": "ts"
+  },
   "files": [
     "dist",
+    "docs",
     "README.md",
     "LICENSE"
   ],
@@ -28,6 +34,111 @@
         "default": "./dist/cjs/index.cjs"
       },
       "default": "./dist/browser/src/index.mjs"
+    },
+    "./state": {
+      "browser": {
+        "types": "./dist/esm/types/state.d.ts",
+        "default": "./dist/browser/src/state.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/state.d.ts",
+        "default": "./dist/esm/state.mjs"
+      },
+      "require": {
+        "types": "./dist/types/state.d.ts",
+        "default": "./dist/cjs/state.cjs"
+      },
+      "default": "./dist/browser/src/state.mjs"
+    },
+    "./patslot": {
+      "browser": {
+        "types": "./dist/esm/types/patslot.d.ts",
+        "default": "./dist/browser/src/patslot.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/patslot.d.ts",
+        "default": "./dist/esm/patslot.mjs"
+      },
+      "require": {
+        "types": "./dist/types/patslot.d.ts",
+        "default": "./dist/cjs/patslot.cjs"
+      },
+      "default": "./dist/browser/src/patslot.mjs"
+    },
+    "./dialog": {
+      "browser": {
+        "types": "./dist/esm/types/dialog.d.ts",
+        "default": "./dist/browser/src/dialog.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/dialog.d.ts",
+        "default": "./dist/esm/dialog.mjs"
+      },
+      "require": {
+        "types": "./dist/types/dialog.d.ts",
+        "default": "./dist/cjs/dialog.cjs"
+      },
+      "default": "./dist/browser/src/dialog.mjs"
+    },
+    "./events": {
+      "browser": {
+        "types": "./dist/esm/types/events.d.ts",
+        "default": "./dist/browser/src/events.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/events.d.ts",
+        "default": "./dist/esm/events.mjs"
+      },
+      "require": {
+        "types": "./dist/types/events.d.ts",
+        "default": "./dist/cjs/events.cjs"
+      },
+      "default": "./dist/browser/src/events.mjs"
+    },
+    "./sync": {
+      "browser": {
+        "types": "./dist/esm/types/sync.d.ts",
+        "default": "./dist/browser/src/sync.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/sync.d.ts",
+        "default": "./dist/esm/sync.mjs"
+      },
+      "require": {
+        "types": "./dist/types/sync.d.ts",
+        "default": "./dist/cjs/sync.cjs"
+      },
+      "default": "./dist/browser/src/sync.mjs"
+    },
+    "./mumu": {
+      "browser": {
+        "types": "./dist/esm/types/mumu.d.ts",
+        "default": "./dist/browser/src/mumu.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/mumu.d.ts",
+        "default": "./dist/esm/mumu.mjs"
+      },
+      "require": {
+        "types": "./dist/types/mumu.d.ts",
+        "default": "./dist/cjs/mumu.cjs"
+      },
+      "default": "./dist/browser/src/mumu.mjs"
+    },
+    "./app": {
+      "browser": {
+        "types": "./dist/esm/types/app.d.ts",
+        "default": "./dist/browser/src/app.mjs"
+      },
+      "import": {
+        "types": "./dist/esm/types/app.d.ts",
+        "default": "./dist/esm/app.mjs"
+      },
+      "require": {
+        "types": "./dist/types/app.d.ts",
+        "default": "./dist/cjs/app.cjs"
+      },
+      "default": "./dist/browser/src/app.mjs"
     },
     "./node": {
       "import": {

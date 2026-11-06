@@ -31,7 +31,17 @@ export default defineConfig({
   cacheDir: resolve(import.meta.dirname, 'node_modules/.vite-pages'),
   plugins: [sfcPlugin(), originPlugin(ORIGIN)],
   resolve: {
-    alias: { mumulib: resolve(import.meta.dirname, 'src/index.ts') },
+    // mumulib, and each of its parts, `mumulib/mumu`, from source
+    alias: [
+      {
+        find: /^mumulib$/,
+        replacement: resolve(import.meta.dirname, 'src/index.ts'),
+      },
+      {
+        find: /^mumulib\/(state|patslot|dialog|events|sync|mumu|app)$/,
+        replacement: resolve(import.meta.dirname, 'src/$1.ts'),
+      },
+    ],
   },
   server: {
     host: '127.0.0.1',

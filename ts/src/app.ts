@@ -53,6 +53,9 @@
 import { Mumu, mumuView } from './mumu.js'
 import * as mumuState from './state.js'
 
+// What a dialog's method is called with: its form's values, by name.
+export type { FormArgs } from './controls.js'
+
 /** A value frozen, if it is an object; its own values are not. */
 function frozen<T>(value: T): T {
   return value !== null && typeof value === 'object'

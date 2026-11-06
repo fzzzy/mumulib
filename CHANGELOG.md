@@ -189,8 +189,25 @@ Python package). Breaking changes come first under each release.
   `data-attr` and `data-prop`, and asks for changes with `emit`;
   `mumuElement` makes the custom element in front of it. A render writes only
   what changed, and a list's rows are kept from one list to the next, by key
-  or by position. Moved from ltui, where it was written. See the README's
-  "Mumu components" and `examples/use_mumu`.
+  or by position. Moved from ltui, where it was written. See
+  `ts/docs/mumu.md` and `examples/use_mumu`.
+
+- **`App` and `mountApp`: the page as an app.** The body's own markup is the
+  app's template, and its class keeps the state, frozen, changed with
+  `update()`. `data-on="event=method"` brings a page's and its components'
+  events to the app's methods. A control named `this.name` is bound to the
+  state both ways, through rows and components, and through the state alone,
+  getters refused; a `<dialog>`'s form calls the method its hidden `method`
+  input names, and a dialog that is a row opens as it appears. See
+  `ts/docs/app.md` and `examples/small_*`.
+
+- **Each part imports alone:** `mumulib/mumu`, `mumulib/app`,
+  `mumulib/state`, `mumulib/patslot`, `mumulib/dialog`, `mumulib/events` and
+  `mumulib/sync`, each bringing only what it uses -- `mumulib/mumu` brings no
+  state -- and the same classes and functions as `mumulib`'s.
+
+- **The TypeScript README is four small examples,** a component, an app,
+  binding and a dialog, and each part has its own page in `ts/docs/`.
 
 - **The event stream hub: a page's event streams over one connection.** A
   browser opens six connections to a host, and each open event stream holds

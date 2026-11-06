@@ -5,6 +5,16 @@ import { sfcPlugin } from './src/vite/sfc.mjs'
 
 const root = import.meta.dirname
 const entry = resolve(root, 'src/index.ts')
+// Each part of the library, importable alone -- `mumulib/mumu` brings no
+// state with it -- beside the whole, `mumulib`. What they share is a chunk of
+// its own, so a class is the same one whichever way it is imported.
+const PARTS = ['state', 'patslot', 'dialog', 'events', 'sync', 'mumu', 'app']
+const entries = {
+  index: entry,
+  ...Object.fromEntries(
+    PARTS.map((part) => [part, resolve(root, `src/${part}.ts`)])
+  ),
+}
 // The Node build's other entry: domino's DOM, which mumulib/node runs first
 const dom = resolve(root, 'src/dom.ts')
 
@@ -27,13 +37,21 @@ export default defineConfig(({ mode }) => ({
         'examples/use_sfc/**',
         'examples/use_mumu/**',
         'examples/use_app/**',
+        'examples/small_*/**',
       ],
       extension: ['.ts', '.html'],
       requireEnv: true,
     }),
   ],
+  // mumulib, and each of its parts, `mumulib/mumu`, from source
   resolve: {
-    alias: { mumulib: entry },
+    alias: [
+      { find: /^mumulib$/, replacement: entry },
+      {
+        find: new RegExp(`^mumulib/(${PARTS.join('|')})$`),
+        replacement: resolve(root, 'src/$1.ts'),
+      },
+    ],
   },
   // The pages, not every .html under the root: the sfc checker's fixtures
   // are components, and deliberately wrong ones
@@ -63,7 +81,7 @@ export default defineConfig(({ mode }) => ({
           // The library, and the DOM apart from it: mumulib/node is these two
           // imported in order, written by scripts/esm-types.mjs rather than
           // bundled, as a bundler may run a shared chunk before the DOM
-          lib: { entry: { index: entry, dom }, formats: ['es', 'cjs'] },
+          lib: { entry: { ...entries, dom }, formats: ['es', 'cjs'] },
           rolldownOptions: {
             external: ['domino'],
             output: [
@@ -86,6 +104,12 @@ export default defineConfig(({ mode }) => ({
           emptyOutDir: false,
           sourcemap: true,
           target: 'es2020',
-          lib: { entry, formats: ['es'], fileName: () => 'index.mjs' },
+          lib: { entry: entries, formats: ['es'] },
+          rolldownOptions: {
+            output: {
+              entryFileNames: '[name].mjs',
+              chunkFileNames: '[name]-[hash].mjs',
+            },
+          },
         },
 }))

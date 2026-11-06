@@ -1,0 +1,18 @@
+<!-- A counter: it shows its count, and asks for one more. -->
+<template>
+  <p>Count: <span data-slot="count">0</span></p>
+  <button>Add one</button>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib/mumu'
+
+  export default class Counter extends Mumu<{ count: number }> {
+    static template = template
+    static state = { count: 0 }
+
+    onClick(): void {
+      this.emit('add')
+    }
+  }
+</script>

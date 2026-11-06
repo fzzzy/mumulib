@@ -98,6 +98,75 @@ const EXPECTED = {
   counted: 1,
 }
 
+// Each part of the library by its own path, `mumulib/mumu`, through import
+// and require: what it exports is the very thing the whole library does --
+// a class the same class whichever way it was imported. Each name a part is
+// missing, or has as something else, is listed.
+const PARTS = {
+  state: ['set_state', 'onstate', 'set_path'],
+  patslot: ['fill', 'clone_pat'],
+  dialog: ['do_dialog'],
+  events: ['source', 'at'],
+  sync: ['bind'],
+  mumu: ['Mumu', 'mumuElement', 'mumuView'],
+  app: ['App', 'mountApp'],
+}
+// The whole library has the older parts as namespaces, `state.set_state`, and
+// the components' names as its own
+const IN_WHOLE = {
+  state: 'state',
+  patslot: 'patslot',
+  dialog: 'dialog',
+  events: 'events',
+  sync: 'sync',
+}
+function partsUse(head, load) {
+  const lines = Object.entries(PARTS).flatMap(([part, names]) => {
+    const whole = IN_WHOLE[part] ? `all.${IN_WHOLE[part]}` : 'all'
+    return [
+      `const ${part} = ${load(part)}`,
+      `got.${part} = ${JSON.stringify(names)}.filter((name) => ` +
+        `typeof ${whole}[name] !== 'function' || ${part}[name] !== ${whole}[name])`,
+    ]
+  })
+  return [
+    head,
+    'const got = {}',
+    ...lines,
+    'process.stdout.write(JSON.stringify(got))',
+    '',
+  ].join('\n')
+}
+const PARTS_USES = {
+  'parts.mjs': partsUse(
+    "import * as all from 'mumulib/node'",
+    (part) => `(await import('mumulib/${part}'))`
+  ),
+  'parts.cjs': partsUse(
+    "const all = require('mumulib/node')",
+    (part) => `require('mumulib/${part}')`
+  ),
+}
+
+// The parts that keep no state of their own, and so load none: Mumu alone
+// does not bring the page's state module, which listens as the page loads
+const STATELESS = ['mumu', 'patslot']
+
+// Every file of the package a module loads, following its relative imports
+// of the package's modules -- not an example in a comment, which the
+// unminified Node build keeps
+function loads(start, seen = new Set()) {
+  if (seen.has(start)) return [...seen]
+  seen.add(start)
+  const text = fs.readFileSync(start, 'utf-8')
+  for (const [, rel] of text.matchAll(
+    /(?:from|import|require\()\s*["'](\.[^"']+\.c?m?js)["']/g
+  )) {
+    loads(path.resolve(path.dirname(start), rel), seen)
+  }
+  return [...seen]
+}
+
 const root = path.dirname(import.meta.dirname)
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'mumulib-node-check-'))
 let failed = false
@@ -177,6 +246,49 @@ try {
       console.log(
         `${file}: ${file.startsWith('bare') ? 'mumulib sets no globals' : 'mumulib/node keeps a DOM already there'}`
       )
+    }
+  }
+  for (const file of Object.keys(PARTS_USES)) {
+    fs.writeFileSync(path.join(work, file), PARTS_USES[file])
+    let got
+    try {
+      got = JSON.parse(
+        execFileSync('node', [file], { cwd: work, encoding: 'utf-8' })
+      )
+    } catch (e) {
+      got = { error: String(e.stdout || e.message) }
+    }
+    const wrong = Object.entries(got).filter(
+      ([, missing]) => !Array.isArray(missing) || missing.length
+    )
+    if (wrong.length) {
+      failed = true
+      console.log(`${file}: FAILED`, JSON.stringify(Object.fromEntries(wrong)))
+    } else {
+      console.log(`${file}: each part imports alone, and is the whole's own`)
+    }
+  }
+  const installed = path.join(work, 'node_modules', 'mumulib')
+  const { exports } = JSON.parse(
+    fs.readFileSync(path.join(installed, 'package.json'), 'utf-8')
+  )
+  for (const part of STATELESS) {
+    for (const condition of ['browser', 'import', 'require']) {
+      const loaded = loads(
+        path.join(installed, exports[`./${part}`][condition].default)
+      )
+      const stateful = loaded.filter((file) =>
+        fs.readFileSync(file, 'utf-8').includes('DOMContentLoaded')
+      )
+      if (stateful.length) {
+        failed = true
+        console.log(
+          `mumulib/${part} (${condition}): FAILED, it loads state: ` +
+            stateful.map((file) => path.basename(file)).join(', ')
+        )
+      } else {
+        console.log(`mumulib/${part} (${condition}): brings no state`)
+      }
     }
   }
 } finally {
