@@ -1,85 +1,41 @@
 import { test, expect } from './coverage.fixture'
 
-// examples/use_app is an app drawn into its page's own markup. The other
-// tests make apps of their own on the Mumu example's page, which has none.
+// examples/use_app_rows is an app drawn into its page's own markup, and
+// use_app_field one with a component bound to its state; small.spec.ts has
+// the small examples. The other tests make apps of their own on the Mumu
+// example's page, which has none.
 
 test.describe('Mumulib apps', () => {
   test("an app draws into the page's own markup", async ({ page }) => {
-    await page.goto('examples/use_app/')
+    await page.goto('examples/use_app_rows/')
     // The sample row, and the sample count, are replaced by the first render.
-    await expect(page.locator('body li')).toHaveCount(0)
-    await expect(page.locator('body .count')).toHaveText('0 things, 0 done')
+    await expect(page.locator('body li span')).toHaveText([
+      'one',
+      'two',
+      'three',
+    ])
+    await expect(page.locator('body .count')).toHaveText('3 things, 0 done')
     // In the page, not in a shadow root: the page's own selectors reach it.
     expect(await page.evaluate(() => document.body.shadowRoot)).toBeNull()
   })
 
-  test("data-on takes the page's events to the app's methods", async ({
+  test("a row's controls are bound to its item, and its events are the app's", async ({
     page,
   }) => {
-    await page.goto('examples/use_app/')
-    const input = page.getByPlaceholder('Something to do')
-    const add = page.getByRole('button', { name: 'Add' })
-
-    await input.fill('Water the plants')
-    await add.click()
-    await input.fill('Feed the cat')
-    await add.click()
-    await expect(page.locator('body li span')).toHaveText([
-      'Water the plants',
-      'Feed the cat',
-    ])
-
-    // A click in a row, which came from a template.
-    await page
-      .locator('body li', { hasText: 'Water' })
-      .locator('.remove')
-      .click()
-    await expect(page.locator('body li span')).toHaveText(['Feed the cat'])
-    await expect(page.locator('body .count')).toHaveText('1 thing, 0 done')
-
-    // A component's own event, which it emits from inside its shadow root.
-    const opener = page.locator('my-opener button')
-    await opener.click()
-    await expect(opener).toHaveText('Close')
-    await opener.click()
-    await expect(opener).toHaveText('Open')
-  })
-
-  test('a this.* control is bound to the state, both ways', async ({
-    page,
-  }) => {
-    await page.goto('examples/use_app/')
-    const input = page.getByPlaceholder('Something to do')
-    const add = page.getByRole('button', { name: 'Add' })
-    await expect(add).toBeDisabled()
-    // Up: what is typed is the state's, as it is typed.
-    await input.fill('Water the plants')
-    await expect(add).toBeEnabled()
-    // Down: adding clears the draft, and the input still focused shows it.
-    await add.click()
-    await expect(input).toHaveValue('')
-    await expect(add).toBeDisabled()
-  })
-
-  test("a row's controls are bound to its item in the state's list", async ({
-    page,
-  }) => {
-    await page.goto('examples/use_app/')
-    const input = page.getByPlaceholder('Something to do')
-    const add = page.getByRole('button', { name: 'Add' })
-    for (const text of ['one', 'two', 'three']) {
-      await input.fill(text)
-      await add.click()
-    }
+    await page.goto('examples/use_app_rows/')
     const row = (text: string) => page.locator('body li', { hasText: text })
+    // Up: a row's checkbox is its item's done.
     await row('three').getByRole('checkbox').check()
     await expect(page.locator('body .count')).toHaveText('3 things, 1 done')
-    // Its place in the list is worked out as it changes, not as it was drawn.
+    // A click in a row, which came from a template, to the app's method.
     await row('one').locator('.remove').click()
+    await expect(page.locator('body li span')).toHaveText(['two', 'three'])
+    // Its place in the list is worked out as it changes, not as it was drawn.
     await row('two').getByRole('checkbox').check()
     await expect(page.locator('body .count')).toHaveText('2 things, 2 done')
     await row('three').getByRole('checkbox').uncheck()
     await expect(page.locator('body .count')).toHaveText('2 things, 1 done')
+    // Down: each row still shows its own item's done.
     await expect(row('two').getByRole('checkbox')).toBeChecked()
     await expect(row('three').getByRole('checkbox')).not.toBeChecked()
   })
@@ -87,7 +43,7 @@ test.describe('Mumulib apps', () => {
   test("a component's bound control changes the state it was given", async ({
     page,
   }) => {
-    await page.goto('examples/use_app/')
+    await page.goto('examples/use_app_field/')
     const field = page.locator('my-field input')
     // Down, through data-prop, into the component's own control.
     await expect(field).toHaveValue('Things to do')
@@ -96,35 +52,77 @@ test.describe('Mumulib apps', () => {
     await expect(page.locator('body h1')).toHaveText('Chores')
   })
 
-  test("a dialog's form calls its method, as it is saved", async ({ page }) => {
-    await page.goto('examples/use_app/')
-    await page.getByPlaceholder('Something to do').fill('Water the plants')
-    await page.getByRole('button', { name: 'Add' }).click()
-    const dialog = page.locator('dialog.editor')
-    const text = dialog.locator('input[name="text"]')
-    const edit = page.locator('body li .edit')
+  test('a bound control shows a change of the state, though it has the focus', async ({
+    page,
+  }) => {
+    await page.goto('examples/use_mumu/')
+    await page.evaluate(() => {
+      type Api = typeof import('./index')
+      const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
+      const root = document.createElement('div')
+      root.innerHTML =
+        '<input id="draft" name="this.draft"><button data-on="click=clear">Clear</button>'
+      document.body.append(root)
+      class Draft extends App<{ draft: string }> {
+        static state = { draft: '' }
+        clear(): void {
+          this.update({ draft: '' })
+        }
+      }
+      mountApp(Draft, root)
+    })
+    const input = page.locator('#draft')
+    await input.fill('Water the plants')
+    // Cleared from code -- a click from a script, which leaves the focus be
+    await page.evaluate(() => document.querySelector('button')!.click())
+    await expect(input).toHaveValue('')
+    await expect(input).toBeFocused()
+  })
 
-    // Opened as it appears, its field drawn from the state: a draft.
-    await edit.click()
-    await expect(dialog).toBeVisible()
-    await expect(text).toHaveValue('Water the plants')
-    await text.fill('Cancelled')
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(dialog).toHaveCount(0)
-    await expect(page.locator('body li span')).toHaveText(['Water the plants'])
+  test("a click inside a component is not the page's own element's", async ({
+    page,
+  }) => {
+    await page.goto('examples/use_mumu/')
+    const heard = await page.evaluate(async () => {
+      type Api = typeof import('./index')
+      const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
+      const root = document.createElement('div')
+      // A click handler on the page's own button, and a component whose
+      // own button is clicked: the page's handler is not called for it
+      root.innerHTML =
+        '<my-opener data-on="toggle=toggle"></my-opener>' +
+        '<button data-on="click=pressed">Mine</button>'
+      document.body.append(root)
+      const calls: string[] = []
+      class Page extends App<object> {
+        toggle(): void {
+          calls.push('toggle')
+        }
+        pressed(): void {
+          calls.push('pressed')
+        }
+      }
+      mountApp(Page, root)
+      await new Promise((r) => setTimeout(r, 50))
+      root
+        .querySelector('my-opener')!
+        .shadowRoot!.querySelector('button')!
+        .click()
+      root.querySelector<HTMLButtonElement>('button[data-on]')!.click()
+      return calls
+    })
+    expect(heard).toEqual(['toggle', 'pressed'])
+  })
 
-    await edit.click()
-    await expect(text).toHaveValue('Water the plants')
-    await text.fill('Escaped')
+  test('a dialog closed by Escape calls nothing', async ({ page }) => {
+    // small.spec.ts has its Save and its Cancel
+    await page.goto('examples/small_dialog/')
+    const dialog = page.locator('dialog')
+    await page.getByRole('button', { name: 'Rename' }).click()
+    await dialog.locator('input[name="name"]').fill('Escaped')
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
-    await expect(page.locator('body li span')).toHaveText(['Water the plants'])
-
-    await edit.click()
-    await text.fill('Water the garden')
-    await dialog.getByRole('button', { name: 'Save' }).click()
-    await expect(dialog).toHaveCount(0)
-    await expect(page.locator('body li span')).toHaveText(['Water the garden'])
+    await expect(page.locator('[data-slot="name"]')).toHaveText('world')
   })
 
   test("an app's state is frozen", async ({ page }) => {
@@ -155,14 +153,18 @@ test.describe('Mumulib apps', () => {
   })
 
   test('there is one app on a page', async ({ page }) => {
-    await page.goto('examples/use_app/')
+    await page.goto('examples/use_mumu/')
     const refused = await page.evaluate(() => {
       type Api = typeof import('./index')
       const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
-      const root = document.createElement('div')
-      document.body.append(root)
+      const mount = () => {
+        const root = document.createElement('div')
+        document.body.append(root)
+        mountApp(class extends App<object> {}, root)
+      }
+      mount()
       try {
-        mountApp(class Second extends App<object> {}, root)
+        mount()
         return ''
       } catch (e) {
         return (e as Error).message

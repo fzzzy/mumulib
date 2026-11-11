@@ -4,46 +4,151 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mumulib Examples</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 44rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h2 {
+        margin-top: 2rem;
+      }
+      h3 {
+        margin: 1.5rem 0 0.25rem;
+        font-size: 1rem;
+      }
+      ul {
+        margin: 0.25rem 0;
+        padding-left: 1.25rem;
+      }
+      code {
+        font-size: 0.9em;
+      }
+      .note {
+        color: #666;
+        font-size: 0.9em;
+      }
+      summary {
+        cursor: pointer;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 2rem;
+      }
+    </style>
   </head>
   <body>
-    <div><a href="examples/use_state/">Use State</a></div>
-    <div><a href="examples/use_state_input/">Use State with Input</a></div>
-    <div>
-      <a href="examples/use_state_select_textarea/"
-        >Use State with Select and TextArea</a
-      >
-    </div>
-    <div>
-      <a href="examples/use_state_selected/">Use State with Selected</a>
-    </div>
-    <div>
-      <a href="examples/use_state_update/"
-        >Use State with Data Binding Updates</a
-      >
-    </div>
-    <div>
-      <a href="examples/use_state_selected_update/"
-        >Use State with Data Binding Updates on Selection</a
-      >
-    </div>
-    <div><a href="examples/use_patslot/">Pattern Slot</a></div>
-    <div><a href="examples/use_patslot_fill/">Pattern Slot Fill</a></div>
-    <div>
-      <a href="examples/use_patslot_template/">Pattern Slot Template</a>
-    </div>
-    <div><a href="examples/use_patslot_nested/">Nested Pattern Slot</a></div>
-    <div>
-      <a href="examples/use_patslot_pattern_and_slot_node/"
-        >Single node both pattern and slot</a
-      >
-    </div>
-    <div><a href="examples/use_dialog/">Dialog Example</a></div>
-    <div><a href="examples/use_sfc/">Single-file Components</a></div>
-    <div><a href="examples/use_mumu/">Mumu Components</a></div>
-    <div><a href="examples/small_app/">A small app</a></div>
-    <div><a href="examples/small_binding/">Binding</a></div>
-    <div><a href="examples/small_dialog/">A dialog that calls a method</a></div>
-    <div><a href="examples/use_app/">App: a to-do list</a></div>
-    <div><a href="examples/use_sync/">Sync (its server is the test's)</a></div>
+    <h1>mumulib examples</h1>
+
+    <h2>Full stack</h2>
+    <ul>
+      <li>
+        <a href="http://127.0.0.1:5959/">Notes</a>: multiplayer notes, served by
+        mumulib's Python server: an App, a component, the change stream and who
+        is here.
+        <span class="note">Run with <code>make run SERVER=notes</code>.</span>
+      </li>
+    </ul>
+
+    <details>
+      <summary>Advanced</summary>
+      <p class="note">
+        Each shows one part of the library, as small as it can be.
+      </p>
+
+      <h3>Apps and components</h3>
+      <ul>
+        <li><a href="examples/small_app/">An app</a></li>
+        <li><a href="examples/small_binding/">Binding</a></li>
+        <li>
+          <a href="examples/small_dialog/">A dialog that calls a method</a>
+        </li>
+        <li>
+          <a href="examples/use_app_rows/">Rows bound to their items</a>
+        </li>
+        <li>
+          <a href="examples/use_app_field/">A component bound to the app</a>
+        </li>
+        <li><a href="examples/use_sfc/">Single-file components</a></li>
+        <li><a href="examples/use_mumu/">Mumu components</a></li>
+      </ul>
+
+      <h3>State</h3>
+      <ul>
+        <li><a href="examples/use_state/">State</a></li>
+        <li><a href="examples/use_state_input/">Inputs</a></li>
+        <li>
+          <a href="examples/use_state_select_textarea/"
+            >Selects and text areas</a
+          >
+        </li>
+        <li>
+          <a href="examples/use_state_checkable/">Checkboxes and radios</a>
+        </li>
+        <li><a href="examples/use_state_selected/">Selected</a></li>
+        <li>
+          <a href="examples/use_state_selected_update/">Selected, updated</a>
+        </li>
+        <li><a href="examples/use_state_update/">Data binding updates</a></li>
+        <li><a href="examples/use_state_changes/">Changes</a></li>
+        <li><a href="examples/use_state_typing/">Typing</a></li>
+        <li><a href="examples/use_state_debug/">Debug</a></li>
+      </ul>
+
+      <h3>Dialogs</h3>
+      <ul>
+        <li><a href="examples/use_dialog/">A dialog</a></li>
+        <li><a href="examples/use_dialog_forms/">Forms in a dialog</a></li>
+        <li><a href="examples/use_dialog_cancel/">Cancelling a dialog</a></li>
+      </ul>
+
+      <h3>Patterns and slots</h3>
+      <ul>
+        <li><a href="examples/use_patslot/">Patterns and slots</a></li>
+        <li><a href="examples/use_patslot_fill/">Fill</a></li>
+        <li><a href="examples/use_patslot_names/">Names</a></li>
+        <li><a href="examples/use_patslot_template/">Templates</a></li>
+        <li><a href="examples/use_patslot_nested/">Nested</a></li>
+        <li>
+          <a href="examples/use_patslot_pattern_and_slot_node/"
+            >One node both pattern and slot</a
+          >
+        </li>
+        <li><a href="examples/use_patslot_shapes/">Shapes</a></li>
+        <li>
+          <a href="examples/pattern_and_slot_test/">Pattern and slot test</a>
+        </li>
+      </ul>
+
+      <h3>Live data</h3>
+      <ul>
+        <li>
+          <a href="examples/use_events/">Events</a>
+          <span class="note">(its server is the test's)</span>
+        </li>
+        <li>
+          <a href="examples/use_events_at/">Events below a prefix</a>
+          <span class="note">(its server is the test's)</span>
+        </li>
+        <li>
+          <a href="examples/use_sync/">Sync</a>
+          <span class="note">(its server is the test's)</span>
+        </li>
+      </ul>
+
+      <h3>The Python server</h3>
+      <p class="note">
+        Each is a server of its own, at http://127.0.0.1:5959/:
+        <code>make run SERVER=&lt;name&gt;</code>.
+      </p>
+      <ul>
+        <li><code>hello</code>: the smallest server</li>
+        <li><code>files</code>: serving a file and a directory</li>
+        <li><code>functions</code>: a function in the tree</li>
+        <li><code>resources</code>: Resources, a to-do list</li>
+        <li><code>editors</code>: characters, parties and deploys, in forms</li>
+      </ul>
+    </details>
   </body>
 </html>

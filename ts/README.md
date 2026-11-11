@@ -194,4 +194,5 @@ Each part is imported alone by its own path, and brings only what it uses --
 | [`mumulib/vite-plugin-origin`](docs/vite-plugin-origin.md) | Pages another server serves, their modules from Vite's dev server    |
 | [`mumulib/node`](docs/node.md)                             | The library in Node, with a DOM made for it                          |
 
-`examples/use_app` is an app with all of it at once: a to-do list.
+The notes page, `pages/notes`, served by `py/examples/notes.py`, is an app
+with all of it at once, its state bound to the server.

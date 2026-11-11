@@ -200,6 +200,8 @@ The method is given what [dialog.md](dialog.md) says a form's method is: a
 dialog closes however it closes, so `stop` puts the state back after Escape
 and Cancel; after Save, `save` has already done so.
 
-`examples/use_app` puts all of it together: a to-do list, with a bound input,
-bound checkboxes in its rows, a component bound to the app's title, and a
-dialog editing one item.
+`examples/use_app_rows` has a list whose rows' checkboxes are bound to their
+items, and `examples/use_app_field` a component bound to the app's title.
+The notes page, `ts/pages/notes`, served by `py/examples/notes.py`, puts all
+of it together: an app, a component in each of its rows, and its state bound
+to the server.
