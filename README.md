@@ -36,9 +36,14 @@ TypeScript; everything runs from here, through the Makefile.
   on port 8000, serving `ts/examples` from source; a Python example from
   `py/examples` on port 5959 -- `hello` unless `SERVER` names another, as in
   `make run SERVER=notes` -- in development, `MUMULIB_DEVELOPMENT=1`; and the
-  Vite dev server of the pages it serves, on 5757. Each reloads as its code
-  changes. `make tail` follows their logs, in `var/log`; `make stop` stops
-  whatever holds any of the ports; and `make dev` is run and tail together.
+  Vite dev server of the pages it serves, on 5757, which the Python example
+  passes its pages' modules on to. Each reloads as its code changes. The
+  Python example is served by Hypercorn: plain HTTP on 5959, and HTTPS on
+  5960 once there is a certificate -- the `certs` target makes one with
+  mkcert -- over which browsers speak HTTP/2: every request and change
+  stream of every tab on one connection, where HTTP/1.1 allows six.
+  `make tail` follows their logs, in `var/log`; `make stop` stops whatever
+  holds any of the ports; and `make dev` is run and tail together.
 - `make server` runs the Python example alone, in the foreground, and
   `make production` runs it in production, its pages built, with no Vite.
 - `make check` and `make run` write each example component's declarations,

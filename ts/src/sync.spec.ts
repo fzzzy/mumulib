@@ -13,6 +13,9 @@ test.describe('Mumulib sync', () => {
     await page.route('**/docs/missing.json', (route) =>
       route.fulfill({ status: 404, body: 'not here' })
     )
+    await page.route('**/docs/e.json', (route) =>
+      route.fulfill({ json: { exact: 1 } })
+    )
     // The stream: held until the test says what it announces
     let announce: (urls: string[]) => void = () => {}
     const announced = new Promise<string[]>((resolve) => (announce = resolve))
@@ -47,31 +50,45 @@ test.describe('Mumulib sync', () => {
     await expect(page.locator('#doc')).toHaveText('{"version":2}')
   })
 
-  test('an announcement matches as a path, without extension, query or fragment', async ({
+  test('an announcement matches as a path, or one inside it, unless exact', async ({
     page,
   }) => {
-    // Each fetch of /docs/a.json counted, its count the version answered
+    // Each fetch counted, its count the version answered
     let fetches = 0
+    let exactFetches = 0
     await page.route('**/docs/a.json', (route) =>
       route.fulfill({ json: { version: ++fetches } })
+    )
+    await page.route('**/docs/e.json', (route) =>
+      route.fulfill({ json: { version: ++exactFetches } })
     )
     await page.route('**/docs/missing.json', (route) =>
       route.fulfill({ status: 404, body: 'not here' })
     )
-    await page.route('**/mumulib/events.sse?*', (route) =>
-      route.fulfill({
+    // Held until both are bound, so each binding hears all of it
+    let bound: () => void = () => {}
+    const both = new Promise<void>((resolve) => (bound = resolve))
+    await page.route('**/mumulib/events.sse?*', async (route) => {
+      await both
+      await route.fulfill({
         headers: { 'content-type': 'text/event-stream' },
         body:
           'retry: 600000\n\n' +
           [
-            // Not /docs/a: a slash is another URL, and so is a longer name,
-            // and a relative URL is the page's directory's
-            '/docs/a/',
+            // Not /docs/a: a longer name is another URL, and a relative
+            // URL is the page's directory's
             '/docs/ab',
             'a.json',
             // /docs/a, whatever it is asked as
             '/docs/a.html?x=1#y',
             '/docs/a',
+            // Inside it: a change of it too
+            '/docs/a/',
+            '/docs/a/b/c.json',
+            // Inside the exact one: not its change; and then its own
+            '/docs/e/x',
+            '/docs/e/',
+            '/docs/e',
           ]
             .map(
               (url) =>
@@ -79,12 +96,14 @@ test.describe('Mumulib sync', () => {
             )
             .join(''),
       })
-    )
+    })
     await page.goto('examples/use_sync/')
     await expect(page.locator('body[data-bound]')).toBeAttached()
-    // The first fetch, and one for each of the two that match
-    await expect(page.locator('#doc')).toHaveText('{"version":3}')
+    bound()
+    // The first fetch, and one for each of the four that match
+    await expect(page.locator('#doc')).toHaveText('{"version":5}')
+    await expect(page.locator('#exact')).toHaveText('{"version":2}')
     await page.waitForTimeout(300)
-    expect(fetches).toBe(3)
+    expect([fetches, exactFetches]).toEqual([5, 2])
   })
 })

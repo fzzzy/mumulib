@@ -77,30 +77,43 @@ export function withOrigin(html, base, origin) {
 }
 
 /**
+ * The check alone: an entry loads nothing by a relative URL, which would
+ * resolve against the page's own path, not Vite's base. For a server that
+ * serves the page at its own path and passes the base on to Vite -- one
+ * origin, nothing for originPlugin to put in front -- as mumulib's Python
+ * does in development.
+ *
+ * @returns {import('vite').Plugin}
+ */
+export function rootRelativePlugin() {
+  return {
+    name: 'mumulib-origin:root-relative',
+    // Before Vite's transform, on the entry as it was written
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html, { filename }) {
+        const relative = relativeLoads(html)
+        if (relative.length) {
+          throw new Error(
+            `${filename} loads ${relative.join(', ')} by a relative URL: ` +
+              'write it root-relative, /<page>/<file>, which Vite puts ' +
+              'under the base'
+          )
+        }
+        return html
+      },
+    },
+  }
+}
+
+/**
  * @param {string} origin The dev server's origin, as the browser reaches it
  * @returns {import('vite').Plugin[]}
  */
 export function originPlugin(origin = 'http://127.0.0.1:5757') {
   let base = '/'
   return [
-    {
-      name: 'mumulib-origin:root-relative',
-      // Before Vite's transform, on the entry as it was written
-      transformIndexHtml: {
-        order: 'pre',
-        handler(html, { filename }) {
-          const relative = relativeLoads(html)
-          if (relative.length) {
-            throw new Error(
-              `${filename} loads ${relative.join(', ')} by a relative URL: ` +
-                'write it root-relative, /<page>/<file>, which Vite puts ' +
-                'under the base'
-            )
-          }
-          return html
-        },
-      },
-    },
+    rootRelativePlugin(),
     {
       name: 'mumulib-origin',
       apply: 'serve',

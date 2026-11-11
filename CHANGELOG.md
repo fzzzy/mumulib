@@ -7,6 +7,17 @@ Python package). Breaking changes come first under each release.
 
 ### Breaking
 
+- **In development, Python passes `/mumulib-vite/` on to Vite's dev
+  server**, modules and the hot reloading websocket alike, so a page has one
+  origin, Python's. The page's URLs are no longer rewritten to name Vite on
+  the page's host, and Vite need answer this machine alone. A Vite config
+  for pages Python serves uses `rootRelativePlugin()` where it used
+  `originPlugin(origin)`, which is for pages served from another origin.
+  mumulib now depends on `websockets`, for the hot reloading websocket.
+- **`sync.bind` hears changes inside what it binds.** A binding of
+  `/presence` is fetched again when `/presence/p7` is announced, as well as
+  `/presence` itself: a write anywhere inside what was fetched changed it.
+  `bind(path, url, { exact: true })` hears its own URL alone, as before.
 - **`sync.bind` listens through the event stream hub.** It asks for the
   change stream as a topic, `/mumulib/events.sse?topic=mumulib/changes.sse`,
   which an app has unless made with `multiplex=False` -- see Added.
@@ -183,6 +194,25 @@ Python package). Breaking changes come first under each release.
   `make run`.
 
 ### Added
+
+- **`rootRelativePlugin()`** in `mumulib/vite-plugin-origin`: the check that
+  an entry loads nothing by a relative URL, without the origin.
+- **`python -m mumulib.serve`**: Hypercorn's command line, with a shutdown
+  that does not wait on open connections. Hypercorn awaits each server's
+  `wait_closed()`, which since Python 3.12 waits for every connection to
+  close -- a browser's event streams among them -- before its graceful
+  timeout begins, so with a page open it never stopped. Run under
+  `watchfiles`, one process (`--workers 0`), it restarts as Python changes,
+  its streams ended by the signal; Hypercorn's own `--reload` waits on them.
+- **The examples are served by Hypercorn**, through `mumulib.serve`, with
+  HTTP/2 over TLS on 5960 once `make certs` has made a certificate with
+  mkcert; plain HTTP on 5959 as before.
+
+- **A handler is given the request's headers and query string**:
+  `request["headers"]`, by lowercase name, a header sent more than once its
+  values joined with `", "`; and `request["query"]`, each name's values in
+  the order sent, `{"tag": ["a", "b"]}`. A function in the tree is given
+  them in its state, the same.
 
 - **`Mumu` and `mumuElement`: components as plain classes.** A `.sfc.html`
   script extends `Mumu`, reads its state, shows it through `data-slot`,

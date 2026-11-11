@@ -7,8 +7,10 @@ it but what it uses.
 `sync.bind(path, url)` fetches `<url>.json` from mumulib's Python server -- a
 resource's state, or a persist's document -- and puts it in the state at
 `path`, with `set_path`. It fetches it again whenever the server's change
-stream, `/mumulib/changes.sse`, announces `url`: every page open shows each
-change, anyone's, without reloading. URLs are compared as paths, without an
+stream, `/mumulib/changes.sse`, announces `url` or a URL inside it: every
+page open shows each change, anyone's, without reloading. A write inside
+what was fetched changes it -- a binding of `/presence` hears
+`/presence/p7` -- and `{ exact: true }` hears `url` alone. URLs are compared as paths, without an
 extension, a query or a fragment, so `/notes` and `/notes.json` are one.
 
 The page never changes a bound path itself. It writes with a request -- a
@@ -33,7 +35,7 @@ resource or a persist: a slash is refused. `ts/pages/notes`, served by
 ## sync api
 
 ```ts
-bind(path: string, url: string): Promise<void>
+bind(path: string, url: string, options?: { exact?: boolean }): Promise<void>
 ```
 
-Fetch `<url>.json` into the state at path, and fetch it again whenever the change stream announces url -- compared as paths on this origin, without an extension, a query or a fragment, a trailing slash kept. Resolves once the first fetch is in place.
+Fetch `<url>.json` into the state at path, and fetch it again whenever the change stream announces url, or a URL inside it unless exact -- compared as paths on this origin, without an extension, a query or a fragment, a trailing slash kept. Resolves once the first fetch is in place.

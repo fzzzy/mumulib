@@ -17,20 +17,17 @@ cached by its file, as a persist is: an ETag from its modification time and
 size, no-cache, and 304 to an If-None-Match naming it.
 
 With MUMULIB_DEVELOPMENT=1 in the environment, the entry is asked of Vite's
-dev server, always at VITE_DEV_SERVER, and served as it answers. The URLs
-in it name that server in full -- mumulib's Vite origin plugin sees to it --
-so the browser fetches the page's modules, and opens the hot reloading
-websocket, from Vite directly. Python's /mumulib-vite/ is then not found:
-nothing is asked of it.
-
-They name it on the host the page was asked of, at Vite's port: a page
-asked of 10.0.0.5:8000 loads its modules from 10.0.0.5:5757, so a page
-opened from another machine works too, where 127.0.0.1 would be that
-machine itself. For that, Vite has to listen there, server.host, and
-answer CORS for the page's origin, server.cors.
+dev server, always at VITE_DEV_SERVER, and served as it answers; and
+everything under /mumulib-vite/ is passed on to it, as it comes -- each
+module, stylesheet and asset a page loads, and the hot reloading websocket.
+The page has one origin, this server's: Vite listens on this machine alone,
+and a page opened from another reaches it through here, as it does in
+production, over whatever this server speaks -- HTTP/2 over TLS, with
+Hypercorn, every module of a page on one connection.
 """
 
 import asyncio
+import contextlib
 import logging
 import re
 import urllib.error
@@ -41,6 +38,10 @@ from pathlib import Path
 from typing import Any
 
 import aiofiles
+import httpx2
+from websockets.asyncio.client import ClientConnection, connect
+from websockets.exceptions import ConnectionClosed, InvalidHandshake
+from websockets.typing import Subprotocol
 
 from mumulib.mumutypes import (
     Chunk,
@@ -57,9 +58,10 @@ from mumulib.producers import add_producer
 
 __all__ = ["Page", "VITE_DEV_SERVER", "VITE_BASE"]
 
-# Where Vite's dev server always is, in development: a port of its own
 logger = logging.getLogger(__name__)
 
+# Where Vite's dev server always is, in development: a port of its own, on
+# this machine, which only this server asks
 VITE_DEV_SERVER = "http://127.0.0.1:5757"
 
 # Vite's base: everything it serves is below it, built or not
@@ -120,20 +122,6 @@ def file_of(thing: object, state: State) -> Path | None:
     return None
 
 
-def dev_server_for(host: str | None) -> str:
-    """VITE_DEV_SERVER as a browser reaches it that asked host for a page:
-    the same host, at Vite's port. VITE_DEV_SERVER itself without one."""
-    if not host:
-        return VITE_DEV_SERVER
-    name = urllib.parse.urlsplit(f"//{host}").hostname
-    if not name:
-        return VITE_DEV_SERVER
-    if ":" in name:  # IPv6, bracketed in a URL
-        name = f"[{name}]"
-    vite = urllib.parse.urlsplit(VITE_DEV_SERVER)
-    return f"{vite.scheme}://{name}:{vite.port}"
-
-
 def _below(page: bytes, prefix: str) -> bytes:
     """A built page with each URL under VITE_BASE put below prefix: wherever
     the base follows a quote, an attribute's =, or url(."""
@@ -161,8 +149,8 @@ async def _produce_page(thing: Page, state: State) -> AsyncIterator[Chunk]:
             raise HTTPResponse(
                 502, f"Vite's dev server did not answer for {url}\n"
             ) from exc
-        reached = dev_server_for(state.get("host"))
-        yield page.replace(VITE_DEV_SERVER.encode(), reached.encode())
+        # Its URLs name /mumulib-vite/ on this server, which passes them on
+        yield page
         return
     file = file_of(thing, state)
     if file is None:
@@ -197,14 +185,20 @@ async def _answer(
 
 
 async def serve_vite(
-    scope: dict[str, Any], send: Send, receive: Receive, vite: Path, development: bool
+    scope: dict[str, Any],
+    send: Send,
+    receive: Receive,
+    vite: Path | None,
+    development: bool,
 ) -> None:
-    """A request under /mumulib-vite/: in production, the file Vite built there."""
+    """A request under /mumulib-vite/: in production, the file Vite built
+    there; in development, passed on to Vite's dev server."""
     text = [(b"content-type", b"text/plain; charset=UTF-8")]
     if development:
-        message = f"In development /mumulib-vite/ is Vite's own, at {VITE_DEV_SERVER}\n"
-        await _answer(send, 404, message.encode(), text)
+        await forward_http(scope, receive, send)
         return
+    # Reached only in development, or given a build directory
+    assert vite is not None
     if scope["method"] != "GET":
         await _answer(send, 405, b"Only GET\n", [*text, (b"allow", b"GET, HEAD")])
         return
@@ -228,3 +222,161 @@ async def serve_vite(
     )
     await stream(file)(send, receive)
     await send({"type": "http.response.body", "body": b""})
+
+
+# =============================================================================
+# In development, /mumulib-vite/ passed on to Vite's dev server
+# =============================================================================
+
+# Headers about the one connection they came on, not what it carried: not
+# passed on, either way. Nor the host, which the client sets, nor what
+# lets a browser in here, which is no business of Vite's
+_HOP_BY_HOP = frozenset(
+    {
+        b"connection",
+        b"keep-alive",
+        b"proxy-connection",
+        b"transfer-encoding",
+        b"upgrade",
+        b"te",
+        b"trailer",
+        b"host",
+        b"cookie",
+        b"authorization",
+    }
+)
+
+_client: httpx2.AsyncClient | None = None
+
+
+def _vite_client() -> httpx2.AsyncClient:
+    """One client for every request passed on: a page loads hundreds of
+    modules, each a request. No read timeout, for what streams."""
+    global _client
+    if _client is None:
+        _client = httpx2.AsyncClient(timeout=httpx2.Timeout(10.0, read=None))
+    return _client
+
+
+def _on_vite(scope: dict[str, Any], scheme: str) -> str:
+    """Where on Vite a request goes: the path below any prefix this app is
+    mounted at, and the query, as they came."""
+    raw = scope.get("raw_path") or scope["path"].encode()
+    prefix = (scope.get("root_path") or "").encode()
+    if prefix and raw.startswith(prefix):
+        raw = raw[len(prefix) :]
+    query = scope.get("query_string", b"")
+    vite = urllib.parse.urlsplit(VITE_DEV_SERVER)
+    where = f"{scheme}://{vite.netloc}{raw.decode('latin-1')}"
+    return where + (f"?{query.decode('latin-1')}" if query else "")
+
+
+def _passed_on(headers: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
+    return [(k, v) for k, v in headers if k.lower() not in _HOP_BY_HOP]
+
+
+async def forward_http(scope: dict[str, Any], receive: Receive, send: Send) -> None:
+    """A request, to Vite, and its answer, as it comes: its bytes as Vite
+    sent them, compressed or not."""
+    body = b""
+    while True:
+        message = await receive()
+        body += message.get("body", b"")
+        if not message.get("more_body"):
+            break
+    request = _vite_client().build_request(
+        scope["method"],
+        _on_vite(scope, "http"),
+        headers=_passed_on(scope["headers"]),
+        content=body,
+    )
+    try:
+        response = await _vite_client().send(request, stream=True)
+    except httpx2.HTTPError as exc:
+        message = f"Vite's dev server, at {VITE_DEV_SERVER}, did not answer: {exc}\n"
+        await _answer(
+            send,
+            502,
+            message.encode(),
+            [(b"content-type", b"text/plain; charset=UTF-8")],
+        )
+        return
+    # Relayed until it ends, or until the browser has gone: a server does
+    # not say so by failing a send -- what is sent to no one is dropped --
+    # but by an http.disconnect on receive. Then Vite's response is closed,
+    # so nothing goes on reading what no one will see
+    relaying = asyncio.ensure_future(_relay(response, send))
+    gone = asyncio.ensure_future(_disconnected(receive))
+    try:
+        await asyncio.wait({relaying, gone}, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        for task in (relaying, gone):
+            task.cancel()
+        await asyncio.gather(relaying, gone, return_exceptions=True)
+        await response.aclose()
+
+
+async def _relay(response: httpx2.Response, send: Send) -> None:
+    """Vite's response, to the browser, as it comes."""
+    await send(
+        {
+            "type": "http.response.start",
+            "status": response.status_code,
+            "headers": _passed_on(list(response.headers.raw)),
+        }
+    )
+    async for chunk in response.aiter_raw():
+        await send({"type": "http.response.body", "body": chunk, "more_body": True})
+    await send({"type": "http.response.body", "body": b""})
+
+
+async def _disconnected(receive: Receive) -> None:
+    """Over once the browser has gone: the request's body already read,
+    what receive gives next is only that, its http.disconnect."""
+    await receive()
+
+
+async def forward_websocket(
+    scope: dict[str, Any], receive: Receive, send: Send
+) -> None:
+    """A websocket -- Vite's hot reloading -- to Vite, and each message
+    either way, until one side closes."""
+    await receive()  # websocket.connect
+    asked = [Subprotocol(p) for p in scope.get("subprotocols", [])]
+    try:
+        upstream = await connect(
+            _on_vite(scope, "ws"), subprotocols=asked or None, max_size=None
+        )
+    except OSError, InvalidHandshake:
+        await send({"type": "websocket.close", "code": 1011})
+        return
+    await send({"type": "websocket.accept", "subprotocol": upstream.subprotocol})
+    down = asyncio.create_task(_to_browser(upstream, send))
+    try:
+        while True:
+            message = await receive()
+            if message["type"] == "websocket.disconnect":
+                break
+            if message.get("text") is not None:
+                await upstream.send(message["text"])
+            elif message.get("bytes") is not None:
+                await upstream.send(message["bytes"])
+    except ConnectionClosed:
+        pass
+    finally:
+        down.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await down
+        await upstream.close()
+
+
+async def _to_browser(upstream: ClientConnection, send: Send) -> None:
+    """Vite's messages, to the browser; and its close, when it closes."""
+    with contextlib.suppress(ConnectionClosed):
+        async for message in upstream:
+            if isinstance(message, str):
+                await send({"type": "websocket.send", "text": message})
+            else:
+                await send({"type": "websocket.send", "bytes": message})
+    with contextlib.suppress(RuntimeError):
+        await send({"type": "websocket.close", "code": 1000})

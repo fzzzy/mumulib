@@ -26,5 +26,19 @@ An entry loads by root-relative URLs, `<script src="/notes/main.ts">`, which
 Vite puts under the base. A relative `src`, or a relative `href` on a
 `<link>`, would resolve against the other server's page, so the plugin
 refuses the entry, naming it and the URL, in development and in a build
-alike. It changes nothing else in a build. This repository's
-`ts/vite.pages.config.mts` uses it, for `ts/pages`.
+alike. It changes nothing else in a build.
+
+`rootRelativePlugin()` is that check alone, for a server that serves the
+page at its own path and passes the base on to Vite -- one origin, with
+nothing to put in front -- as mumulib's Python does in development. This
+repository's `ts/vite.pages.config.mts` uses it, for `ts/pages`.
+
+```ts
+import { rootRelativePlugin } from 'mumulib/vite-plugin-origin'
+
+export default defineConfig({
+  base: '/mumulib-vite/',
+  plugins: [rootRelativePlugin()],
+  server: { host: '127.0.0.1', port: 5757, strictPort: true },
+})
+```

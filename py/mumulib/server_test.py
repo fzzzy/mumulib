@@ -2270,6 +2270,37 @@ class TestFunctionsInTheTree(unittest.TestCase):
         self.assertEqual(asyncio.run(post()), 200)
         self.assertEqual(self.calls[0]["parsed_body"], {"n": 1})
 
+    def test_it_is_given_the_headers_and_the_query(self):
+        async def call():
+            async def send(message):
+                pass
+
+            async def receive():
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            scope = {
+                "type": "http",
+                "method": "GET",
+                "path": "/f.txt",
+                "query_string": b"tag=a&tag=b&empty=&n=1",
+                "headers": [
+                    (b"Authorization", b"Bearer s3cret"),
+                    (b"accept-language", b"en"),
+                    (b"Accept-Language", b"fr"),
+                ],
+                "state": {},
+            }
+            await consumers_app({"f": self.f})(scope, receive, send)
+
+        asyncio.run(call())
+        [state] = self.calls
+        # By lowercase name; a repeated one joined, as HTTP reads it
+        self.assertEqual(
+            state["headers"],
+            {"authorization": "Bearer s3cret", "accept-language": "en, fr"},
+        )
+        self.assertEqual(state["query"], {"tag": ["a", "b"], "empty": [""], "n": ["1"]})
+
     def test_it_is_a_leaf(self):
         for path in ("/f/", "/f/more.txt"):
             with self.subTest(path=path):

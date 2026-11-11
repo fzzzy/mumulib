@@ -6,8 +6,12 @@ import { state, sync } from 'mumulib'
 const shown = document.querySelector<HTMLPreElement>('#doc')!
 const errors = document.querySelector<HTMLParagraphElement>('#errors')!
 
+const exact = document.querySelector<HTMLPreElement>('#exact')!
+
 await state.onstate(async (current) => {
   if (current.doc !== undefined) shown.textContent = JSON.stringify(current.doc)
+  if (current.exact !== undefined)
+    exact.textContent = JSON.stringify(current.exact)
 })
 
 // What bind refuses, said on the page for the test to read
@@ -23,4 +27,6 @@ await refused(sync.bind('', '/docs/a'))
 await refused(sync.bind('index', '/docs/'))
 await refused(sync.bind('missing', '/docs/missing'))
 await sync.bind('doc', '/docs/a.json')
+// Its own announcements alone, not those inside it
+await sync.bind('exact', '/docs/e', { exact: true })
 document.body.dataset.bound = 'true'

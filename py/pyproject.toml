@@ -16,6 +16,8 @@ dependencies = [
     # The event stream hub's: it subscribes to each topic over HTTP
     "httpx2>=2.13,<3",
     "python-multipart>=0.0.20",
+    # In development, Vite's hot reloading websocket, passed on to it
+    "websockets>=17.4",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -30,8 +32,12 @@ dev = [
     "pyright>=1.1.411",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    # To run the examples; mumulib itself needs no particular ASGI server
+    # To run the examples -- Hypercorn for make run's HTTP/2, uvicorn for the
+    # browser tests' servers; mumulib itself needs no particular ASGI server
     "uvicorn>=0.52.4",
+    "hypercorn>=0.18.0",
+    # make run's restarts, as Python changes: see mumulib.serve
+    "watchfiles>=1.3.0",
 ]
 
 [project.urls]

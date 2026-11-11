@@ -35,7 +35,14 @@ from mumulib.mumutypes import (
     content_type_for,
 )
 from mumulib.producers import add_producer, custom_serializer, produce
-from mumulib.static import VITE_BASE, cache_headers, file_of, is_fresh, serve_vite
+from mumulib.static import (
+    VITE_BASE,
+    cache_headers,
+    file_of,
+    forward_websocket,
+    is_fresh,
+    serve_vite,
+)
 
 # The public API: Publishing an object, and streaming events from it. The body
 # parsers and path helpers are the app's own.
@@ -283,6 +290,16 @@ def cross_origin(scope: Scope) -> bool:
     return host is None or origin_host.lower() != host.decode("latin-1").lower()
 
 
+def request_headers(raw: list[tuple[bytes, bytes]]) -> dict[str, str]:
+    """A request's headers by lowercase name, as text: one sent more than
+    once is its values joined with ", ", as HTTP reads a repeated header."""
+    headers: dict[str, str] = {}
+    for key, value in raw:
+        name, text = key.decode("latin-1").lower(), value.decode("latin-1")
+        headers[name] = f"{headers[name]}, {text}" if name in headers else text
+    return headers
+
+
 def _announce_changes(send: Send, changes: EventSource, state: State) -> Send:
     """send, for a request that may change something: once its response has
     succeeded, the URL of the container it changed is put on changes.
@@ -417,6 +434,18 @@ def consumers_app(
                     await send({"type": "lifespan.shutdown.complete"})
                     return
 
+        if scope["type"] == "websocket":
+            # Only Vite's, in development: its hot reloading, passed on
+            path = scope["path"]
+            prefix = scope.get("root_path", "")
+            if prefix and path.startswith(prefix):
+                path = path[len(prefix) :] or "/"
+            if development and path.startswith(VITE_BASE):
+                await forward_websocket(scope, receive, send)
+            else:
+                await send({"type": "websocket.close", "code": 1008})
+            return
+
         assert scope["type"] == "http"
         state = scope["state"]
         # HEAD is GET without the body: answered as GET by everything that
@@ -445,13 +474,21 @@ def consumers_app(
         if prefix and scope["path"].startswith(prefix):
             scope = {**scope, "path": scope["path"][len(prefix) :] or "/"}
         state["method"] = scope["method"]
+        # The request's headers, by lowercase name -- one sent more than
+        # once is its values joined with ", ", as HTTP reads them -- and its
+        # query string, each name's values in the order sent
+        state["headers"] = request_headers(scope.get("headers", []))
+        state["query"] = parse.parse_qs(
+            scope.get("query_string", b"").decode("latin-1"), keep_blank_values=True
+        )
         # The host the request was made of, as its Host header names it
-        host = dict(scope.get("headers", [])).get(b"host")
-        state["host"] = host.decode("latin-1") if host is not None else None
+        state["host"] = state["headers"].get("host")
         state["vite"] = vite_directory
         state["development"] = development
         # Vite's URLs, not the tree's: no extension names their type
-        if vite_directory is not None and scope["path"].startswith(VITE_BASE):
+        if (development or vite_directory is not None) and scope["path"].startswith(
+            VITE_BASE
+        ):
             await serve_vite(scope, send, receive, vite_directory, development)
             return
         parsed = split_path(scope["path"])

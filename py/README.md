@@ -256,13 +256,15 @@ page is Vite's build of it, read from the `vite` directory, and
 `ETag`.
 
 With `MUMULIB_DEVELOPMENT=1` in the environment, the page is asked of Vite's
-dev server, always at `http://127.0.0.1:5757`. With mumulib's origin plugin
-in the Vite config, the URLs Vite writes into it name that server in full,
-so the browser loads the page's modules, and opens hot reloading, from Vite
-itself, and `/mumulib-vite/` is not Python's at all. The page's own requests
--- the tree, the change stream -- are still to Python, its origin. An
-entry's own URLs are root-relative, `/notes/main.ts`; the plugin refuses a
-relative one.
+dev server, always at `http://127.0.0.1:5757`, and everything under
+`/mumulib-vite/` is passed on to it -- each module the page loads, and the
+hot reloading websocket. The page has one origin, Python's: Vite answers
+this machine alone, and a page opened from another reaches it through
+Python, over whatever Python speaks -- HTTP/2 over TLS, served by Hypercorn,
+every module and stream of every tab on one connection. An entry's own URLs
+are root-relative, `/notes/main.ts`, which Vite writes under the base; a
+relative one would resolve against the page's own path, and mumulib's
+`rootRelativePlugin`, in the Vite config, refuses it.
 
 ## XML
 
@@ -315,7 +317,8 @@ anything but `GET` or `HEAD` is 405.
 
 A function the URL ends at is its own producer: it is called as `f(state)`,
 where `state` holds the request -- `"method"`, `"url"`, `"extension"`,
-`"content_type"`, and `"parsed_body"` for a request with a body -- a
+`"content_type"`, `"headers"` by lowercase name, `"query"` as each name's
+list of values, and `"parsed_body"` for a request with a body -- a
 multipart form's files in it as `mumutypes.Upload`, its filename, type and
 bytes as sent. Any kind of function will do. What an async generator or a generator yields is the
 response; what a coroutine or a plain function returns is produced as though
