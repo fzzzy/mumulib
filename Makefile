@@ -70,7 +70,7 @@ fix: node_modules python-sync
 
 typecheck: node_modules python-sync
 	$(NPM) run test:unit
-	cd ts && node src/vite/sfc-check.mjs --project tsconfig.examples.json --declarations examples
+	cd ts && node src/vite/sfc-check.mjs --project tsconfig.examples.json --declarations examples pages
 	$(UV) pyright
 
 
@@ -196,10 +196,10 @@ echo "$(2) stopped (port $(1))."
 endef
 
 
-# Each example component's <name>.sfc.html.d.ts, so tsc and editors know its
+# Each example and page component's <name>.sfc.html.d.ts, so tsc and editors know its
 # class: written even if a component has a type error, which make check says
 declarations: node_modules
-	-@cd ts && node src/vite/sfc-check.mjs --declarations examples > /dev/null
+	-@cd ts && node src/vite/sfc-check.mjs --declarations examples pages > /dev/null
 
 # A Python example, in the foreground, reloading as its code changes; its
 # pages from their Vite dev server, which make run starts

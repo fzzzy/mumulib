@@ -93,6 +93,50 @@ function perf():
 type Rows = Map<unknown, { row: Element; item: Record<string, unknown> }>
 
 /** Whether two items have the same values, each the very same one. */
+/**
+ * A kept row put where it now belongs, keeping what is in it: the focus,
+ * and a field's selection. Moved, a row is taken out of the page and put
+ * back, which takes the focus from whatever in it had it -- the reader's
+ * place, as another's change reorders the list. Where the browser has
+ * moveBefore, the row keeps it as it moves; elsewhere it is given back.
+ */
+function moveRow(holder: Element, row: Element, before: Element | null): void {
+  const moving = holder as Element & {
+    moveBefore?: (node: Node, child: Node | null) => void
+  }
+  if (typeof moving.moveBefore === 'function') {
+    try {
+      moving.moveBefore(row, before)
+      return
+    } catch {
+      // Not movable so -- another document, say -- and so put as any is
+    }
+  }
+  // What has the focus, as deep as it goes: into each component's own root
+  const root = holder.getRootNode() as Document | ShadowRoot
+  let focused: Element | null = root.activeElement
+  if (!focused || !row.contains(focused)) {
+    holder.insertBefore(row, before)
+    return
+  }
+  while (focused.shadowRoot?.activeElement) {
+    focused = focused.shadowRoot.activeElement
+  }
+  const field =
+    focused instanceof HTMLInputElement ||
+    focused instanceof HTMLTextAreaElement
+      ? focused
+      : null
+  const selection = field
+    ? ([field.selectionStart, field.selectionEnd] as const)
+    : null
+  holder.insertBefore(row, before)
+  ;(focused as HTMLElement).focus({ preventScroll: true })
+  if (field && selection && selection[0] !== null) {
+    field.setSelectionRange(selection[0], selection[1])
+  }
+}
+
 function sameValues(
   a: Record<string, unknown>,
   b: Record<string, unknown>
@@ -921,7 +965,7 @@ class View {
         }
         wanted.forEach((row, i) => {
           const here = holder.children[i]
-          if (here !== row) holder.insertBefore(row, here ?? null)
+          if (here !== row) moveRow(holder, row, here ?? null)
         })
       }
       for (const [row, item] of fill) {

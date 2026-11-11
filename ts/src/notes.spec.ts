@@ -23,7 +23,7 @@ type Note = { text: string; order: string }
 test.describe.configure({ mode: 'default' })
 
 async function add(page: Page, text: string) {
-  await page.locator('input[name="text"]').fill(text)
+  await page.getByRole('textbox', { name: 'A note' }).fill(text)
   await page.getByRole('button', { name: 'Add' }).click()
   await expect(page.locator('#notes')).toContainText(text)
 }
@@ -37,7 +37,7 @@ async function focus(page: Page, text: string) {
 }
 
 function row(page: Page, text: string) {
-  return page.locator('#notes li.note', { hasText: text })
+  return page.locator('#notes note-row', { hasText: text })
 }
 
 // The notes, as the server has them, by text
@@ -52,9 +52,7 @@ async function kept(page: Page, server: string): Promise<Record<string, Note>> {
 
 // The texts shown, in order, of those named
 async function shown(page: Page, texts: string[]): Promise<string[]> {
-  const all = await page
-    .locator('#notes li.note .text, #notes li.note .edit')
-    .allTextContents()
+  const all = await page.locator('#notes note-row .text').allTextContents()
   return all.filter((text) => texts.includes(text))
 }
 
@@ -127,7 +125,7 @@ for (const [mode, server] of Object.entries(MODES)) {
       await page.keyboard.press('Escape')
       await expect(row(page, text).locator('.text')).toHaveText(text)
       await page.keyboard.press('Enter')
-      await page.locator('.edit').fill(`${text}!`)
+      await page.locator('note-row .edit:visible').fill(`${text}!`)
       await page.keyboard.press('Enter')
       await expect(row(page, `${text}!`)).toBeFocused()
       expect((await kept(page, server))[`${text}!`]).toBeDefined()
@@ -163,13 +161,13 @@ for (const [mode, server] of Object.entries(MODES)) {
       // moved between them a moment ago
       await page.keyboard.press('ArrowDown')
       await expect(row(page, b)).not.toBeFocused()
-      await expect(page.locator('li.note:focus')).toHaveCount(1)
+      await expect(page.locator('note-row:focus')).toHaveCount(1)
       // And Delete removes what it is on
       await focus(page, a)
       await page.keyboard.press('Delete')
       await expect(row(page, a)).toHaveCount(0)
       // The focus on the note after it: another test's, as like as not
-      await expect(page.locator('li.note:focus')).toHaveCount(1)
+      await expect(page.locator('note-row:focus')).toHaveCount(1)
     })
 
     test('a note is dragged into place, and to the trash', async ({
@@ -251,9 +249,9 @@ for (const [mode, server] of Object.entries(MODES)) {
       // Theirs: the field locked, shaken, and theirs kept
       await focus(page, text)
       await page.keyboard.press('Enter')
-      await page.locator('.edit').fill('mine, 1')
+      await page.locator('note-row .edit:visible').fill('mine, 1')
       await theirs(`theirs 1 ${text}`)
-      const field = page.locator('.edit')
+      const field = page.locator('note-row .edit:visible')
       await expect(field).toHaveAttribute('readonly', '')
       await expect(field).toHaveClass(/shake/)
       await page.getByRole('button', { name: 'Theirs' }).click()
@@ -264,7 +262,7 @@ for (const [mode, server] of Object.entries(MODES)) {
       // Mine: what was typed, kept over theirs
       await focus(page, `theirs 1 ${text}`)
       await page.keyboard.press('Enter')
-      await page.locator('.edit').fill(`mine ${text}`)
+      await page.locator('note-row .edit:visible').fill(`mine ${text}`)
       await theirs(`theirs 2 ${text}`)
       await page.getByRole('button', { name: 'Mine' }).click()
       await expect(row(page, `mine ${text}`)).toHaveCount(1)

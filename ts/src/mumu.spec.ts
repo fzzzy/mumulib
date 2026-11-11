@@ -246,6 +246,41 @@ test.describe('Mumulib Mumu components', () => {
     })
   })
 
+  test('a row moved keeps the focus it had', async ({ page }) => {
+    // Another's change reorders the list while the reader is on a row: the
+    // row moves, and the reader is still on it, where they were typing
+    const kept = await page.evaluate(async () => {
+      const settle = () => new Promise((r) => setTimeout(r, 50))
+      const chat = document.createElement('my-messages') as HTMLElement &
+        Record<string, unknown>
+      document.body.append(chat)
+      chat.messages = [
+        { id: 1, text: 'a' },
+        { id: 2, text: 'b' },
+        { id: 3, text: 'c' },
+      ]
+      await settle()
+      const root = chat.shadowRoot!
+      const c = root.querySelectorAll<HTMLElement>('.message')[2]
+      c.tabIndex = -1
+      c.focus()
+      const before = root.activeElement === c
+      // c to the top: it has to move
+      chat.messages = [
+        { id: 3, text: 'c' },
+        { id: 1, text: 'a' },
+        { id: 2, text: 'b' },
+      ]
+      await settle()
+      return {
+        before,
+        moved: root.querySelectorAll('.message')[0] === c,
+        focused: root.activeElement === c,
+      }
+    })
+    expect(kept).toEqual({ before: true, moved: true, focused: true })
+  })
+
   test('a render writes only what changed', async ({ page }) => {
     const written = await page.evaluate(async () => {
       const settle = () => new Promise((r) => setTimeout(r, 50))

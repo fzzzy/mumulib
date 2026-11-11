@@ -68,86 +68,24 @@ h1 {
 }
 
 #notes {
-  list-style: none;
   margin: 1.5rem 0;
-  padding: 0;
 }
 
-.note {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2rem;
-  margin: 0.4rem 0;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
-  background: #f6f6f4;
-  cursor: grab;
-  user-select: none;
-  /* A finger drags the note, and does not scroll the page */
-  touch-action: none;
-}
-
-/* This player's own focus, in its own colour; everyone else's is drawn as
-   box-shadows, from the presence */
-.note:focus {
-  outline: 2px solid var(--me);
-  outline-offset: 1px;
-}
-
-.note.dragging {
+/* A note's own look is its component's: what the page draws on one is
+   where it is being dragged, and where it would land */
+note-row.dragging {
   position: relative;
   z-index: 1;
   opacity: 0.85;
-  cursor: grabbing;
   box-shadow: 0 4px 14px rgb(0 0 0 / 0.2) !important;
 }
 
-.note.drop-before {
+note-row.drop-before {
   border-top: 3px solid var(--me);
 }
 
-.note.drop-after {
+note-row.drop-after {
   border-bottom: 3px solid var(--me);
-}
-
-.text {
-  flex: 1;
-}
-
-.edit {
-  flex: 1;
-  font: inherit;
-  padding: 0.15rem 0.3rem;
-}
-
-.edit[readonly] {
-  background: #fff4f2;
-  border-color: #c0322f;
-}
-
-.resolve {
-  display: flex;
-  gap: 0.3rem;
-}
-
-.shake {
-  animation: shake 0.4s;
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20%,
-  60% {
-    transform: translateX(-6px);
-  }
-  40%,
-  80% {
-    transform: translateX(6px);
-  }
 }
 
 #add {
