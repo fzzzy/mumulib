@@ -1,6 +1,6 @@
 {
   "name": "mumulib",
-  "version": "1.0.16",
+  "version": "2.0.0-alpha.1",
   "description": "mumulib builds web pages from single-file components and an app that keeps their state, with templates in plain HTML; its parts -- mumu, app, state, patslot, dialog, events, sync -- each import alone.",
   "repository": {
     "type": "git",
