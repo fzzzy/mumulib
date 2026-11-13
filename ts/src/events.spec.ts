@@ -93,10 +93,10 @@ test.describe('Mumulib events', () => {
   }
 
   test('the hub of a Python server, heard by a browser', async ({ page }) => {
-    // The editors example, py/examples/editors.py: a mumulib app, so the hub
-    // is its, and its change stream a topic like any other
-    const editors = `http://127.0.0.1:${process.env.PLAYWRIGHT_EDITORS_PORT || '8124'}`
-    await page.goto(`${editors}/editors/`)
+    // The live example, py/examples/live.py: a mumulib app, so the hub is
+    // its, and its change stream a topic like any other. Chromium's server
+    // (playwright.config); the hub is read here, and nothing written
+    await page.goto('http://127.0.0.1:8124/')
     const heard = await page.evaluate(
       () =>
         new Promise<string[]>((resolve) => {

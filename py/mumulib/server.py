@@ -387,7 +387,7 @@ def consumers_app(
     does: for an app whose pages are only ever built.
 
     data is the directory each Located object -- each Resource -- keeps its
-    file in, named by its URL: var/data/editors/characters/c1.json. It is
+    file in, named by its URL: var/data/people/ada.json. It is
     relative to the directory the app is made in, unless absolute.
 
     It has the event stream hub at /mumulib/events.sse -- a page's streams

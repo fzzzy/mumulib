@@ -196,14 +196,14 @@ class Located:
     else whose state is kept in a file named after where it is.
 
     It learns the URL from the path walked to reach it, the first time a
-    request reaches it, and keeps it: /editors/characters/c1 for
-    /editors/characters/c1.html and .json alike, and what is below it, and
-    /editors/ for one reached as an index, at its slash. Until then url is
+    request reaches it, and keeps it: /people/ada for /people/ada.html and
+    .json alike, and what is below it, and /people/ for one reached as an
+    index, at its slash. Until then url is
     None. One object has one URL: reaching it by another is Aliased, a 500.
 
     Its file is named by its URL, in the app's data directory:
-    var/data/editors/characters/c1.json, and an index's index.json in its
-    container's, var/data/editors/index.json. Then load is awaited, once,
+    var/data/people/ada.json, and an index's index.json in its
+    container's, var/data/people/index.json. Then load is awaited, once,
     before the request goes on: what the object does with a file it may
     have, which here is nothing.
     """
@@ -893,8 +893,8 @@ def linked(value: Any, base: str, extension: str = "json") -> Any:
 
 async def _produce_container_json(thing: Any, state: State) -> AsyncIterator[Chunk]:
     """A plain container as JSON: its entries, and each resource or persist
-    in it as its URL -- /editors/characters.json is
-    {"c1": "/editors/characters/c1.json", ...} -- for a client to bind."""
+    in it as its URL -- /people.json is
+    {"ada": "/people/ada.json", ...} -- for a client to bind."""
     base = container_url(state.get("url", "/"))
     yield json.dumps(linked(thing, base), default=custom_serializer)
 

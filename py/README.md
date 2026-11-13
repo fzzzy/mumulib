@@ -82,17 +82,14 @@ there is, since the root has no name of its own. It is wrapped in `GetOnly`,
 read-only (see Guards). `files.py` (`SERVER=files`) serves a page from an open file and its
 stylesheet, text and image from a directory, `functions.py`
 (`SERVER=functions`) a function that answers `GET` and `POST`, and
-`resources.py` (`SERVER=resources`) a to-do list of resources: a list that
-takes `POST`, and items in it that answer their own `PUT` and cannot be
-deleted, on a page that listens to `changes` and shows everyone's at once;
-and `editors.py` (`SERVER=editors`, then `/editors/`) a character, party and
-deploy editor: every page built in Stan, each object a `Resource` whose state
-fills its edit form, each form a plain post its resource checks and answers
-with 303 See Other, and one small script that fetches the tables again when
-anything changes. `notes.py` (`SERVER=notes`) is a Vite page, `ts/pages/notes`,
+`live.py` (`SERVER=live`) a page built in Stan whose live elements
+`live.js` keeps up to date: a row for each counter, a `Persist` that a
+write announces by its own URL, and a heading that watches the page's.
+`notes.py` (`SERVER=notes`) is a Vite page, `ts/pages/notes`,
 served by Python beside a `Persist` it binds with the TypeScript library's
-`sync.bind`, so every page open shows everyone's notes; `make production
-SERVER=notes` serves it built.
+`sync.bind`, so every page open shows everyone's notes, and who is here is
+a `Resource` that keeps the server's rules; `make production SERVER=notes`
+serves it built.
 
 ## Resources
 
@@ -148,9 +145,9 @@ for itself the same way, registered with
 
 A resource keeps its state in a file named by its URL, in the app's data
 directory: `var/data` beside where the server runs, or the one
-`consumers_app(root, data=...)` names. `/editors/characters/c1` keeps
-`var/data/editors/characters/c1.json`, and an index, `/editors/`,
-`var/data/editors/index.json`. The root is a dict, as it is anywhere else: a
+`consumers_app(root, data=...)` names. `/people/ada` keeps
+`var/data/people/ada.json`, and an index, `/people/`,
+`var/data/people/index.json`. The root is a dict, as it is anywhere else: a
 resource at `/` is its `"index"` entry, keeping `var/data/index.json`.
 Don't publish a resource as the root, with another as its `child_index`:
 the index would be `/` as well, and share its file. The process is one, on
@@ -162,11 +159,11 @@ With none, the constructor's state is kept, and answered from memory. A
 handler that changes the state saves it:
 
 ```python
-class Character(Resource):
+class Person(Resource):
     async def handle_POST(self, request):
         self.state["name"] = self.form(request).text("name")
         await self.save()
-        self.see_other("/editors/")
+        self.see_other("/people/")
 ```
 
 `save()` writes the state as `/<resource>.json` answers it, atomically: to a

@@ -394,13 +394,12 @@ Python package). Breaking changes come first under each release.
 - **Python examples**, in `py/examples`, run with `make run` or `make server`
   (`SERVER=<name>`): `hello.py` publishes one string, and `files.py` a page
   from an open file with its assets from a directory, both read-only in
-  `GetOnly`; `functions.py` a function answering `GET` and `POST`, in a
-  `MappingProxyType`; and `resources.py` a to-do list of `Resource`s.
-- **The editors example**: `py/examples/editors.py`, run with
-  `make run SERVER=editors` and found at `/editors/`: a character, party and
-  deploy editor built in Stan, with forms posted as forms and handled by each
-  object's resource, and a small script that fetches the tables again on
-  every change.
+  `GetOnly`; and `functions.py` a function answering `GET` and `POST`, in a
+  `MappingProxyType`.
+- **The live example**: `py/examples/live.py`, run with
+  `make run SERVER=live`: a page built in Stan, whose rows each watch their
+  own `Persist` and whose heading watches the page itself, kept up to date by
+  `live.js` as each change is announced.
 - **`patslot.fill(element, slots)`**: fills an element's slots from a dict, as
   `fill_body` does for the page. It existed but was never exported.
 - **Python server hardening**: request bodies are limited in size (413 when

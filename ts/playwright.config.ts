@@ -11,13 +11,16 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-// The Python editors example, py/examples/editors.py, for its browser tests:
-// a server of their own, not whatever make run is serving on 5959
-const EDITORS_PORT = process.env.PLAYWRIGHT_EDITORS_PORT || '8124'
 // The notes example, py/examples/notes.py, a Vite page: once in development,
 // from the pages' Vite dev server on 5757, and once in production, built
 const NOTES_DEVELOPMENT_PORT = '8125'
 const NOTES_PRODUCTION_PORT = '8126'
+// The live example, py/examples/live.py: one server for each browser, since
+// a change to its one page is heard by every page open
+const LIVE_PORTS = {
+  chromium: '8124',
+  webkit: '8127',
+}
 
 // A Python example in a directory of its own, emptied first: it keeps its
 // objects in var/data there, and each run starts from none
@@ -104,18 +107,18 @@ export default defineConfig({
       },
     },
     {
-      command: pythonExample('editors', 'editors', EDITORS_PORT),
-      url: `http://127.0.0.1:${EDITORS_PORT}/editors/characters.json`,
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
-    },
-    {
       // The pages' Vite dev server, always on 5757, as make run starts it
       command: 'npx vite --config vite.pages.config.mts',
       url: 'http://127.0.0.1:5757/mumulib-vite/notes/index.html',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
+    ...Object.entries(LIVE_PORTS).map(([project, port]) => ({
+      command: pythonExample('live', `live-${project}`, port),
+      url: `http://127.0.0.1:${port}/`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    })),
     {
       command: pythonExample(
         'notes',
