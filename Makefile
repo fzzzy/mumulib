@@ -229,10 +229,16 @@ server-exists:
 		exit 1; }
 
 
+# Everything made rather than written: dependencies, builds, the tools'
+# caches, generated declarations, test results and Finder's .DS_Store files
 clean:
 	rm -rf var ts/node_modules ts/dist ts/build ts/.nyc_output ts/coverage-frontend \
-		py/.venv
+		ts/test-results ts/playwright-report \
+		py/.venv py/.coverage py/.pytest_cache py/mumulib.egg-info \
+		.ruff_cache py/.ruff_cache
 	find py -name __pycache__ -prune -exec rm -rf {} +
+	find ts/examples ts/pages -name '*.sfc.html.d.ts' -delete
+	find . -name .DS_Store -not -path './.git/*' -delete
 
 
 tags: python-sync

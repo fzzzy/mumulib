@@ -3,6 +3,7 @@ import asyncio
 import json
 import os
 import signal
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -1615,7 +1616,11 @@ async def get(root, path, method="GET"):
         return {"type": "http.request", "body": b"", "more_body": False}
 
     scope = {"type": "http", "method": method, "path": path, "headers": []}
-    await consumers_app(root)({**scope, "state": {}}, receive, send)
+    # A data directory of its own: a Persist reached writes its file there,
+    # not in var/data beside wherever the tests are run
+    with tempfile.TemporaryDirectory() as data:
+        app = consumers_app(root, data=data)
+        await app({**scope, "state": {}}, receive, send)
     start = sent[0]
     body = b"".join(m.get("body", b"") for m in sent[1:])
     return start["status"], dict(start["headers"]), body
