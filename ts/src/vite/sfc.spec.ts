@@ -8,7 +8,7 @@ const COUNTER = path.join(
   __dirname,
   '..',
   '..',
-  'examples',
+  'fixtures',
   'use_sfc',
   'counter.sfc.html'
 )
@@ -21,7 +21,7 @@ function lineOf(text: string): number {
 
 test.describe('Mumulib single-file components', () => {
   test('a component with a script renders and runs it', async ({ page }) => {
-    await page.goto('examples/use_sfc/')
+    await page.goto('fixtures/use_sfc/')
     const count = page.locator('my-counter .count')
     await expect(count).toHaveText('0')
     await page
@@ -32,14 +32,14 @@ test.describe('Mumulib single-file components', () => {
   })
 
   test('a component with only a template renders it', async ({ page }) => {
-    await page.goto('examples/use_sfc/')
+    await page.goto('fixtures/use_sfc/')
     await expect(page.locator('my-greeting p')).toHaveText(
       'Hello from a component with no script'
     )
   })
 
   test("a component's styles stay inside it", async ({ page }) => {
-    await page.goto('examples/use_sfc/')
+    await page.goto('fixtures/use_sfc/')
     const inside = page.locator('my-counter p')
     await expect(inside).toHaveCSS('color', 'rgb(0, 128, 0)')
     await expect(page.locator('p.outside')).not.toHaveCSS(
@@ -51,7 +51,7 @@ test.describe('Mumulib single-file components', () => {
   test("a component's script is counted, at its own lines", async ({
     page,
   }) => {
-    await page.goto('examples/use_sfc/')
+    await page.goto('fixtures/use_sfc/')
     await page
       .locator('my-counter')
       .getByRole('button', { name: 'Add one' })
@@ -61,7 +61,7 @@ test.describe('Mumulib single-file components', () => {
     const raw = await page.evaluate(
       () => (window as unknown as { __coverage__?: object }).__coverage__
     )
-    expect(raw, 'the tests serve the examples instrumented').toBeTruthy()
+    expect(raw, 'the tests serve the fixtures instrumented').toBeTruthy()
     // istanbul records positions in the generated code, with the source map
     // beside them; remapped, they are positions in the .sfc.html
     const remapped = await createSourceMapStore().transformCoverage(

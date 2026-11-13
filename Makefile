@@ -3,7 +3,7 @@
 	node_modules browsers run stop tail dev server server-exists declarations clean tags \
 	pages production certs
 
-# The examples' dev server: Vite reads the same default, 8000, in
+# The fixtures' dev server: Vite reads the same default, 8000, in
 # ts/vite.config.mts
 PORT := 8000
 # The dev server of the pages Python serves, ts/pages: always on this port,
@@ -11,7 +11,7 @@ PORT := 8000
 PAGES_PORT := 5757
 LOG := $(CURDIR)/var/log
 
-# make run and make server run one of py/examples.
+# make run and make server run one of py/fixtures.
 
 # SERVER=<name> for another than hello
 SERVER ?= hello
@@ -26,7 +26,7 @@ CERT_KEY := var/certs/dev-key.pem
 # Where the server listens: plain HTTP, and HTTPS if there is a certificate.
 # With one, --bind is the HTTPS and --insecure-bind the plain; without, the
 # plain is --bind -- given only --insecure-bind, Hypercorn binds its own
-# default too, 127.0.0.1:8000, the examples' Vite's
+# default too, 127.0.0.1:8000, the fixtures' Vite's
 BINDS = $(if $(wildcard $(CERT)),--insecure-bind 127.0.0.1:$(SERVER_PORT) \
 	--bind 127.0.0.1:$(SERVER_HTTPS_PORT) --certfile $(CERT) --keyfile $(CERT_KEY),\
 	--bind 127.0.0.1:$(SERVER_PORT))
@@ -49,7 +49,7 @@ SERVE := uv run --project py $(UV_FLAGS) env PYTHONPATH=py python -m mumulib.ser
 # nothing, and waits on them for as long as a tab is open
 RELOADING = uv run --project py $(UV_FLAGS) env PYTHONPATH=py \
 	watchfiles --filter python --sigint-timeout 5 \
-	"python -m mumulib.serve examples.$(SERVER):app --workers 0 $(BINDS) --graceful-timeout 1" py
+	"python -m mumulib.serve fixtures.$(SERVER):app --workers 0 $(BINDS) --graceful-timeout 1" py
 # Its pages from Vite's dev server, not from their build
 DEVELOPMENT := MUMULIB_DEVELOPMENT=1
 NPM := cd ts && npm
@@ -70,7 +70,7 @@ fix: node_modules python-sync
 
 typecheck: node_modules python-sync
 	$(NPM) run test:unit
-	cd ts && node src/vite/sfc-check.mjs --project tsconfig.examples.json --declarations examples pages
+	cd ts && node src/vite/sfc-check.mjs --project tsconfig.fixtures.json --declarations fixtures pages
 	$(UV) pyright
 
 
@@ -110,7 +110,7 @@ ts/node_modules: ts/package.json ts/package-lock.json
 	touch ts/node_modules
 
 
-# The examples in the background: the TypeScript ones from Vite at
+# The fixtures in the background: the TypeScript ones from Vite at
 # http://127.0.0.1:$(PORT)/, and a Python one (SERVER=<name>) from Hypercorn at
 # http://127.0.0.1:$(SERVER_PORT)/ in development -- and https on
 # $(SERVER_HTTPS_PORT), given a certificate: make certs -- with the pages it
@@ -128,8 +128,8 @@ run: node_modules python-sync server-exists declarations
 	@$(call wait_for_port,$(PORT),vite)
 	@$(call wait_for_port,$(PAGES_PORT),vite-pages)
 	@$(call wait_for_port,$(SERVER_PORT),server)
-	@echo "Examples: http://127.0.0.1:$(PORT)/"
-	@echo "Python:   http://127.0.0.1:$(SERVER_PORT)/  (examples/$(SERVER).py)"
+	@echo "Fixtures: http://127.0.0.1:$(PORT)/"
+	@echo "Python:   http://127.0.0.1:$(SERVER_PORT)/  (fixtures/$(SERVER).py)"
 	@$(if $(wildcard $(CERT)),echo "HTTP/2:   https://localhost:$(SERVER_HTTPS_PORT)/",echo "HTTP/2:   none: make certs, for https://localhost:$(SERVER_HTTPS_PORT)/")
 	@echo "Pages:    http://127.0.0.1:$(PAGES_PORT)/mumulib-vite/  (ts/pages, for Python)"
 	@echo "Logs:     make tail"
@@ -199,7 +199,7 @@ endef
 # Each example and page component's <name>.sfc.html.d.ts, so tsc and editors know its
 # class: written even if a component has a type error, which make check says
 declarations: node_modules
-	-@cd ts && node src/vite/sfc-check.mjs --declarations examples pages > /dev/null
+	-@cd ts && node src/vite/sfc-check.mjs --declarations fixtures pages > /dev/null
 
 # A Python example, in the foreground, reloading as its code changes; its
 # pages from their Vite dev server, which make run starts
@@ -213,7 +213,7 @@ pages: node_modules
 # A Python example in production, in the foreground: its pages built, served
 # by Python under /mumulib-vite/, and no Vite running
 production: python-sync server-exists pages
-	$(SERVE) examples.$(SERVER):app $(BINDS)
+	$(SERVE) fixtures.$(SERVER):app $(BINDS)
 
 # The certificate for HTTPS, made by mkcert -- whose root a machine trusts
 # once `mkcert -install` has run there -- for the names this one is reached by
@@ -223,9 +223,9 @@ certs:
 	mkcert -cert-file $(CERT) -key-file $(CERT_KEY) localhost 127.0.0.1 ::1
 
 server-exists:
-	@test -f py/examples/$(SERVER).py || { \
-		echo "No py/examples/$(SERVER).py; there are:" \
-			$$(cd py/examples && ls *.py | grep -v -e _test -e __init__ | sed 's/\.py$$//') >&2; \
+	@test -f py/fixtures/$(SERVER).py || { \
+		echo "No py/fixtures/$(SERVER).py; there are:" \
+			$$(cd py/fixtures && ls *.py | grep -v -e _test -e __init__ | sed 's/\.py$$//') >&2; \
 		exit 1; }
 
 
@@ -237,7 +237,7 @@ clean:
 		py/.venv py/.coverage py/.pytest_cache py/mumulib.egg-info \
 		.ruff_cache py/.ruff_cache
 	find py -name __pycache__ -prune -exec rm -rf {} +
-	find ts/examples ts/pages -name '*.sfc.html.d.ts' -delete
+	find ts/fixtures ts/pages -name '*.sfc.html.d.ts' -delete
 	find . -name .DS_Store -not -path './.git/*' -delete
 
 

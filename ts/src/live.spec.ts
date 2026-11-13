@@ -1,7 +1,7 @@
 import { test, expect, type Page } from './coverage.fixture'
 
 // mumulib's live.js, py/mumulib/live.js, on the live example's page,
-// py/examples/live.py: built in Python, and kept up to date by the change
+// py/fixtures/live.py: built in Python, and kept up to date by the change
 // stream. Each browser has a server of its own (playwright.config), since a
 // change to the one page is heard by every page open.
 const PORTS: { [project: string]: string } = {

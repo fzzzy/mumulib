@@ -35,7 +35,7 @@ test.describe('Mumulib sync', () => {
             .join(''),
       })
     })
-    await page.goto('examples/use_sync/')
+    await page.goto('fixtures/use_sync/')
     await expect(page.locator('body[data-bound]')).toBeAttached()
     await expect(page.locator('#doc')).toHaveText('{"version":1}')
     // A path is needed, a slash is not a resource, and a 404 is said
@@ -97,7 +97,7 @@ test.describe('Mumulib sync', () => {
             .join(''),
       })
     })
-    await page.goto('examples/use_sync/')
+    await page.goto('fixtures/use_sync/')
     await expect(page.locator('body[data-bound]')).toBeAttached()
     bound()
     // The first fetch, and one for each of the four that match

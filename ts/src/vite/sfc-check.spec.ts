@@ -25,10 +25,10 @@ function check(...paths: string[]) {
 
 // Node alone; no page, so no browser and no coverage to keep
 test.describe('Mumulib single-file component type checking', () => {
-  test('the examples have no type errs', () => {
-    const run = check('--project', 'tsconfig.examples.json', 'examples')
+  test('the fixtures have no type errs', () => {
+    const run = check('--project', 'tsconfig.fixtures.json', 'fixtures')
     expect(run.stdout).toContain(
-      "10 components and tsconfig.examples.json's files, no type errs."
+      "10 components and tsconfig.fixtures.json's files, no type errs."
     )
     expect(run.status).toBe(0)
   })

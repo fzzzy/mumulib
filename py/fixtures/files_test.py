@@ -3,7 +3,7 @@ import asyncio
 import json
 import unittest
 
-from examples.files import SITE, app
+from fixtures.files import SITE, app
 from mumulib.mumutypes import Message
 
 
@@ -31,7 +31,7 @@ class TestFiles(unittest.TestCase):
     def test_the_index_is_the_open_file(self):
         status, content_type, body = get("/")
         self.assertEqual((status, content_type), (200, b"text/html; charset=UTF-8"))
-        self.assertTrue(body.startswith((SITE / "index.html").read_bytes()))
+        self.assertEqual(body, (SITE / "index.html").read_bytes())
 
     def test_the_directory_serves_its_files_as_their_bytes(self):
         for path, content_type in [
@@ -43,7 +43,7 @@ class TestFiles(unittest.TestCase):
                 status, got_type, body = get(path)
                 self.assertEqual((status, got_type), (200, content_type))
                 on_disk = (SITE / path.removeprefix("/")).read_bytes()
-                self.assertTrue(body.startswith(on_disk))
+                self.assertEqual(body, on_disk)
 
     def test_every_link_on_the_page_is_there(self):
         page = (SITE / "index.html").read_text()

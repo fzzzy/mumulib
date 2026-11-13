@@ -1,5 +1,5 @@
 {
-  // The examples, and the pages Python serves, type-checked as Vite builds them -- Bundler resolution,
+  // The fixtures, and the pages Python serves, type-checked as Vite builds them -- Bundler resolution,
   // mumulib from src rather than dist, nothing emitted -- by
   // mumulib-sfc-check, which also sees into their .sfc.html components
   "extends": "./tsconfig.json",
@@ -23,6 +23,6 @@
       "mumulib/app": ["./src/app.ts"]
     }
   },
-  "include": ["examples/**/*", "pages/**/*", "src/vite/sfc-client.d.ts"],
+  "include": ["fixtures/**/*", "pages/**/*", "src/vite/sfc-client.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

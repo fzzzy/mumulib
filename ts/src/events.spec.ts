@@ -16,7 +16,7 @@ test.describe('Mumulib events', () => {
           'retry: 600000\n\n' +
           'event: news.sse open\ndata: \n\n' +
           'event: news.sse message\ndata: "first"\n\n' +
-          'event: examples/use_events/weather.sse forecast\ndata: rain\n\n' +
+          'event: fixtures/use_events/weather.sse forecast\ndata: rain\n\n' +
           'event: missing.sse error\ndata: 404\n\n' +
           // After its topic's error: heard by no one
           'event: missing.sse message\ndata: late\n\n' +
@@ -24,7 +24,7 @@ test.describe('Mumulib events', () => {
           'event: other.sse message\ndata: unheard\n\n',
       })
     })
-    await page.goto('examples/use_events/')
+    await page.goto('fixtures/use_events/')
     await expect(page.locator('body[data-listening]')).toBeAttached()
     await expect(page.locator('#heard')).toHaveText(
       'news open 1\n' +
@@ -34,7 +34,7 @@ test.describe('Mumulib events', () => {
     )
     // One stream for the three, each a topic, relative to the app
     expect(asked).toEqual([
-      '?topic=news.sse&topic=examples%2Fuse_events%2Fweather.sse&topic=missing.sse',
+      '?topic=news.sse&topic=fixtures%2Fuse_events%2Fweather.sse&topic=missing.sse',
     ])
 
     // One closed: the stream opened again with what is left, not the
@@ -47,8 +47,8 @@ test.describe('Mumulib events', () => {
   })
 
   for (const [at, said] of [
-    ['/examples', 'without its slash'],
-    ['/examples/', 'with its slash'],
+    ['/fixtures', 'without its slash'],
+    ['/fixtures/', 'with its slash'],
   ]) {
     test(`below a prefix, said ${said}, the hub is too, and a topic outside it is named in full`, async ({
       page,
@@ -66,14 +66,14 @@ test.describe('Mumulib events', () => {
             'event: https://feeds.example/remote.sse message\ndata: far\n\n',
         })
       })
-      await page.goto(`examples/use_events_at/?at=${at}`)
+      await page.goto(`fixtures/use_events_at/?at=${at}`)
       await expect(page.locator('body[data-listening]')).toBeAttached()
       await expect(page.locator('#heard')).toHaveText(
         'own mine\noutside theirs\nremote far\n'
       )
       const origin = new URL(page.url()).origin
       expect(asked).toEqual([
-        '/examples/mumulib/events.sse?' +
+        '/fixtures/mumulib/events.sse?' +
           [
             'use_events_at/own.sse',
             `${origin}/outside.sse`,
@@ -93,7 +93,7 @@ test.describe('Mumulib events', () => {
   }
 
   test('the hub of a Python server, heard by a browser', async ({ page }) => {
-    // The live example, py/examples/live.py: a mumulib app, so the hub is
+    // The live example, py/fixtures/live.py: a mumulib app, so the hub is
     // its, and its change stream a topic like any other. Chromium's server
     // (playwright.config); the hub is read here, and nothing written
     await page.goto('http://127.0.0.1:8124/')

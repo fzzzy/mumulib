@@ -7,7 +7,7 @@ test.describe('Mumulib Dialog Tests', () => {
   })
 
   test('should handle dialog interactions', async ({ page }) => {
-    await page.goto('examples/use_dialog/')
+    await page.goto('fixtures/use_dialog/')
 
     await page.waitForSelector('dialog[id="my_dialog"]')
     await page.fill('input[name="name"]', 'askdjhfajks')
@@ -26,7 +26,7 @@ test.describe('Mumulib Dialog Tests', () => {
   test('Cancel and Escape save nothing; Save after them does', async ({
     page,
   }) => {
-    await page.goto('examples/use_dialog_cancel/')
+    await page.goto('fixtures/use_dialog_cancel/')
     const dialog = page.locator('#my_dialog')
     const name = page.locator('input[name="name"]')
     const outputs = () =>
@@ -61,7 +61,7 @@ test.describe('Mumulib Dialog Tests', () => {
   })
 
   test('a returnValue that is no selector still saves', async ({ page }) => {
-    await page.goto('examples/use_dialog_cancel/')
+    await page.goto('fixtures/use_dialog_cancel/')
     await page.click('#open')
     await page.locator('input[name="name"]').fill('dotted')
     await page.getByRole('button', { name: 'Save as' }).click()
@@ -81,7 +81,7 @@ test.describe('Mumulib Dialog Tests', () => {
       )
 
     test.beforeEach(async ({ page }) => {
-      await page.goto('examples/use_dialog_forms/')
+      await page.goto('fixtures/use_dialog_forms/')
       await expect(page.locator('body')).toHaveAttribute(
         'data-person',
         /"name":"Ada"/

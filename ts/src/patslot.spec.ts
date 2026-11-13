@@ -7,7 +7,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   })
 
   test('should handle basic pattern slots', async ({ page }) => {
-    await page.goto('examples/use_patslot/')
+    await page.goto('fixtures/use_patslot/')
 
     await page.waitForSelector('dl[data-pat="person"]')
 
@@ -39,7 +39,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   })
 
   test('should handle pattern slot filling', async ({ page }) => {
-    await page.goto('examples/use_patslot_fill/')
+    await page.goto('fixtures/use_patslot_fill/')
 
     await page.waitForSelector('dl[data-attr="style=color"]')
 
@@ -72,7 +72,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   })
 
   test('should handle pattern slot templates', async ({ page }) => {
-    await page.goto('examples/use_patslot_template/')
+    await page.goto('fixtures/use_patslot_template/')
 
     await page.waitForSelector('dl[data-pat="person"]')
 
@@ -101,7 +101,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   })
 
   test('should handle nested pattern slots', async ({ page }) => {
-    await page.goto('examples/use_patslot_nested/')
+    await page.goto('fixtures/use_patslot_nested/')
 
     await page.waitForSelector('ol[data-slot="towns"]')
 
@@ -139,7 +139,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   test('should handle nodes that are both patterns and slots', async ({
     page,
   }) => {
-    await page.goto('examples/use_patslot_pattern_and_slot_node/')
+    await page.goto('fixtures/use_patslot_pattern_and_slot_node/')
 
     await page.waitForTimeout(1000)
 
@@ -156,7 +156,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   test('any name is found, and filled content keeps its own slots', async ({
     page,
   }) => {
-    await page.goto('examples/use_patslot_names/')
+    await page.goto('fixtures/use_patslot_names/')
     await expect(page.locator('body')).toHaveAttribute('data-filled', 'yes')
 
     await expect(page.locator('h1')).toHaveText('Town')
@@ -176,7 +176,7 @@ test.describe('Mumulib PatSlot Tests', () => {
   test('each shape of pattern fills a slot, appends to one, or sets an attribute', async ({
     page,
   }) => {
-    await page.goto('examples/use_patslot_shapes/')
+    await page.goto('fixtures/use_patslot_shapes/')
     await expect(page.locator('body')).toHaveAttribute('data-filled', 'yes')
 
     // One element: a clone in each slot of the name, named as the slot

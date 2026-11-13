@@ -1,13 +1,13 @@
 import { test, expect } from './coverage.fixture'
 
-// The README's small examples, each a page of its own: a component in an
+// The docs' small examples, each a fixture page of its own: a component in an
 // app, binding, and a dialog that calls a method.
 
-test.describe('The small examples', () => {
+test.describe('The small fixtures', () => {
   test('an app hands a component its state, and hears what it asks', async ({
     page,
   }) => {
-    await page.goto('examples/small_app/')
+    await page.goto('fixtures/small_app/')
     const count = page.locator('my-counter span')
     const lot = page.getByText("That's a lot.")
     await expect(count).toHaveText('0')
@@ -19,7 +19,7 @@ test.describe('The small examples', () => {
   })
 
   test('a bound input and checkbox are the state', async ({ page }) => {
-    await page.goto('examples/small_binding/')
+    await page.goto('fixtures/small_binding/')
     const greeting = page.locator('[data-slot="greeting"]')
     await expect(greeting).toHaveText('world')
     await page.getByPlaceholder('Your name').fill('Ada')
@@ -29,7 +29,7 @@ test.describe('The small examples', () => {
   })
 
   test("a dialog's form calls its method", async ({ page }) => {
-    await page.goto('examples/small_dialog/')
+    await page.goto('fixtures/small_dialog/')
     const name = page.locator('[data-slot="name"]')
     const dialog = page.locator('dialog')
     const rename = page.getByRole('button', { name: 'Rename' })

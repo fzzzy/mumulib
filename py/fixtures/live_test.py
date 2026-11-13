@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from examples import live
+from fixtures import live
 from mumulib.persist import Persist
 from mumulib.server import EventSource, consumers_app
 

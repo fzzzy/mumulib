@@ -11,11 +11,11 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-// The notes example, py/examples/notes.py, a Vite page: once in development,
+// The notes example, py/fixtures/notes.py, a Vite page: once in development,
 // from the pages' Vite dev server on 5757, and once in production, built
 const NOTES_DEVELOPMENT_PORT = '8125'
 const NOTES_PRODUCTION_PORT = '8126'
-// The live example, py/examples/live.py: one server for each browser, since
+// The live example, py/fixtures/live.py: one server for each browser, since
 // a change to its one page is heard by every page open
 const LIVE_PORTS = {
   chromium: '8124',
@@ -25,7 +25,7 @@ const LIVE_PORTS = {
 // A Python example in a directory of its own, emptied first: it keeps its
 // objects in var/data there, and each run starts from none
 const pythonExample = (name: string, directory: string, port: string) =>
-  `rm -rf ../var/e2e/${directory} && mkdir -p ../var/e2e/${directory} && cd ../var/e2e/${directory} && uv run --project ../../../py --extra dev --locked uvicorn --app-dir ../../../py examples.${name}:app --host 127.0.0.1 --port ${port}`
+  `rm -rf ../var/e2e/${directory} && mkdir -p ../var/e2e/${directory} && cd ../var/e2e/${directory} && uv run --project ../../../py --extra dev --locked uvicorn --app-dir ../../../py fixtures.${name}:app --host 127.0.0.1 --port ${port}`
 
 export default defineConfig({
   // Each spec sits beside the module it tests

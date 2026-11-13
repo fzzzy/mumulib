@@ -3,7 +3,7 @@ import asyncio
 import json
 import unittest
 
-from examples.functions import app, greet
+from fixtures.functions import app, greet
 from mumulib.mumutypes import Message
 
 

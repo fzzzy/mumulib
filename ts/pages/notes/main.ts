@@ -1,6 +1,6 @@
 // The notes page: an App, whose template is the page's body, and a
 // component for each note, note-row.sfc.html. Served by mumulib's Python
-// server -- py/examples/notes.py -- as Vite made it.
+// server -- py/fixtures/notes.py -- as Vite made it.
 //
 // Two things are bound into the app's state with sync.bind, and fetched
 // again whenever a write to them, anyone's, is announced: the notes, a

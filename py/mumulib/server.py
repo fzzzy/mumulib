@@ -682,7 +682,9 @@ def consumers_app(
                                 "more_body": True,
                             }
                         )
-                result = "\n"
+                # Every chunk is sent: the last message only ends the body,
+                # and adds nothing to it
+                result = b""
             except SpecialResponse as special:
                 if first_chunk:
                     await send(special.asgi_send_dict)

@@ -18,13 +18,13 @@ const entries = {
 // The Node build's other entry: domino's DOM, which mumulib/node runs first
 const dom = resolve(root, 'src/dom.ts')
 
-// `vite` serves the examples from source, with `mumulib` resolving to src/.
+// `vite` serves the fixtures from source, with `mumulib` resolving to src/.
 // `vite build` writes the browser bundle; `vite build --mode node` the two
 // Node bundles. The paths are the ones package.json exports; the .sfc.html
 // plugin is JavaScript already, and the build copies it as it is.
 export default defineConfig(({ mode }) => ({
   plugins: [
-    // The examples' own components go through the plugin as it ships
+    // The fixtures' own components go through the plugin as it ships
     sfcPlugin(),
     // Counters in src/ for the Playwright tests to collect, when the dev
     // server is started with VITE_COVERAGE=true -- as the tests start it.
@@ -34,11 +34,11 @@ export default defineConfig(({ mode }) => ({
     istanbul({
       include: [
         'src/**',
-        'examples/use_sfc/**',
-        'examples/use_mumu/**',
-        'examples/use_app_rows/**',
-        'examples/use_app_field/**',
-        'examples/small_*/**',
+        'fixtures/use_sfc/**',
+        'fixtures/use_mumu/**',
+        'fixtures/use_app_rows/**',
+        'fixtures/use_app_field/**',
+        'fixtures/small_*/**',
       ],
       extension: ['.ts', '.html'],
       requireEnv: true,
@@ -57,7 +57,7 @@ export default defineConfig(({ mode }) => ({
   // The pages, not every .html under the root: the sfc checker's fixtures
   // are components, and deliberately wrong ones
   optimizeDeps: {
-    entries: ['index.html', 'examples/**/index.html'],
+    entries: ['index.html', 'fixtures/**/index.html'],
   },
   server: {
     host: '127.0.0.1',

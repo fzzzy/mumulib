@@ -17,7 +17,7 @@ import { pageEntries } from './scripts/page-entries.mjs'
 // `vite build --config vite.pages.config.mts` bundles and code-splits them
 // into build/pages, which Python serves under /mumulib-vite/ in production.
 //
-// The library's own examples, and its build, are vite.config.mts's.
+// The library's own fixtures, and its build, are vite.config.mts's.
 const root = resolve(import.meta.dirname, 'pages')
 const PORT = 5757
 

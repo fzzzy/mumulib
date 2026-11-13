@@ -1,11 +1,11 @@
 import { test, expect } from './coverage.fixture'
 
-// The components are examples/use_mumu's. Each test makes its own elements
+// The components are fixtures/use_mumu's. Each test makes its own elements
 // on that page, sets their state as an owner would, and reads what shows.
 
 test.describe('Mumulib Mumu components', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('examples/use_mumu/')
+    await page.goto('fixtures/use_mumu/')
   })
 
   test('a component renders its state, and asks for changes', async ({

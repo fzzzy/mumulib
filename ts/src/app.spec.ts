@@ -1,13 +1,13 @@
 import { test, expect } from './coverage.fixture'
 
-// examples/use_app_rows is an app drawn into its page's own markup, and
+// fixtures/use_app_rows is an app drawn into its page's own markup, and
 // use_app_field one with a component bound to its state; small.spec.ts has
-// the small examples. The other tests make apps of their own on the Mumu
+// the small fixtures. The other tests make apps of their own on the Mumu
 // example's page, which has none.
 
 test.describe('Mumulib apps', () => {
   test("an app draws into the page's own markup", async ({ page }) => {
-    await page.goto('examples/use_app_rows/')
+    await page.goto('fixtures/use_app_rows/')
     // The sample row, and the sample count, are replaced by the first render.
     await expect(page.locator('body li span')).toHaveText([
       'one',
@@ -22,7 +22,7 @@ test.describe('Mumulib apps', () => {
   test("a row's controls are bound to its item, and its events are the app's", async ({
     page,
   }) => {
-    await page.goto('examples/use_app_rows/')
+    await page.goto('fixtures/use_app_rows/')
     const row = (text: string) => page.locator('body li', { hasText: text })
     // Up: a row's checkbox is its item's done.
     await row('three').getByRole('checkbox').check()
@@ -43,7 +43,7 @@ test.describe('Mumulib apps', () => {
   test("a component's bound control changes the state it was given", async ({
     page,
   }) => {
-    await page.goto('examples/use_app_field/')
+    await page.goto('fixtures/use_app_field/')
     const field = page.locator('my-field input')
     // Down, through data-prop, into the component's own control.
     await expect(field).toHaveValue('Things to do')
@@ -55,7 +55,7 @@ test.describe('Mumulib apps', () => {
   test('a bound control shows a change of the state, though it has the focus', async ({
     page,
   }) => {
-    await page.goto('examples/use_mumu/')
+    await page.goto('fixtures/use_mumu/')
     await page.evaluate(() => {
       type Api = typeof import('./index')
       const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
@@ -82,7 +82,7 @@ test.describe('Mumulib apps', () => {
   test("a click inside a component is not the page's own element's", async ({
     page,
   }) => {
-    await page.goto('examples/use_mumu/')
+    await page.goto('fixtures/use_mumu/')
     const heard = await page.evaluate(async () => {
       type Api = typeof import('./index')
       const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
@@ -116,7 +116,7 @@ test.describe('Mumulib apps', () => {
 
   test('a dialog closed by Escape calls nothing', async ({ page }) => {
     // small.spec.ts has its Save and its Cancel
-    await page.goto('examples/small_dialog/')
+    await page.goto('fixtures/small_dialog/')
     const dialog = page.locator('dialog')
     await page.getByRole('button', { name: 'Rename' }).click()
     await dialog.locator('input[name="name"]').fill('Escaped')
@@ -126,7 +126,7 @@ test.describe('Mumulib apps', () => {
   })
 
   test("an app's state is frozen", async ({ page }) => {
-    await page.goto('examples/use_mumu/')
+    await page.goto('fixtures/use_mumu/')
     const thrown = await page.evaluate(() => {
       type Api = typeof import('./index')
       const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
@@ -153,7 +153,7 @@ test.describe('Mumulib apps', () => {
   })
 
   test('there is one app on a page', async ({ page }) => {
-    await page.goto('examples/use_mumu/')
+    await page.goto('fixtures/use_mumu/')
     const refused = await page.evaluate(() => {
       type Api = typeof import('./index')
       const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
@@ -174,7 +174,7 @@ test.describe('Mumulib apps', () => {
   })
 
   test('a data-on naming no method is refused', async ({ page }) => {
-    await page.goto('examples/use_mumu/')
+    await page.goto('fixtures/use_mumu/')
     const refused = await page.evaluate(() => {
       type Api = typeof import('./index')
       const { App, mountApp } = (window as unknown as { mumu: Api }).mumu
@@ -197,7 +197,7 @@ test.describe('Mumulib apps', () => {
   })
 
   test('what cannot bind, or names no method, is refused', async ({ page }) => {
-    await page.goto('examples/use_mumu/')
+    await page.goto('fixtures/use_mumu/')
     const refused = await page.evaluate(() => {
       type Api = typeof import('./index')
       const { App, mountApp } = (window as unknown as { mumu: Api }).mumu

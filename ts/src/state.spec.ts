@@ -7,7 +7,7 @@ test.describe('Mumulib State Tests', () => {
   })
 
   test('should handle basic state values', async ({ page }) => {
-    await page.goto('examples/use_state/')
+    await page.goto('fixtures/use_state/')
     await expect
       .poll(() =>
         page.$$eval('div', (divs) => divs.map((div) => div.textContent))
@@ -33,7 +33,7 @@ test.describe('Mumulib State Tests', () => {
   })
 
   test('should handle input state changes', async ({ page }) => {
-    await page.goto('examples/use_state_input/')
+    await page.goto('fixtures/use_state_input/')
 
     await page.waitForSelector('input[name="this.name"]')
     await page.fill('input[name="this.name"]', 'sdfgfggh')
@@ -70,7 +70,7 @@ test.describe('Mumulib State Tests', () => {
   })
 
   test('should handle select and textarea state changes', async ({ page }) => {
-    await page.goto('examples/use_state_select_textarea/')
+    await page.goto('fixtures/use_state_select_textarea/')
 
     await page.waitForSelector('select[name="this.option"]')
     await page.selectOption('select[name="this.option"]', 'hello')
@@ -107,7 +107,7 @@ test.describe('Mumulib State Tests', () => {
   })
 
   test('should handle selected state updates', async ({ page }) => {
-    await page.goto('examples/use_state_selected/')
+    await page.goto('fixtures/use_state_selected/')
 
     await page.waitForSelector('input[value="person1"]')
     await page.click('input[value="person1"]')
@@ -142,7 +142,7 @@ test.describe('Mumulib State Tests', () => {
   })
 
   test('should handle automatic state updates', async ({ page }) => {
-    await page.goto('examples/use_state_update/')
+    await page.goto('fixtures/use_state_update/')
 
     await page.waitForSelector('input[name="this.number"]')
 
@@ -175,7 +175,7 @@ test.describe('Mumulib State Tests', () => {
   test('should handle selected state with automatic updates', async ({
     page,
   }) => {
-    await page.goto('examples/use_state_selected_update/')
+    await page.goto('fixtures/use_state_selected_update/')
 
     await page.waitForSelector('input[value="person1"]')
     await page.click('input[value="person1"]')
@@ -200,7 +200,7 @@ test.describe('Mumulib State Tests', () => {
   test('a field cleared is a change, and one left empty is not', async ({
     page,
   }) => {
-    await page.goto('examples/use_state_select_textarea/')
+    await page.goto('fixtures/use_state_select_textarea/')
     const outputs = () =>
       page.$$eval('div[class="output"]', (divs) =>
         divs.map((div) => div.textContent)
@@ -226,7 +226,7 @@ test.describe('Mumulib State Tests', () => {
   test('a deletion is a change, and a callback that throws stops nothing', async ({
     page,
   }) => {
-    await page.goto('examples/use_state_changes/')
+    await page.goto('fixtures/use_state_changes/')
     const outputs = () =>
       page.$$eval('div[class="output"]', (divs) =>
         divs.map((div) => div.textContent)
@@ -245,7 +245,7 @@ test.describe('Mumulib State Tests', () => {
   })
 
   test('radio buttons and checkboxes say what is checked', async ({ page }) => {
-    await page.goto('examples/use_state_checkable/')
+    await page.goto('fixtures/use_state_checkable/')
     const last = () =>
       page.$$eval('div[class="output"]', (divs) => divs.at(-1)?.textContent)
     const radio = (value: string) =>
@@ -280,7 +280,7 @@ test.describe('Mumulib State Tests', () => {
   test('a change from elsewhere does not wipe what is being typed', async ({
     page,
   }) => {
-    await page.goto('examples/use_state_typing/')
+    await page.goto('fixtures/use_state_typing/')
     const last = () =>
       page.$$eval('div[class="output"]', (divs) => divs.at(-1)?.textContent)
     const remote = (detail: object) =>
@@ -322,7 +322,7 @@ test.describe('Mumulib State Tests', () => {
   }) => {
     const logged: string[] = []
     page.on('console', (message) => logged.push(message.text()))
-    await page.goto('examples/use_state_debug/')
+    await page.goto('fixtures/use_state_debug/')
     const shown = async () =>
       JSON.parse((await page.locator('body').getAttribute('data-state')) ?? '')
     await expect
@@ -361,7 +361,7 @@ test.describe('Mumulib State Tests', () => {
   test('a callback given after the page has loaded is called at once', async ({
     page,
   }) => {
-    await page.goto('examples/use_state_debug/')
+    await page.goto('fixtures/use_state_debug/')
     await expect(page.locator('body')).toHaveAttribute('data-state', /first/)
     await page.click('#late')
     const outputs = () =>

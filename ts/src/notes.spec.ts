@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from './coverage.fixture'
 
-// The notes example, py/examples/notes.py: a Vite page, ts/pages/notes,
+// The notes example, py/fixtures/notes.py: a Vite page, ts/pages/notes,
 // served by Python as Vite made it. Once in development, its TypeScript from
 // the pages' Vite dev server, and once in production, built and served by
 // Python under /mumulib-vite/ (playwright.config). Chromium and WebKit run at once

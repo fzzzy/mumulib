@@ -2,7 +2,7 @@
 import asyncio
 import unittest
 
-from examples.hello import app
+from fixtures.hello import app
 from mumulib.mumutypes import Message
 
 

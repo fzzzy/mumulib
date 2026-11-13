@@ -1196,10 +1196,10 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             self.assertEqual(response_body_3["body"], b"Second chunk from producer")
             self.assertTrue(response_body_3["more_body"])
 
-            # Final newline chunk
+            # The end of the body, adding nothing to it
             response_body_4 = sent_messages[4]
             self.assertEqual(response_body_4["type"], "http.response.body")
-            self.assertEqual(response_body_4["body"], b"\n")
+            self.assertEqual(response_body_4["body"], b"")
             self.assertFalse(response_body_4["more_body"])
 
         finally:
@@ -1282,10 +1282,10 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             self.assertEqual(response_body_1["body"], b"Response without writer")
             self.assertTrue(response_body_1["more_body"])
 
-            # Final newline chunk
+            # The end of the body, adding nothing to it
             response_body_2 = sent_messages[2]
             self.assertEqual(response_body_2["type"], "http.response.body")
-            self.assertEqual(response_body_2["body"], b"\n")
+            self.assertEqual(response_body_2["body"], b"")
             self.assertFalse(response_body_2["more_body"])
 
         finally:

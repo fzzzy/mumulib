@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from examples import notes
+from fixtures import notes
 from mumulib.persist import Persist
 from mumulib.server import consumers_app
 
@@ -55,7 +55,7 @@ class TestNotes(unittest.TestCase):
         return sent[0]["status"], b"".join(m.get("body", b"") for m in sent[1:])
 
     def test_the_page_is_the_built_entry(self):
-        self.assertEqual(self.request("GET", "/"), (200, b"<h1>Notes</h1>\n"))
+        self.assertEqual(self.request("GET", "/"), (200, b"<h1>Notes</h1>"))
 
     def test_the_notes_are_added_moved_edited_and_removed_as_the_page_does(self):
         two = {"text": "Two", "order": "b"}
