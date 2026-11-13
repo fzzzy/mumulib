@@ -8,8 +8,8 @@ import { test, expect, type Locator, type Page } from './coverage.fixture'
 // binds the notes and who is here with sync.bind, so every page open shows
 // each change, and each player.
 const MODES = {
-  development: 'http://127.0.0.1:8125',
-  production: 'http://127.0.0.1:8126',
+  development: 'http://127.0.0.1:5762',
+  production: 'http://127.0.0.1:5763',
 }
 const VITE = 'http://127.0.0.1:5757'
 
@@ -46,7 +46,7 @@ async function kept(page: Page, server: string): Promise<Record<string, Note>> {
     await page.request.get(`${server}/notes.json`)
   ).json()) as Record<string, Note>
   return Object.fromEntries(
-    Object.values(notes).map((note) => [note.text, note])
+    Object.values(notes).map((note) => [note.text, note]),
   )
 }
 
@@ -71,7 +71,7 @@ async function dragTo(page: Page, from: Locator, to: Locator, above = false) {
     const under = await from.evaluate(
       (element, [px, py]) =>
         element.contains(document.elementFromPoint(px!, py!)),
-      [x, y]
+      [x, y],
     )
     if (!under) continue
     await page.mouse.move(x, y)
@@ -79,7 +79,7 @@ async function dragTo(page: Page, from: Locator, to: Locator, above = false) {
     await page.mouse.move(x, y + 6)
     if (
       !(await from.evaluate((element) =>
-        element.classList.contains('dragging')
+        element.classList.contains('dragging'),
       ))
     ) {
       await page.mouse.move(x, y)
@@ -102,7 +102,7 @@ for (const [mode, server] of Object.entries(MODES)) {
     }, info) => {
       await page.goto(`${server}/`)
       await expect(page.locator('#notes')).toContainText(
-        'Run it built, in production'
+        'Run it built, in production',
       )
       const text = `Added in ${info.project.name} at ${Date.now()}`
       await add(page, text)
@@ -136,7 +136,7 @@ for (const [mode, server] of Object.entries(MODES)) {
     }, info) => {
       await page.goto(`${server}/`)
       const [a, b] = ['A', 'B'].map(
-        (n) => `${n} moved in ${info.project.name} at ${Date.now()}`
+        (n) => `${n} moved in ${info.project.name} at ${Date.now()}`,
       ) as [string, string]
       await add(page, a)
       await add(page, b)
@@ -175,7 +175,7 @@ for (const [mode, server] of Object.entries(MODES)) {
     }, info) => {
       await page.goto(`${server}/`)
       const [a, b] = ['A', 'B'].map(
-        (n) => `${n} dragged in ${info.project.name} at ${Date.now()}`
+        (n) => `${n} dragged in ${info.project.name} at ${Date.now()}`,
       ) as [string, string]
       await add(page, a)
       await add(page, b)
@@ -184,7 +184,7 @@ for (const [mode, server] of Object.entries(MODES)) {
       await dragTo(
         page,
         row(page, a),
-        page.getByRole('button', { name: 'Trash' })
+        page.getByRole('button', { name: 'Trash' }),
       )
       await expect(row(page, a)).toHaveCount(0)
       expect((await kept(page, server))[a]).toBeUndefined()
@@ -217,7 +217,7 @@ for (const [mode, server] of Object.entries(MODES)) {
       await watcher.keyboard.press('Delete')
       await expect(writer.locator('#notes')).not.toContainText(text)
       const kept = await watcher.evaluate(
-        () => (window as Window & { kept?: boolean }).kept
+        () => (window as Window & { kept?: boolean }).kept,
       )
       expect(kept, 'the watcher never reloaded').toBe(true)
       // And gone elsewhere, the writer is gone from the key: its page said
@@ -238,7 +238,7 @@ for (const [mode, server] of Object.entries(MODES)) {
       const id = Object.entries(
         (await (
           await page.request.get(`${server}/notes.json`)
-        ).json()) as Record<string, Note>
+        ).json()) as Record<string, Note>,
       ).find(([, note]) => note.text === text)![0]
       const theirs = (value: string) =>
         page.request.put(`${server}/notes/${id}/text.json`, {
@@ -256,7 +256,7 @@ for (const [mode, server] of Object.entries(MODES)) {
       await expect(field).toHaveClass(/shake/)
       await page.getByRole('button', { name: 'Theirs' }).click()
       await expect(row(page, `theirs 1 ${text}`).locator('.text')).toHaveText(
-        `theirs 1 ${text}`
+        `theirs 1 ${text}`,
       )
 
       // Mine: what was typed, kept over theirs
@@ -293,7 +293,7 @@ test("in development the TypeScript, and hot reloading, are Vite's, through Pyth
   await expect
     .poll(() => sockets)
     .toContainEqual(
-      expect.stringMatching(/^ws:\/\/127\.0\.0\.1:8125\/mumulib-vite\//)
+      expect.stringMatching(/^ws:\/\/127\.0\.0\.1:5762\/mumulib-vite\//),
     )
 })
 
@@ -308,16 +308,26 @@ test("in production it is all Python's, built, and cached", async ({
   page.on('websocket', (socket) => sockets.push(socket.url()))
   await page.goto(`${MODES.production}/`)
   await expect(page.locator('body[data-loaded]')).toBeAttached()
-  expect(scripts).toHaveLength(1)
-  expect(scripts[0]).toMatch(
-    /^http:\/\/127\.0\.0\.1:8126\/mumulib-vite\/assets\/.+\.js$/
+  // The page's own script, built; and the library, which the build left
+  // out, from the server's own copy of it, named by the page's import map
+  const own = scripts.filter((url) =>
+    /^http:\/\/127\.0\.0\.1:5763\/mumulib-vite\/assets\/.+\.js$/.test(url),
   )
+  expect(own).toHaveLength(1)
+  const library = `${MODES.production}/mumulib/browser/`
+  expect(scripts).toContain(`${library}mumulib.mjs`)
+  for (const url of scripts.filter((url) => !own.includes(url))) {
+    expect(url.startsWith(library), url).toBe(true)
+  }
   expect(sockets).toEqual([])
-  const first = await page.request.get(scripts[0])
-  const etag = first.headers()['etag']
-  expect(first.headers()['cache-control']).toBe('no-cache')
-  const again = await page.request.get(scripts[0], {
-    headers: { 'if-none-match': etag },
-  })
-  expect(again.status()).toBe(304)
+  // Each cached by its file: asked again, only whether it changed
+  for (const url of [own[0], `${library}mumulib.mjs`]) {
+    const first = await page.request.get(url)
+    const etag = first.headers()['etag']
+    expect(first.headers()['cache-control']).toBe('no-cache')
+    const again = await page.request.get(url, {
+      headers: { 'if-none-match': etag },
+    })
+    expect(again.status(), url).toBe(304)
+  }
 })

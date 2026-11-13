@@ -13,13 +13,13 @@ import { defineConfig, devices } from '@playwright/test'
  */
 // The notes example, py/fixtures/notes.py, a Vite page: once in development,
 // from the pages' Vite dev server on 5757, and once in production, built
-const NOTES_DEVELOPMENT_PORT = '8125'
-const NOTES_PRODUCTION_PORT = '8126'
+const NOTES_DEVELOPMENT_PORT = '5762'
+const NOTES_PRODUCTION_PORT = '5763'
 // The live example, py/fixtures/live.py: one server for each browser, since
 // a change to its one page is heard by every page open
 const LIVE_PORTS = {
-  chromium: '8124',
-  webkit: '8127',
+  chromium: '5761',
+  webkit: '5764',
 }
 
 // A Python example in a directory of its own, emptied first: it keeps its
@@ -43,7 +43,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
+    baseURL: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '5760'}`,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -98,11 +98,11 @@ export default defineConfig({
   webServer: [
     {
       command: 'npx vite',
-      url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
+      url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '5760'}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
-        PORT: process.env.PLAYWRIGHT_PORT || '8123',
+        PORT: process.env.PLAYWRIGHT_PORT || '5760',
         VITE_COVERAGE: 'true',
       },
     },
@@ -110,6 +110,14 @@ export default defineConfig({
       // The pages' Vite dev server, always on 5757, as make run starts it
       command: 'npx vite --config vite.pages.config.mts',
       url: 'http://127.0.0.1:5757/mumulib-vite/notes/index.html',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      // The browser fixture: the library's build as Python serves it, which
+      // make dist copies into the package first
+      command: pythonExample('browser', 'browser', '5765'),
+      url: 'http://127.0.0.1:5765/',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
@@ -123,7 +131,7 @@ export default defineConfig({
       command: pythonExample(
         'notes',
         'notes-development',
-        NOTES_DEVELOPMENT_PORT
+        NOTES_DEVELOPMENT_PORT,
       ),
       url: `http://127.0.0.1:${NOTES_DEVELOPMENT_PORT}/notes.json`,
       reuseExistingServer: !process.env.CI,

@@ -5,8 +5,8 @@ import { test, expect, type Page } from './coverage.fixture'
 // stream. Each browser has a server of its own (playwright.config), since a
 // change to the one page is heard by every page open.
 const PORTS: { [project: string]: string } = {
-  chromium: '8124',
-  webkit: '8127',
+  chromium: '5761',
+  webkit: '5764',
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -28,8 +28,8 @@ async function marked(page: Page) {
       [...document.querySelectorAll('[data-live]')].map((element) => [
         element.id,
         (element as Marked).marked === true,
-      ])
-    )
+      ]),
+    ),
   )
 }
 
@@ -53,7 +53,7 @@ test.describe('live.js', () => {
     await expect(apples).toHaveText(String(before + 1))
     // The watcher never reloaded: its row was fetched and put in place
     await expect(watcher.locator('#apples output')).toHaveText(
-      String(before + 1)
+      String(before + 1),
     )
     await watcher.close()
     await page.close()

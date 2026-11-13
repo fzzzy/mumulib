@@ -116,7 +116,7 @@ function dataOnEvents(cls: AppClass, root: Element): Set<string> {
         'function'
       ) {
         throw new Error(
-          `${cls.name} has no method ${method}, which data-on="${event}=${method}" calls`
+          `${cls.name} has no method ${method}, which data-on="${event}=${method}" calls`,
         )
       }
       events.add(event)
@@ -153,7 +153,7 @@ export function mountApp(cls: AppClass, root: Element = document.body): void {
   // A bound control's change is a change of the app's state: by update(),
   // which an app may have go through something else -- a store, say.
   const view = mumuView<Record<string, unknown>>(cls, root, (change) =>
-    (view.delegate as unknown as App<object>)['update'](change)
+    (view.delegate as unknown as App<object>)['update'](change),
   )
   const delegate = view.delegate as unknown as Record<
     string,
@@ -178,7 +178,7 @@ export function mountApp(cls: AppClass, root: Element = document.body): void {
           }
         }
       },
-      true
+      true,
     )
   }
 

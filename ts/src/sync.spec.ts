@@ -8,13 +8,13 @@ test.describe('Mumulib sync', () => {
   }) => {
     let version = 1
     await page.route('**/docs/a.json', (route) =>
-      route.fulfill({ json: { version } })
+      route.fulfill({ json: { version } }),
     )
     await page.route('**/docs/missing.json', (route) =>
-      route.fulfill({ status: 404, body: 'not here' })
+      route.fulfill({ status: 404, body: 'not here' }),
     )
     await page.route('**/docs/e.json', (route) =>
-      route.fulfill({ json: { exact: 1 } })
+      route.fulfill({ json: { exact: 1 } }),
     )
     // The stream: held until the test says what it announces
     let announce: (urls: string[]) => void = () => {}
@@ -30,7 +30,7 @@ test.describe('Mumulib sync', () => {
           urls
             .map(
               (url) =>
-                `event: mumulib/changes.sse message\ndata: ${JSON.stringify(url)}\n\n`
+                `event: mumulib/changes.sse message\ndata: ${JSON.stringify(url)}\n\n`,
             )
             .join(''),
       })
@@ -42,7 +42,7 @@ test.describe('Mumulib sync', () => {
     await expect(page.locator('#errors')).toHaveText(
       'bind needs a path in the state tree; ' +
         '/docs/ is a slash: bind a resource or a persist; ' +
-        '/docs/missing.json answered 404; '
+        '/docs/missing.json answered 404; ',
     )
     version = 2
     // Another URL, and then its own, with an extension and without
@@ -57,13 +57,13 @@ test.describe('Mumulib sync', () => {
     let fetches = 0
     let exactFetches = 0
     await page.route('**/docs/a.json', (route) =>
-      route.fulfill({ json: { version: ++fetches } })
+      route.fulfill({ json: { version: ++fetches } }),
     )
     await page.route('**/docs/e.json', (route) =>
-      route.fulfill({ json: { version: ++exactFetches } })
+      route.fulfill({ json: { version: ++exactFetches } }),
     )
     await page.route('**/docs/missing.json', (route) =>
-      route.fulfill({ status: 404, body: 'not here' })
+      route.fulfill({ status: 404, body: 'not here' }),
     )
     // Held until both are bound, so each binding hears all of it
     let bound: () => void = () => {}
@@ -92,7 +92,7 @@ test.describe('Mumulib sync', () => {
           ]
             .map(
               (url) =>
-                `event: mumulib/changes.sse message\ndata: ${JSON.stringify(url)}\n\n`
+                `event: mumulib/changes.sse message\ndata: ${JSON.stringify(url)}\n\n`,
             )
             .join(''),
       })

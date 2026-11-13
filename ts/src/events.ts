@@ -59,7 +59,7 @@ class Source extends EventTarget {
 
   constructor(
     readonly url: string,
-    readonly topic: string
+    readonly topic: string,
   ) {
     super()
   }
@@ -68,12 +68,12 @@ class Source extends EventTarget {
   addEventListener(
     type: string,
     listener: (this: Source, event: MessageEvent<string>) => unknown,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void
   addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void
   addEventListener(
     type: string,
@@ -81,7 +81,7 @@ class Source extends EventTarget {
       | ((this: Source, event: MessageEvent<string>) => unknown)
       | EventListenerOrEventListenerObject
       | null,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void {
     super.addEventListener(type, listener as EventListener | null, options)
     this.names.add(type)
@@ -162,7 +162,7 @@ function reopen(): void {
       .map((topic) => `topic=${encodeURIComponent(topic)}`)
       .join('&')
     stream = new EventSource(
-      `${new URL(prefix, location.href).pathname}${HUB}?${query}`
+      `${new URL(prefix, location.href).pathname}${HUB}?${query}`,
     )
     // The connection to the hub lost: each source waits, as its own would
     stream.onerror = () => {

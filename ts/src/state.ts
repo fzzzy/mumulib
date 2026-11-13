@@ -54,7 +54,7 @@ async function onstate(onstatechange: OnStateChange) {
 async function _set_state(
   root: State,
   path: string,
-  nstate: State
+  nstate: State,
 ): Promise<void> {
   let changed = false
   if (nstate === null) {
@@ -118,7 +118,7 @@ async function set_state(nstate: State): Promise<void> {
 async function _set_path(
   root: State,
   path: string,
-  nstate: State
+  nstate: State,
 ): Promise<void> {
   await _set_state(root, path, nstate)
 }
@@ -142,7 +142,7 @@ document.addEventListener(
       initialValues[e.target.name] = e.target.value
     }
   },
-  true
+  true,
 )
 
 function possibly_changed(target: Control) {
@@ -194,7 +194,7 @@ document.addEventListener(
       possibly_changed(e.target)
     }
   },
-  true
+  true,
 )
 
 document.addEventListener(
@@ -207,7 +207,7 @@ document.addEventListener(
       possibly_changed(e.target)
     }
   },
-  true
+  true,
 )
 
 // Being typed in: a text field or a textarea with the focus, which holds what

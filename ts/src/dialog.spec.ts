@@ -17,7 +17,7 @@ test.describe('Mumulib Dialog Tests', () => {
     await page.waitForSelector('div[class="output"]')
     const output = await page.$eval(
       'div[class="output"]',
-      (el) => el.textContent
+      (el) => el.textContent,
     )
 
     expect(output).toBe('my_method was called askdjhfajks 123')
@@ -31,7 +31,7 @@ test.describe('Mumulib Dialog Tests', () => {
     const name = page.locator('input[name="name"]')
     const outputs = () =>
       page.$$eval('div[class="output"]', (divs) =>
-        divs.map((div) => div.textContent)
+        divs.map((div) => div.textContent),
       )
 
     await page.click('#open')
@@ -51,7 +51,7 @@ test.describe('Mumulib Dialog Tests', () => {
     await page.click('#open')
     await expect(page.locator('body')).toHaveAttribute(
       'data-selected',
-      'this.my_object'
+      'this.my_object',
     )
     await name.fill('kept')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
@@ -68,8 +68,8 @@ test.describe('Mumulib Dialog Tests', () => {
     await expect
       .poll(() =>
         page.$$eval('div[class="output"]', (divs) =>
-          divs.map((div) => div.textContent)
-        )
+          divs.map((div) => div.textContent),
+        ),
       )
       .toEqual(['saved dotted'])
   })
@@ -77,14 +77,14 @@ test.describe('Mumulib Dialog Tests', () => {
   test.describe('forms of every kind', () => {
     const outputs = (page: import('@playwright/test').Page) =>
       page.$$eval('div[class="output"]', (divs) =>
-        divs.map((div) => div.textContent)
+        divs.map((div) => div.textContent),
       )
 
     test.beforeEach(async ({ page }) => {
       await page.goto('fixtures/use_dialog_forms/')
       await expect(page.locator('body')).toHaveAttribute(
         'data-person',
-        /"name":"Ada"/
+        /"name":"Ada"/,
       )
     })
 
@@ -138,7 +138,7 @@ test.describe('Mumulib Dialog Tests', () => {
       await page.click('#open-selected')
       await expect(page.locator('body')).toHaveAttribute(
         'data-selected',
-        'this.person'
+        'this.person',
       )
       await page.locator('input[name="selected.name"]').fill('Grace')
       await page.locator('input[name="selected.age"]').fill('45')
@@ -156,8 +156,8 @@ test.describe('Mumulib Dialog Tests', () => {
       await expect
         .poll(async () =>
           JSON.parse(
-            (await page.locator('body').getAttribute('data-person')) ?? ''
-          )
+            (await page.locator('body').getAttribute('data-person')) ?? '',
+          ),
         )
         .toEqual({
           name: 'Grace',
@@ -203,12 +203,12 @@ test.describe('Mumulib Dialog Tests', () => {
       await expect(control('age')).toHaveValue('36')
       await expect(page.locator('#selected input[value="small"]')).toBeChecked()
       await expect(
-        page.locator('#selected input[value="medium"]')
+        page.locator('#selected input[value="medium"]'),
       ).not.toBeChecked()
       await expect(control('agreed')).toBeChecked()
       await expect(page.locator('#selected input[value="red"]')).toBeChecked()
       await expect(
-        page.locator('#selected input[value="green"]')
+        page.locator('#selected input[value="green"]'),
       ).not.toBeChecked()
       await expect(control('city')).toHaveValue('Paris')
       await expect(control('languages[]')).toHaveValues(['en', 'de'])

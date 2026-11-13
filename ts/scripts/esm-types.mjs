@@ -1,11 +1,13 @@
-// The declarations tsc writes to dist/types serve `require`; `import` resolves
-// types beside a package.json that says they are ESM, so they are copied
-// there and marked.
+// What vite build and tsc leave for the package to finish: the declarations
+// marked as ESM, the files that ship as they are, and mumulib/node's entry.
 import * as fs from 'node:fs/promises'
 
 // sfc-client.d.ts is a declaration already, which tsc checks but does not
 // copy into its output; and the Vite plugins and the checker ship as they are
-await fs.copyFile('src/vite/sfc-client.d.ts', 'dist/types/vite/sfc-client.d.ts')
+await fs.copyFile(
+  'src/vite/sfc-client.d.ts',
+  'dist/esm/types/vite/sfc-client.d.ts',
+)
 await fs.mkdir('dist/vite', { recursive: true })
 await fs.copyFile('src/vite/sfc.mjs', 'dist/vite/sfc.mjs')
 await fs.copyFile('src/vite/origin.mjs', 'dist/vite/origin.mjs')
@@ -22,13 +24,9 @@ for (const file of Object.values(bin)) await fs.chmod(file, 0o755)
 // move the library ahead of the DOM; src/node.ts is the same, for its types.
 await fs.writeFile(
   'dist/esm/node.mjs',
-  "import './dom.mjs'\nexport * from './index.mjs'\n"
-)
-await fs.writeFile(
-  'dist/cjs/node.cjs',
-  "'use strict'\nrequire('./dom.cjs')\nmodule.exports = require('./index.cjs')\n"
+  "import './dom.mjs'\nexport * from './index.mjs'\n",
 )
 
-await fs.rm('dist/esm/types', { recursive: true, force: true })
-await fs.cp('dist/types', 'dist/esm/types', { recursive: true })
+// tsc writes the declarations to dist/esm/types, and TypeScript reads them as
+// ESM beside a package.json that says so
 await fs.writeFile('dist/esm/types/package.json', '{"type":"module"}\n')

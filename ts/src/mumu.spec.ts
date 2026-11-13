@@ -33,7 +33,7 @@ test.describe('Mumulib Mumu components', () => {
     // data-prop, on one element and on each row of a list.
     await expect(page.locator('my-lights .main .light')).toHaveText('○')
     await expect(
-      page.locator('my-lights [data-pat="foreach"] .light')
+      page.locator('my-lights [data-pat="foreach"] .light'),
     ).toHaveText(['●', '○', '●'])
     // The opener's toggle turns the main light on, through the page's state.
     await page.locator('my-opener button').click()
@@ -64,15 +64,15 @@ test.describe('Mumulib Mumu components', () => {
             onPointerCancel(): void {
               heard.push('pointercancel')
             }
-          }
-        )
+          },
+        ),
       )
       const el = document.createElement('my-hearing')
       document.body.append(el)
       const input = el.shadowRoot!.querySelector('input')!
       input.focus()
       input.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'a', bubbles: true })
+        new KeyboardEvent('keydown', { key: 'a', bubbles: true }),
       )
       input.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true }))
       return heard
@@ -175,7 +175,7 @@ test.describe('Mumulib Mumu components', () => {
         before,
         own: own.shadowRoot!.querySelector('.light')!.textContent,
         faces: lights.map(
-          (l) => l.shadowRoot!.querySelector('.light')!.textContent
+          (l) => l.shadowRoot!.querySelector('.light')!.textContent,
         ),
         // The template, and the sample content beside it, are replaced.
         left: root.querySelectorAll('template, p').length,
@@ -320,7 +320,7 @@ test.describe('Mumulib Mumu components', () => {
       const delegate = light.delegate as object
       const face = Object.getOwnPropertyDescriptor(
         Object.getPrototypeOf(delegate),
-        'face'
+        'face',
       )!.get!
       Object.defineProperty(delegate, 'face', {
         get() {
@@ -374,16 +374,16 @@ test.describe('Mumulib Mumu components', () => {
               static template = template
               static state = { open: false }
               set open(_: boolean) {}
-            }
-          )
+            },
+          ),
         ),
         error(() =>
           mumuElement(
             class Titled extends Mumu<{ title: string }> {
               static template = template
               static state = { title: '' }
-            }
-          )
+            },
+          ),
         ),
         error(() => {
           const two = document.createElement('template')
@@ -393,7 +393,7 @@ test.describe('Mumulib Mumu components', () => {
             class Two extends Mumu<{ rows: object[] }> {
               static template = two
               static state = { rows: [] }
-            }
+            },
           )
         }),
         error(() => {
@@ -404,7 +404,7 @@ test.describe('Mumulib Mumu components', () => {
             class TwoInOne extends Mumu<{ rows: object[] }> {
               static template = two
               static state = { rows: [] }
-            }
+            },
           )
         }),
         error(() => {
@@ -416,8 +416,8 @@ test.describe('Mumulib Mumu components', () => {
               class Rowless extends Mumu<{ rows: object[] }> {
                 static template = none
                 static state = { rows: [] }
-              }
-            )
+              },
+            ),
           )
           const el = document.createElement('my-rowless') as HTMLElement &
             Record<string, unknown>
@@ -429,8 +429,8 @@ test.describe('Mumulib Mumu components', () => {
             class Typo extends Mumu<object> {
               static template = template
               onClik(): void {}
-            }
-          )
+            },
+          ),
         ),
         // Not a component: an element class already, given back as it is.
         error(() => {
@@ -442,16 +442,16 @@ test.describe('Mumulib Mumu components', () => {
     expect(refused[0]).toContain('Setter defines a setter for open')
     expect(refused[1]).toContain('already a property of every element')
     expect(refused[2]).toContain(
-      'Two\'s slot rows has 2 data-pat="foreach" rows'
+      'Two\'s slot rows has 2 data-pat="foreach" rows',
     )
     expect(refused[3]).toContain(
-      'TwoInOne\'s slot rows has a data-pat="foreach" template with 2 elements in it; a row is one'
+      'TwoInOne\'s slot rows has a data-pat="foreach" template with 2 elements in it; a row is one',
     )
     expect(refused[4]).toContain(
-      'Rowless\'s rows is a list of objects, but its slot has no data-pat="foreach" row'
+      'Rowless\'s rows is a list of objects, but its slot has no data-pat="foreach" row',
     )
     expect(refused[5]).toContain(
-      'Typo.onClik is named for no event: "clik" is not one an element has'
+      'Typo.onClik is named for no event: "clik" is not one an element has',
     )
     expect(refused[6]).toBe('')
   })

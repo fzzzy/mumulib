@@ -139,7 +139,7 @@ function moveRow(holder: Element, row: Element, before: Element | null): void {
 
 function sameValues(
   a: Record<string, unknown>,
-  b: Record<string, unknown>
+  b: Record<string, unknown>,
 ): boolean {
   const keys = Object.keys(a)
   return (
@@ -414,7 +414,7 @@ type Delegate = typeof Mumu<object, object>
  */
 function slotsOf(
   markup: ParentNode,
-  name: string
+  name: string,
 ): {
   slots: string[]
   rows: Map<string, Element>
@@ -425,28 +425,28 @@ function slotsOf(
   const rows = new Map<string, Element>()
   const own = (el: Element) => !el.closest('[data-pat]')
   for (const el of Array.from(markup.querySelectorAll('[data-slot]')).filter(
-    own
+    own,
   )) {
     const slot = el.getAttribute('data-slot')!
     names.add(slot)
     // The slot's own row: not one inside another pattern in it.
     const found = Array.from(
-      el.querySelectorAll('[data-pat="foreach"]')
+      el.querySelectorAll('[data-pat="foreach"]'),
     ).filter((row) => !row.parentElement!.closest('[data-pat]'))
     if (found.length > 1) {
       throw new Error(
-        `${name}'s slot ${slot} has ${found.length} data-pat="foreach" rows; a list has one`
+        `${name}'s slot ${slot} has ${found.length} data-pat="foreach" rows; a list has one`,
       )
     }
     if (found.length) rows.set(slot, rowOf(found[0], name, slot))
   }
   for (const el of Array.from(markup.querySelectorAll('[data-attr]')).filter(
-    own
+    own,
   )) {
     for (const [, slot] of pairs(el, 'data-attr')) names.add(slot)
   }
   for (const el of Array.from(markup.querySelectorAll('[data-prop]')).filter(
-    own
+    own,
   )) {
     for (const [, slot] of pairs(el, 'data-prop')) props.add(slot)
   }
@@ -464,7 +464,7 @@ function rowOf(marked: Element, name: string, slot: string): Element {
   const elements = marked.content.children
   if (elements.length !== 1) {
     throw new Error(
-      `${name}'s slot ${slot} has a data-pat="foreach" template with ${elements.length} elements in it; a row is one`
+      `${name}'s slot ${slot} has a data-pat="foreach" template with ${elements.length} elements in it; a row is one`,
     )
   }
   // Marked as a row, as one written without a template is: what fills the
@@ -492,7 +492,7 @@ function propertiesOf(cls: Delegate): Map<string, PropertyDescriptor> {
   let proto = cls.prototype as object | null
   while (proto && proto !== Mumu.prototype) {
     for (const [key, d] of Object.entries(
-      Object.getOwnPropertyDescriptors(proto)
+      Object.getOwnPropertyDescriptors(proto),
     )) {
       if (key !== 'constructor' && !found.has(key)) found.set(key, d)
     }
@@ -530,7 +530,7 @@ function shapeOf(component: Delegate, markup: ParentNode): Shape {
     if (d.set) {
       throw new Error(
         `${name} defines a setter for ${key}: a component only reads its state, ` +
-          'and asks for changes with emit()'
+          'and asks for changes with emit()',
       )
     }
   }
@@ -547,7 +547,7 @@ function shapeOf(component: Delegate, markup: ParentNode): Shape {
     const event = method.slice(2).toLowerCase()
     if (!EVENTS.has(event)) {
       throw new Error(
-        `${name}.${method} is named for no event: "${event}" is not one an element has`
+        `${name}.${method} is named for no event: "${event}" is not one an element has`,
       )
     }
     handlers.push([event, method])
@@ -579,10 +579,10 @@ function checkBindings(
   markup: ParentNode,
   rows: Map<string, Element>,
   keys: string[],
-  properties: Map<string, PropertyDescriptor>
+  properties: Map<string, PropertyDescriptor>,
 ): void {
   const own = within(markup, BOUND_SELECTOR).filter(
-    (el) => !el.closest('[data-pat]')
+    (el) => !el.closest('[data-pat]'),
   )
   const scopes: [Element[], string | null][] = [[own, null]]
   for (const [slot, row] of rows)
@@ -593,7 +593,7 @@ function checkBindings(
       if (el.closest('dialog')) {
         throw new Error(
           `${name} binds ${what} in a dialog: a dialog's form is a draft, ` +
-            'given to its method as it is submitted'
+            'given to its method as it is submitted',
         )
       }
       const top = slot ?? boundPath(el)![0]
@@ -603,19 +603,19 @@ function checkBindings(
             ? `${name}'s ${slot} rows bind ${what}, but ${slot} is not in its state: ` +
                 'a getter only presents the state, and cannot be written to'
             : `${name} binds ${what}, but ${top} is not in its state: ` +
-                'a getter only presents the state, and cannot be written to'
+                'a getter only presents the state, and cannot be written to',
         )
       }
     }
   }
   const forms = [markup, ...rows.values()].flatMap((node) =>
-    within(node, 'dialog form input[name="method"]')
+    within(node, 'dialog form input[name="method"]'),
   )
   for (const input of forms) {
     const method = (input as HTMLInputElement).value
     if (typeof properties.get(method)?.value !== 'function') {
       throw new Error(
-        `${name} has no method ${method}, which its dialog's form calls`
+        `${name} has no method ${method}, which its dialog's form calls`,
       )
     }
   }
@@ -677,7 +677,7 @@ class View {
           if (event === 'click') perf()?.step(`${name}.${method}`)
           delegate[method].call(delegate, e)
         },
-        true
+        true,
       )
     }
     // Bound controls, both ways: what the state says shows in them as it
@@ -751,7 +751,7 @@ class View {
         value.some((v) => typeof v === 'object' && v && !(v instanceof Node))
       ) {
         throw new Error(
-          `${name}'s ${slot} is a list of objects, but its slot has no data-pat="foreach" row`
+          `${name}'s ${slot} is a list of objects, but its slot has no data-pat="foreach" row`,
         )
       }
       values[slot] = value
@@ -822,7 +822,7 @@ class View {
     if (!this.shape.keys.includes(slot)) {
       throw new Error(
         `${this.shape.name}'s ${slot} rows bind, but ${slot} is not in its state: ` +
-          'a getter only presents the state, and cannot be written to'
+          'a getter only presents the state, and cannot be written to',
       )
     }
     const items = this.#rowsShown.get(slot) as unknown[]
@@ -852,14 +852,14 @@ class View {
     const from = pairs(host, 'data-prop').find(([name]) => name === key)?.[1]
     if (!from) {
       throw new Error(
-        `<${host.localName}> binds its ${key}, which ${this.shape.name} does not give it by data-prop`
+        `<${host.localName}> binds its ${key}, which ${this.shape.name} does not give it by data-prop`,
       )
     }
     const scope = this.#scopeOf(host)
     if (!scope.length && !this.shape.keys.includes(from)) {
       throw new Error(
         `<${host.localName}> binds its ${key}, which ${this.shape.name} gives it from ${from}: ` +
-          'a getter only presents the state, and cannot be written to'
+          'a getter only presents the state, and cannot be written to',
       )
     }
     this.#commit([...scope, from, ...rest], e.detail.value)
@@ -924,14 +924,14 @@ class View {
   #fillRows(
     slot: string,
     pattern: Element,
-    items: Record<string, unknown>[]
+    items: Record<string, unknown>[],
   ): void {
     // The same list as last time is the same rows: a long one that does not
     // change -- a map's countries -- is not even looked through.
     if (this.#rowsShown.get(slot) === items) return
     this.#rowsShown.set(slot, items)
     for (const holder of Array.from(
-      this.#root!.querySelectorAll('[data-slot]')
+      this.#root!.querySelectorAll('[data-slot]'),
     )) {
       if (
         holder.getAttribute('data-slot') !== slot ||
@@ -1007,7 +1007,7 @@ function delegateFor(
   shape: Shape,
   component: Delegate,
   emitFrom: () => EventTarget,
-  label: () => string
+  label: () => string,
 ): { delegate: Mumu<object, object>; link: Link } {
   const delegate = new component()
   const link: Link = {
@@ -1018,7 +1018,7 @@ function delegateFor(
       // composed: out of every shadow root it is inside, so what a component
       // nested in another asks for reaches the state's owner.
       emitFrom().dispatchEvent(
-        new CustomEvent(event, { bubbles: true, composed: true, detail })
+        new CustomEvent(event, { bubbles: true, composed: true, detail }),
       )
       perf()?.handled(event)
     },
@@ -1032,7 +1032,7 @@ function delegateFor(
  * subclass -- an element class already -- comes back as it is.
  */
 export function mumuElement(
-  cls: Delegate | CustomElementConstructor
+  cls: Delegate | CustomElementConstructor,
 ): CustomElementConstructor {
   if (!(cls.prototype instanceof Mumu)) return cls as CustomElementConstructor
   const component = cls as Delegate
@@ -1043,7 +1043,7 @@ export function mumuElement(
     // element: `title` or `role` would hide the element's own.
     if (key in HTMLElement.prototype || key === 'delegate') {
       throw new Error(
-        `${name}'s state property ${key} is already a property of every element`
+        `${name}'s state property ${key} is already a property of every element`,
       )
     }
   }
@@ -1061,7 +1061,7 @@ export function mumuElement(
         if (Object.prototype.hasOwnProperty.call(this, key)) {
           throw new Error(
             `<${this.localName}>.${key} was set before the element was defined; ` +
-              'define custom elements before anything creates them'
+              'define custom elements before anything creates them',
           )
         }
       }
@@ -1069,7 +1069,7 @@ export function mumuElement(
         shape,
         component,
         () => this,
-        () => `<${this.localName}>`
+        () => `<${this.localName}>`,
       )
       this.delegate = delegate
       this.#view = new View(shape, delegate, link)
@@ -1124,14 +1124,14 @@ export function mumuElement(
 export function mumuView<S extends object>(
   cls: Delegate,
   root: Element,
-  commit?: (change: Partial<S>) => void
+  commit?: (change: Partial<S>) => void,
 ): { delegate: Mumu<S, object>; set(change: Partial<S>): void } {
   const shape = shapeOf(cls, root)
   const { delegate, link } = delegateFor(
     shape,
     cls,
     () => root,
-    () => shape.name
+    () => shape.name,
   )
   link.commit = commit as Link['commit']
   const view = new View(shape, delegate, link)

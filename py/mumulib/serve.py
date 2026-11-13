@@ -1,8 +1,8 @@
 """Hypercorn, with a shutdown that does not wait on the browser.
 
     python -m mumulib.serve fixtures.notes:app --workers 0 \\
-        --insecure-bind 127.0.0.1:5959 \\
-        --bind 127.0.0.1:5960 --certfile dev.pem --keyfile dev-key.pem
+        --insecure-bind 127.0.0.1:5758 \\
+        --bind 127.0.0.1:5759 --certfile dev.pem --keyfile dev-key.pem
 
 Its command line is Hypercorn's own: plain HTTP on one port and HTTPS on
 another, over which browsers speak HTTP/2 -- every request and event stream

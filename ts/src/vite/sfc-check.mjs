@@ -84,7 +84,7 @@ export async function checkSfc(files, options = {}) {
     // A project file's error is where it says, as tsc would put it
     if (diagnostic.file && reported.has(diagnostic.file.fileName)) {
       const where = diagnostic.file.getLineAndCharacterOfPosition(
-        diagnostic.start ?? 0
+        diagnostic.start ?? 0,
       )
       errors.push({
         file: diagnostic.file.fileName,
@@ -185,7 +185,7 @@ async function buildProgram(files, options, overrides) {
     const parsed = ts.parseJsonConfigFileContent(
       read.config,
       ts.sys,
-      path.dirname(configPath)
+      path.dirname(configPath),
     )
     compilerOptions = parsed.options
     declarations = parsed.fileNames.filter((name) => name.endsWith('.d.ts'))
@@ -242,14 +242,14 @@ async function buildProgram(files, options, overrides) {
         opts,
         host,
         undefined,
-        redirected
+        redirected,
       )
     })
 
   const program = ts.createProgram(
     [...modules.keys(), ...sources, ...declarations],
     compilerOptions,
-    host
+    host,
   )
   return { ts, program, modules, sources }
 }
@@ -276,7 +276,7 @@ async function main(argv) {
   for (const e of errors) {
     const where = path.relative(process.cwd(), e.file)
     console.log(
-      `${where}:${e.line}:${e.column} - error TS${e.code}: ${e.message}`
+      `${where}:${e.line}:${e.column} - error TS${e.code}: ${e.message}`,
     )
   }
   const s = files.length === 1 ? '' : 's'
@@ -284,13 +284,13 @@ async function main(argv) {
   console.log(
     errors.length
       ? `${errors.length} error${errors.length === 1 ? '' : 's'} in ${files.length} component${s}${where}.`
-      : `${files.length} component${s}${where}, no type errs.`
+      : `${files.length} component${s}${where}, no type errs.`,
   )
   if (declarations) {
     const written = await writeDeclarations(files, { project })
     const n = written.length
     console.log(
-      `Wrote ${n} declaration${n === 1 ? '' : 's'}, <name>.sfc.html.d.ts.`
+      `Wrote ${n} declaration${n === 1 ? '' : 's'}, <name>.sfc.html.d.ts.`,
     )
   }
   process.exitCode = errors.length ? 1 : 0

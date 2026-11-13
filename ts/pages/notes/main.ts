@@ -160,7 +160,7 @@ async function remove(id: string): Promise<void> {
 async function move(
   notes: Record<string, Note>,
   id: string,
-  index: number
+  index: number,
 ): Promise<void> {
   const ids = sorted(notes)
   const others = ids.filter((other) => other !== id)
@@ -225,7 +225,7 @@ function inside(element: Element, event: PointerEvent): boolean {
 function rowOf(event: Event): { row: NoteElement; inner: unknown } | null {
   const path = event.composedPath()
   const row = path.find(
-    (el) => el instanceof HTMLElement && el.tagName === 'NOTE-ROW'
+    (el) => el instanceof HTMLElement && el.tagName === 'NOTE-ROW',
   )
   return row ? { row: row as NoteElement, inner: path[0] } : null
 }
@@ -288,7 +288,7 @@ class Notes extends App<State> {
   onRender(): void {
     // A conflict newly come about is buzzed for, once
     const clashed = new Set(
-      this.rows.filter((r) => r.clashed).map((r) => r.key)
+      this.rows.filter((r) => r.clashed).map((r) => r.key),
     )
     for (const id of clashed) if (!this.#buzzed.has(id)) buzz()
     this.#buzzed = clashed
@@ -303,7 +303,7 @@ class Notes extends App<State> {
     const last = sorted(this.state.notes).at(-1)
     const order = placed(
       last === undefined ? null : this.state.notes[last]!.order,
-      null
+      null,
     )
     this.update({ draft: '' })
     void put(`/notes/${randomId()}.json`, { text, order })
@@ -323,7 +323,7 @@ class Notes extends App<State> {
   }
 
   resolve(
-    event: CustomEvent<{ note: string; keep: 'mine' | 'theirs'; text: string }>
+    event: CustomEvent<{ note: string; keep: 'mine' | 'theirs'; text: string }>,
   ): void {
     const editing = this.state.editing
     if (editing?.note !== event.detail.note) return

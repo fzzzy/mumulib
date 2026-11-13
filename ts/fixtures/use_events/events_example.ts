@@ -15,7 +15,7 @@ news.onmessage = (event) => say(`news ${event.data}`)
 const weather = events.source('weather.sse')
 // A named event's listener is given a MessageEvent, as an EventSource's is
 weather.addEventListener('forecast', (event: MessageEvent<string>) =>
-  say(`weather forecast ${event.data}`)
+  say(`weather forecast ${event.data}`),
 )
 
 // One that is no stream: an error, and closed, as an EventSource's would be

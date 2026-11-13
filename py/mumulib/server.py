@@ -257,6 +257,13 @@ def with_content_type(message: dict[str, Any], content_type: str) -> dict[str, A
 # app serves at /mumulib/live.js when it is given changes
 LIVE_SCRIPT = Path(__file__).parent / "live.js"
 
+# The TypeScript library's browser build, its ES modules -- mumulib.mjs,
+# everything, and a module for each part -- which every app serves at
+# /mumulib/browser/. make
+# dist copies it here from ts/dist/browser, so the wheel ships the client of
+# the same version as the server; a checkout not yet built has none.
+BROWSER = Path(__file__).parent / "browser"
+
 # The methods that change what is published
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
@@ -349,9 +356,12 @@ def _headers_only(send: Send) -> Send:
 
 def _cache_headers(state: State, result: Any) -> list[tuple[bytes, bytes]] | None:
     """ETag and Cache-Control for a GET of something a file holds: a
-    Persist, or below it, a Resource's state, or a built Vite page. None
-    for anything else -- what is computed, or held in memory alone."""
+    Persist, or below it, a Resource's state, a built Vite page, or a file
+    of a published directory -- the library's browser build among them.
+    None for anything else -- what is computed, or held in memory alone."""
     file: Path | None = state.get("etag_file") or file_of(result, state)
+    if file is None and isinstance(result, Path) and result.is_file():
+        file = result
     if state.get("method") != "GET" or file is None or not file.exists():
         return None
     return cache_headers(file)
@@ -409,16 +419,23 @@ def consumers_app(
     routes by the path below the scope's root_path, and a built Page names
     /mumulib-vite/ below it too. Its pages' own URLs should be relative.
     The changes it announces, and /mumulib/live.js, are not yet prefixed.
+
+    /mumulib/ is always the app's own, and nothing in root is reached
+    there: /mumulib/browser/ is the TypeScript library's browser build, as
+    ES modules, shipped in the wheel -- a page of the app's imports App,
+    and the rest, from /mumulib/browser/mumulib.mjs, with no bundler and
+    no npm, and always of the server's own version.
     """
     data_directory = Path(data).resolve()
     vite_directory = Path(vite).resolve() if vite is not None else None
     if development is None:
         development = os.environ.get("MUMULIB_DEVELOPMENT") == "1"
-    mumulib = (
-        GetOnly({"changes": changes, "live": LIVE_SCRIPT})
-        if changes is not None
-        else None
-    )
+    # /mumulib/ is the app's own, read-only: the browser build, and given
+    # changes, the change stream and the script that follows it
+    own: dict[str, Any] = {"browser": BROWSER}
+    if changes is not None:
+        own |= {"changes": changes, "live": LIVE_SCRIPT}
+    mumulib = GetOnly(own)
 
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
@@ -576,9 +593,8 @@ def consumers_app(
             return
 
         try:
-            # Given changes, /mumulib/ is the app's own: the change stream
-            # and the script that follows it, ahead of anything in root
-            if mumulib is not None and segments[0] == "mumulib":
+            # /mumulib/ is the app's own, ahead of anything in root
+            if segments[0] == "mumulib":
                 result = await consume(mumulib, segments[1:], state, send)
             else:
                 result = await consume(root, segments, state, send)

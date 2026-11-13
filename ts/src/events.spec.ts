@@ -30,7 +30,7 @@ test.describe('Mumulib events', () => {
       'news open 1\n' +
         'news "first"\n' +
         'weather forecast rain\n' +
-        'missing error 2\n'
+        'missing error 2\n',
     )
     // One stream for the three, each a topic, relative to the app
     expect(asked).toEqual([
@@ -40,7 +40,7 @@ test.describe('Mumulib events', () => {
     // One closed: the stream opened again with what is left, not the
     // closed one, nor the one that was no stream
     await page.evaluate(() =>
-      (window as unknown as { closeWeather: () => void }).closeWeather()
+      (window as unknown as { closeWeather: () => void }).closeWeather(),
     )
     await expect.poll(() => asked.length).toBe(2)
     expect(asked[1]).toBe('?topic=news.sse')
@@ -69,7 +69,7 @@ test.describe('Mumulib events', () => {
       await page.goto(`fixtures/use_events_at/?at=${at}`)
       await expect(page.locator('body[data-listening]')).toBeAttached()
       await expect(page.locator('#heard')).toHaveText(
-        'own mine\noutside theirs\nremote far\n'
+        'own mine\noutside theirs\nremote far\n',
       )
       const origin = new URL(page.url()).origin
       expect(asked).toEqual([
@@ -85,7 +85,7 @@ test.describe('Mumulib events', () => {
 
       // Every one closed, one twice: the stream is not opened again
       await page.evaluate(() =>
-        (window as unknown as { closeAll: () => void }).closeAll()
+        (window as unknown as { closeAll: () => void }).closeAll(),
       )
       await page.waitForTimeout(200)
       expect(asked).toHaveLength(1)
@@ -96,13 +96,13 @@ test.describe('Mumulib events', () => {
     // The live example, py/fixtures/live.py: a mumulib app, so the hub is
     // its, and its change stream a topic like any other. Chromium's server
     // (playwright.config); the hub is read here, and nothing written
-    await page.goto('http://127.0.0.1:8124/')
+    await page.goto('http://127.0.0.1:5761/')
     const heard = await page.evaluate(
       () =>
         new Promise<string[]>((resolve) => {
           const said: string[] = []
           const hub = new EventSource(
-            '/mumulib/events.sse?topic=mumulib/changes.sse&topic=nothing.sse'
+            '/mumulib/events.sse?topic=mumulib/changes.sse&topic=nothing.sse',
           )
           const labels = [
             'mumulib/changes.sse open',
@@ -118,7 +118,7 @@ test.describe('Mumulib events', () => {
               }
             })
           }
-        })
+        }),
     )
     expect(heard.sort()).toEqual([
       'mumulib/changes.sse open: ',

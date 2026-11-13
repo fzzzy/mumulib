@@ -11,142 +11,64 @@
     "dist",
     "LICENSE"
   ],
-  "main": "./dist/cjs/index.cjs",
+  "main": "./dist/esm/index.mjs",
   "module": "./dist/browser/src/index.mjs",
-  "types": "dist/types/index.d.ts",
+  "types": "./dist/esm/types/index.d.ts",
   "bin": {
     "mumulib-sfc-check": "./dist/vite/sfc-check.mjs"
   },
   "exports": {
     ".": {
-      "browser": {
-        "types": "./dist/esm/types/index.d.ts",
-        "default": "./dist/browser/src/index.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/index.d.ts",
-        "default": "./dist/esm/index.mjs"
-      },
-      "require": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/cjs/index.cjs"
-      },
+      "types": "./dist/esm/types/index.d.ts",
+      "browser": "./dist/browser/src/index.mjs",
+      "node": "./dist/esm/index.mjs",
       "default": "./dist/browser/src/index.mjs"
     },
     "./state": {
-      "browser": {
-        "types": "./dist/esm/types/state.d.ts",
-        "default": "./dist/browser/src/state.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/state.d.ts",
-        "default": "./dist/esm/state.mjs"
-      },
-      "require": {
-        "types": "./dist/types/state.d.ts",
-        "default": "./dist/cjs/state.cjs"
-      },
+      "types": "./dist/esm/types/state.d.ts",
+      "browser": "./dist/browser/src/state.mjs",
+      "node": "./dist/esm/state.mjs",
       "default": "./dist/browser/src/state.mjs"
     },
     "./patslot": {
-      "browser": {
-        "types": "./dist/esm/types/patslot.d.ts",
-        "default": "./dist/browser/src/patslot.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/patslot.d.ts",
-        "default": "./dist/esm/patslot.mjs"
-      },
-      "require": {
-        "types": "./dist/types/patslot.d.ts",
-        "default": "./dist/cjs/patslot.cjs"
-      },
+      "types": "./dist/esm/types/patslot.d.ts",
+      "browser": "./dist/browser/src/patslot.mjs",
+      "node": "./dist/esm/patslot.mjs",
       "default": "./dist/browser/src/patslot.mjs"
     },
     "./dialog": {
-      "browser": {
-        "types": "./dist/esm/types/dialog.d.ts",
-        "default": "./dist/browser/src/dialog.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/dialog.d.ts",
-        "default": "./dist/esm/dialog.mjs"
-      },
-      "require": {
-        "types": "./dist/types/dialog.d.ts",
-        "default": "./dist/cjs/dialog.cjs"
-      },
+      "types": "./dist/esm/types/dialog.d.ts",
+      "browser": "./dist/browser/src/dialog.mjs",
+      "node": "./dist/esm/dialog.mjs",
       "default": "./dist/browser/src/dialog.mjs"
     },
     "./events": {
-      "browser": {
-        "types": "./dist/esm/types/events.d.ts",
-        "default": "./dist/browser/src/events.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/events.d.ts",
-        "default": "./dist/esm/events.mjs"
-      },
-      "require": {
-        "types": "./dist/types/events.d.ts",
-        "default": "./dist/cjs/events.cjs"
-      },
+      "types": "./dist/esm/types/events.d.ts",
+      "browser": "./dist/browser/src/events.mjs",
+      "node": "./dist/esm/events.mjs",
       "default": "./dist/browser/src/events.mjs"
     },
     "./sync": {
-      "browser": {
-        "types": "./dist/esm/types/sync.d.ts",
-        "default": "./dist/browser/src/sync.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/sync.d.ts",
-        "default": "./dist/esm/sync.mjs"
-      },
-      "require": {
-        "types": "./dist/types/sync.d.ts",
-        "default": "./dist/cjs/sync.cjs"
-      },
+      "types": "./dist/esm/types/sync.d.ts",
+      "browser": "./dist/browser/src/sync.mjs",
+      "node": "./dist/esm/sync.mjs",
       "default": "./dist/browser/src/sync.mjs"
     },
     "./mumu": {
-      "browser": {
-        "types": "./dist/esm/types/mumu.d.ts",
-        "default": "./dist/browser/src/mumu.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/mumu.d.ts",
-        "default": "./dist/esm/mumu.mjs"
-      },
-      "require": {
-        "types": "./dist/types/mumu.d.ts",
-        "default": "./dist/cjs/mumu.cjs"
-      },
+      "types": "./dist/esm/types/mumu.d.ts",
+      "browser": "./dist/browser/src/mumu.mjs",
+      "node": "./dist/esm/mumu.mjs",
       "default": "./dist/browser/src/mumu.mjs"
     },
     "./app": {
-      "browser": {
-        "types": "./dist/esm/types/app.d.ts",
-        "default": "./dist/browser/src/app.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/app.d.ts",
-        "default": "./dist/esm/app.mjs"
-      },
-      "require": {
-        "types": "./dist/types/app.d.ts",
-        "default": "./dist/cjs/app.cjs"
-      },
+      "types": "./dist/esm/types/app.d.ts",
+      "browser": "./dist/browser/src/app.mjs",
+      "node": "./dist/esm/app.mjs",
       "default": "./dist/browser/src/app.mjs"
     },
     "./node": {
-      "import": {
-        "types": "./dist/esm/types/node.d.ts",
-        "default": "./dist/esm/node.mjs"
-      },
-      "require": {
-        "types": "./dist/types/node.d.ts",
-        "default": "./dist/cjs/node.cjs"
-      }
+      "types": "./dist/esm/types/node.d.ts",
+      "default": "./dist/esm/node.mjs"
     },
     "./vite-plugin-sfc": {
       "types": "./dist/esm/types/vite/sfc.d.mts",
@@ -157,7 +79,7 @@
       "import": "./dist/vite/origin.mjs"
     },
     "./sfc-client": {
-      "types": "./dist/types/vite/sfc-client.d.ts"
+      "types": "./dist/esm/types/vite/sfc-client.d.ts"
     },
     "./sfc-check": {
       "types": "./dist/esm/types/vite/sfc-check.d.mts",
@@ -166,10 +88,8 @@
   },
   "type": "commonjs",
   "scripts": {
-    "start": "vite",
     "build": "rm -rf dist && vite build && vite build --mode node && tsc && node scripts/esm-types.mjs",
-    "test": "npm run build && playwright test",
-    "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
+    "typecheck": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
     "test:browser": "rm -rf .nyc_output && playwright test",
     "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --extension=.html --reporter=text --reporter=html --report-dir coverage-frontend",
     "lint": "eslint . && prettier --config .prettierrc --check . ../README.md ../CHANGELOG.md ../.github",
@@ -221,5 +141,8 @@
     "domino": "^2.1.8",
     "morphdom": "^2.7.8",
     "object-path": "^0.11.8"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
-import { rootRelativePlugin } from './src/vite/origin.mjs'
+import {
+  LIBRARY_PARTS,
+  rootRelativePlugin,
+  serverLibraryPlugin,
+} from './src/vite/origin.mjs'
 import { sfcPlugin } from './src/vite/sfc.mjs'
 import { pageEntries } from './scripts/page-entries.mjs'
 
@@ -30,7 +34,7 @@ export default defineConfig({
   // A cache of its own: sharing node_modules/.vite with vite.config.mts's
   // server, each would re-optimize the other's dependencies out from under it
   cacheDir: resolve(import.meta.dirname, 'node_modules/.vite-pages'),
-  plugins: [sfcPlugin(), rootRelativePlugin()],
+  plugins: [sfcPlugin(), rootRelativePlugin(), serverLibraryPlugin()],
   resolve: {
     // mumulib, and each of its parts, `mumulib/mumu`, from source
     alias: [
@@ -39,7 +43,7 @@ export default defineConfig({
         replacement: resolve(import.meta.dirname, 'src/index.ts'),
       },
       {
-        find: /^mumulib\/(state|patslot|dialog|events|sync|mumu|app)$/,
+        find: new RegExp(`^mumulib/(${LIBRARY_PARTS.join('|')})$`),
         replacement: resolve(import.meta.dirname, 'src/$1.ts'),
       },
     ],

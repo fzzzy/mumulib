@@ -101,8 +101,8 @@ window.onload = async () => {
       'generated',
       (function* () {
         yield element()
-      })()
-    )
+      })(),
+    ),
   )
   await refused(() =>
     patslot.fill_slots(
@@ -110,8 +110,8 @@ window.onload = async () => {
       'streamed',
       (async function* () {
         yield element()
-      })()
-    )
+      })(),
+    ),
   )
 
   document.body.dataset.generated = `${generated.sync} ${generated.async}`

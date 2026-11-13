@@ -7,7 +7,9 @@
 
 A Page names a Vite HTML entry, relative to the Vite project's root, and is
 served as HTML exactly as Vite made it. Python does not fill or change it:
-past the HTML, the page is Vite's and TypeScript's.
+past the HTML, the page is Vite's and TypeScript's. Built with mumulib's
+serverLibraryPlugin, it imports the library from this server, which serves
+its browser build at /mumulib/browser/: every page shares the one copy.
 
 In production -- the default -- the entry is Vite's build of it, read from
 the directory consumers_app is given as vite, and everything else Vite built

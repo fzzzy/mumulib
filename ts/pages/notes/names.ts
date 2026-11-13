@@ -69,6 +69,6 @@ export function randomId(length = 10): string {
   const letters = '0123456789abcdefghijklmnopqrstuvwxyz'
   return Array.from(
     crypto.getRandomValues(new Uint8Array(length)),
-    (n) => letters[n % letters.length]
+    (n) => letters[n % letters.length],
   ).join('')
 }

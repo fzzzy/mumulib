@@ -22,7 +22,7 @@ export function between(before: string | null, after: string | null): string {
   const low = before ?? ''
   if (after !== null && !(low < after)) {
     throw new Error(
-      `${JSON.stringify(low)} is not before ${JSON.stringify(after)}`
+      `${JSON.stringify(low)} is not before ${JSON.stringify(after)}`,
     )
   }
   let key = ''
@@ -60,7 +60,7 @@ export function placed(before: string | null, after: string | null): string {
 
 /** The notes' ids, sorted as they are shown: by order, then by id. */
 export function sorted<T extends { order: string }>(
-  notes: Record<string, T>
+  notes: Record<string, T>,
 ): string[] {
   return Object.keys(notes).sort((a, b) => {
     const x = notes[a]!.order

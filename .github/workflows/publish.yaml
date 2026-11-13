@@ -24,10 +24,16 @@ jobs:
           node-version: 26
           registry-url: 'https://registry.npmjs.org'
 
-      # The npm package; the Python one builds itself below. make build would
-      # also sync py/, and this job has no uv
+      # The npm package, and its browser build copied into the Python one,
+      # which builds itself below. make build would also sync py/, and this
+      # job has no uv
       - name: Build project
         run: make dist
+
+      # The wheel ships the browser build make dist copied into the package:
+      # never publish one without it
+      - name: Check the browser build is in the Python package
+        run: test -f py/mumulib/browser/mumulib.mjs
 
       - name: Publish to npm
         run: npm publish

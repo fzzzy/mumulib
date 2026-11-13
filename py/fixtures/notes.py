@@ -1,6 +1,6 @@
 """Notes: a Vite page, served by Python, and the data it reads and writes.
 
-    make run SERVER=notes          then http://127.0.0.1:5959/
+    make run SERVER=notes          then http://127.0.0.1:5758/
     make production SERVER=notes   the same, built, without Vite running
 
 The page is ts/pages/notes/, a Vite entry: Page("notes/index.html") serves

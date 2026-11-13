@@ -3,9 +3,9 @@
 	node_modules browsers run stop tail dev server server-exists declarations clean tags \
 	pages production certs
 
-# The fixtures' dev server: Vite reads the same default, 8000, in
+# The fixtures' dev server: Vite reads the same default, 5750, in
 # ts/vite.config.mts
-PORT := 8000
+PORT := 5750
 # The dev server of the pages Python serves, ts/pages: always on this port,
 # on this machine alone -- Python passes /mumulib-vite/ on to it
 PAGES_PORT := 5757
@@ -15,18 +15,18 @@ LOG := $(CURDIR)/var/log
 
 # SERVER=<name> for another than hello
 SERVER ?= hello
-SERVER_PORT ?= 5959
+SERVER_PORT ?= 5758
 # And, given a certificate, HTTPS, which browsers speak HTTP/2 over: every
 # request and stream of a page, and of every tab, on one connection. Over
 # HTTP/1.1 a browser opens six to a server at most, and each page holding a
 # change stream open keeps one for good
-SERVER_HTTPS_PORT ?= 5960
+SERVER_HTTPS_PORT ?= 5759
 CERT := var/certs/dev.pem
 CERT_KEY := var/certs/dev-key.pem
 # Where the server listens: plain HTTP, and HTTPS if there is a certificate.
 # With one, --bind is the HTTPS and --insecure-bind the plain; without, the
 # plain is --bind -- given only --insecure-bind, Hypercorn binds its own
-# default too, 127.0.0.1:8000, the fixtures' Vite's
+# default too, 127.0.0.1:8000, as well
 BINDS = $(if $(wildcard $(CERT)),--insecure-bind 127.0.0.1:$(SERVER_PORT) \
 	--bind 127.0.0.1:$(SERVER_HTTPS_PORT) --certfile $(CERT) --keyfile $(CERT_KEY),\
 	--bind 127.0.0.1:$(SERVER_PORT))
@@ -69,7 +69,7 @@ fix: node_modules python-sync
 	$(UV) ruff format
 
 typecheck: node_modules python-sync
-	$(NPM) run test:unit
+	$(NPM) run typecheck
 	cd ts && node src/vite/sfc-check.mjs --project tsconfig.fixtures.json --declarations fixtures pages
 	$(UV) pyright
 
@@ -91,8 +91,15 @@ node-test: dist
 
 build: python-sync dist pages
 
+# The npm package in ts/dist; and its browser build copied into the Python
+# package, which serves it at /mumulib/browser/ and ships it in the wheel.
+# Its entry, index.mjs, is copied as mumulib.mjs: a file named index is
+# its directory's slash, never a name of its own. No module imports it.
 dist: node_modules
 	$(NPM) run build
+	rm -rf py/mumulib/browser
+	cp -R ts/dist/browser/src py/mumulib/browser
+	mv py/mumulib/browser/index.mjs py/mumulib/browser/mumulib.mjs
 
 python-sync:
 	uv sync --project py $(UV_FLAGS)
@@ -212,7 +219,7 @@ pages: node_modules
 
 # A Python example in production, in the foreground: its pages built, served
 # by Python under /mumulib-vite/, and no Vite running
-production: python-sync server-exists pages
+production: python-sync server-exists dist pages
 	$(SERVE) fixtures.$(SERVER):app $(BINDS)
 
 # The certificate for HTTPS, made by mkcert -- whose root a machine trusts
@@ -234,7 +241,7 @@ server-exists:
 clean:
 	rm -rf var ts/node_modules ts/dist ts/build ts/.nyc_output ts/coverage-frontend \
 		ts/test-results ts/playwright-report \
-		py/.venv py/.coverage py/.pytest_cache py/mumulib.egg-info \
+		py/.venv py/.coverage py/.pytest_cache py/mumulib.egg-info py/mumulib/browser \
 		.ruff_cache py/.ruff_cache
 	find py -name __pycache__ -prune -exec rm -rf {} +
 	find ts/fixtures ts/pages -name '*.sfc.html.d.ts' -delete

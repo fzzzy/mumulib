@@ -82,7 +82,7 @@ function listen(): void {
 async function bind(
   path: string,
   url: string,
-  options: BindOptions = {}
+  options: BindOptions = {},
 ): Promise<void> {
   if (!path) throw new Error('bind needs a path in the state tree')
   const binding = {

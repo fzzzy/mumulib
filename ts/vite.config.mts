@@ -2,17 +2,18 @@ import { defineConfig } from 'vite'
 import istanbul from 'vite-plugin-istanbul'
 import { resolve } from 'node:path'
 import { sfcPlugin } from './src/vite/sfc.mjs'
+import { LIBRARY_PARTS } from './src/vite/origin.mjs'
 
 const root = import.meta.dirname
 const entry = resolve(root, 'src/index.ts')
 // Each part of the library, importable alone -- `mumulib/mumu` brings no
 // state with it -- beside the whole, `mumulib`. What they share is a chunk of
 // its own, so a class is the same one whichever way it is imported.
-const PARTS = ['state', 'patslot', 'dialog', 'events', 'sync', 'mumu', 'app']
+const PARTS = LIBRARY_PARTS
 const entries = {
   index: entry,
   ...Object.fromEntries(
-    PARTS.map((part) => [part, resolve(root, `src/${part}.ts`)])
+    PARTS.map((part) => [part, resolve(root, `src/${part}.ts`)]),
   ),
 }
 // The Node build's other entry: domino's DOM, which mumulib/node runs first
@@ -61,7 +62,7 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     host: '127.0.0.1',
-    port: Number(process.env.PORT || 8000),
+    port: Number(process.env.PORT || 5750),
     strictPort: true,
     // The page's console in the server's output, and so in var/log: every
     // level, and uncaught errors. Vite turns this on by itself only when it
@@ -82,22 +83,13 @@ export default defineConfig(({ mode }) => ({
           // The library, and the DOM apart from it: mumulib/node is these two
           // imported in order, written by scripts/esm-types.mjs rather than
           // bundled, as a bundler may run a shared chunk before the DOM
-          lib: { entry: { ...entries, dom }, formats: ['es', 'cjs'] },
+          lib: { entry: { ...entries, dom }, formats: ['es'] },
           rolldownOptions: {
             external: ['domino'],
-            output: [
-              {
-                format: 'es',
-                entryFileNames: 'esm/[name].mjs',
-                chunkFileNames: 'esm/[name]-[hash].mjs',
-              },
-              {
-                format: 'cjs',
-                entryFileNames: 'cjs/[name].cjs',
-                chunkFileNames: 'cjs/[name]-[hash].cjs',
-                exports: 'named',
-              },
-            ],
+            output: {
+              entryFileNames: 'esm/[name].mjs',
+              chunkFileNames: 'esm/[name]-[hash].mjs',
+            },
           },
         }
       : {

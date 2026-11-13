@@ -1,6 +1,7 @@
 // mumulib as a Node user gets it: the package packed as it would be
 // published, installed into an empty project, and used through require and
-// import, where domino is the only DOM. Nothing else runs the library
+// import, where domino is the only DOM. The package is ES modules alone:
+// require loads them as Node has since 22.12, and is tested here as such. Nothing else runs the library
 // outside a browser, which is how patslot came to throw in Node unnoticed.
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
@@ -140,11 +141,11 @@ function partsUse(head, load) {
 const PARTS_USES = {
   'parts.mjs': partsUse(
     "import * as all from 'mumulib/node'",
-    (part) => `(await import('mumulib/${part}'))`
+    (part) => `(await import('mumulib/${part}'))`,
   ),
   'parts.cjs': partsUse(
     "const all = require('mumulib/node')",
-    (part) => `require('mumulib/${part}')`
+    (part) => `require('mumulib/${part}')`,
   ),
 }
 
@@ -160,7 +161,7 @@ function loads(start, seen = new Set()) {
   seen.add(start)
   const text = fs.readFileSync(start, 'utf-8')
   for (const [, rel] of text.matchAll(
-    /(?:from|import|require\()\s*["'](\.[^"']+\.c?m?js)["']/g
+    /(?:from|import|require\()\s*["'](\.[^"']+\.c?m?js)["']/g,
   )) {
     loads(path.resolve(path.dirname(start), rel), seen)
   }
@@ -188,7 +189,7 @@ try {
   const tarball = execFileSync(
     'npm',
     ['pack', '--silent', '--pack-destination', work],
-    { cwd: root, encoding: 'utf-8' }
+    { cwd: root, encoding: 'utf-8' },
   ).trim()
   fs.writeFileSync(path.join(work, 'package.json'), '{"private":true}\n')
   execFileSync(
@@ -201,14 +202,14 @@ try {
       '--prefer-offline',
       `./${tarball}`,
     ],
-    { cwd: work, stdio: 'inherit' }
+    { cwd: work, stdio: 'inherit' },
   )
   for (const [file, source] of Object.entries(USES)) {
     fs.writeFileSync(path.join(work, file), source.replace('__BODY__', BODY))
     let got
     try {
       got = JSON.parse(
-        execFileSync('node', [file], { cwd: work, encoding: 'utf-8' })
+        execFileSync('node', [file], { cwd: work, encoding: 'utf-8' }),
       )
     } catch (e) {
       got = { error: String(e.stdout || e.message) }
@@ -222,12 +223,52 @@ try {
         wrong
           .map(
             ([k, v]) =>
-              `${k}: expected ${JSON.stringify(v)}, got ${JSON.stringify(got[k])}`
+              `${k}: expected ${JSON.stringify(v)}, got ${JSON.stringify(got[k])}`,
           )
-          .join('; ')
+          .join('; '),
       )
     } else {
       console.log(`${file}: patslot and state work in Node`)
+    }
+  }
+  // The types, as a TypeScript project finds them through the exports: one
+  // that resolves as Node does, and one that resolves as a bundler does --
+  // Vite's. Each export names its declarations first, under types, for both
+  fs.writeFileSync(
+    path.join(work, 'typed.ts'),
+    [
+      '/// <reference types="mumulib/sfc-client" />',
+      "import { App, state } from 'mumulib'",
+      "import { mumuElement } from 'mumulib/mumu'",
+      "import * as node from 'mumulib/node'",
+      "import { sfcPlugin } from 'mumulib/vite-plugin-sfc'",
+      'const app: typeof App = node.App',
+      'export { app, state, mumuElement, sfcPlugin }',
+      '',
+    ].join('\n'),
+  )
+  const tsc = path.join(root, 'node_modules', '.bin', 'tsc')
+  for (const [resolution, module] of [
+    ['nodenext', 'nodenext'],
+    ['bundler', 'esnext'],
+  ]) {
+    try {
+      execFileSync(
+        tsc,
+        [
+          ...['--noEmit', '--strict', '--skipLibCheck', '--target', 'es2022'],
+          ...['--lib', 'es2022,dom', '--module', module],
+          ...['--moduleResolution', resolution, 'typed.ts'],
+        ],
+        { cwd: work, encoding: 'utf-8' },
+      )
+      console.log(`types (${resolution}): found for each export`)
+    } catch (e) {
+      failed = true
+      console.log(
+        `types (${resolution}): FAILED`,
+        String(e.stdout || e.message),
+      )
     }
   }
   for (const [file, source] of Object.entries(BARE)) {
@@ -244,7 +285,7 @@ try {
       console.log(`${file}: FAILED, expected ${expected}, got ${got}`)
     } else {
       console.log(
-        `${file}: ${file.startsWith('bare') ? 'mumulib sets no globals' : 'mumulib/node keeps a DOM already there'}`
+        `${file}: ${file.startsWith('bare') ? 'mumulib sets no globals' : 'mumulib/node keeps a DOM already there'}`,
       )
     }
   }
@@ -253,13 +294,13 @@ try {
     let got
     try {
       got = JSON.parse(
-        execFileSync('node', [file], { cwd: work, encoding: 'utf-8' })
+        execFileSync('node', [file], { cwd: work, encoding: 'utf-8' }),
       )
     } catch (e) {
       got = { error: String(e.stdout || e.message) }
     }
     const wrong = Object.entries(got).filter(
-      ([, missing]) => !Array.isArray(missing) || missing.length
+      ([, missing]) => !Array.isArray(missing) || missing.length,
     )
     if (wrong.length) {
       failed = true
@@ -270,21 +311,21 @@ try {
   }
   const installed = path.join(work, 'node_modules', 'mumulib')
   const { exports } = JSON.parse(
-    fs.readFileSync(path.join(installed, 'package.json'), 'utf-8')
+    fs.readFileSync(path.join(installed, 'package.json'), 'utf-8'),
   )
   for (const part of STATELESS) {
-    for (const condition of ['browser', 'import', 'require']) {
+    for (const condition of ['browser', 'node']) {
       const loaded = loads(
-        path.join(installed, exports[`./${part}`][condition].default)
+        path.join(installed, exports[`./${part}`][condition]),
       )
       const stateful = loaded.filter((file) =>
-        fs.readFileSync(file, 'utf-8').includes('DOMContentLoaded')
+        fs.readFileSync(file, 'utf-8').includes('DOMContentLoaded'),
       )
       if (stateful.length) {
         failed = true
         console.log(
           `mumulib/${part} (${condition}): FAILED, it loads state: ` +
-            stateful.map((file) => path.basename(file)).join(', ')
+            stateful.map((file) => path.basename(file)).join(', '),
         )
       } else {
         console.log(`mumulib/${part} (${condition}): brings no state`)

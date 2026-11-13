@@ -13,7 +13,8 @@ export const test = base.extend<{ saveCoverage: void }>({
       await use()
       const coverage: unknown = await page.evaluate(
         () =>
-          (window as unknown as { __coverage__?: unknown }).__coverage__ ?? null
+          (window as unknown as { __coverage__?: unknown }).__coverage__ ??
+          null,
       )
       if (coverage) {
         fs.mkdirSync(COVERAGE_DIR, { recursive: true })
@@ -24,7 +25,7 @@ export const test = base.extend<{ saveCoverage: void }>({
           .concat(`-${testInfo.testId}`)
         fs.writeFileSync(
           path.join(COVERAGE_DIR, `${name}.json`),
-          JSON.stringify(coverage)
+          JSON.stringify(coverage),
         )
       }
     },

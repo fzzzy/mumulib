@@ -19,8 +19,8 @@ test.describe('Mumulib single-file component parsing', () => {
     expect(
       split(
         '<template><template id="row"><li></li></template><p>after</p></template>' +
-          '<script>export default 1</script>'
-      )
+          '<script>export default 1</script>',
+      ),
     ).toEqual({
       template: '<template id="row"><li></li></template><p>after</p>',
       script: 'export default 1',
@@ -30,8 +30,8 @@ test.describe('Mumulib single-file component parsing', () => {
   test("a script inside the template is the template's, not the component's", () => {
     expect(
       split(
-        '<template><script>alert(1)</script><p>x</p></template><script>real()</script>'
-      )
+        '<template><script>alert(1)</script><p>x</p></template><script>real()</script>',
+      ),
     ).toEqual({
       template: '<script>alert(1)</script><p>x</p>',
       script: 'real()',
@@ -42,8 +42,8 @@ test.describe('Mumulib single-file component parsing', () => {
     expect(
       split(
         '<!-- a <script> here, and a </template> --><template>' +
-          '<!-- </template> --><p>x</p></template><script>real()</script>'
-      )
+          '<!-- </template> --><p>x</p></template><script>real()</script>',
+      ),
     ).toEqual({ template: '<!-- </template> --><p>x</p>', script: 'real()' })
   })
 
@@ -51,8 +51,8 @@ test.describe('Mumulib single-file component parsing', () => {
     expect(
       split(
         '<template><p title="a>b</template>">x</p><style>/* </template> */</style></template>' +
-          '<script lang="ts">const end = "</template>"</script>'
-      )
+          '<script lang="ts">const end = "</template>"</script>',
+      ),
     ).toEqual({
       template:
         '<p title="a>b</template>">x</p><style>/* </template> */</style>',

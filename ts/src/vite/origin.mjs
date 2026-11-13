@@ -72,7 +72,7 @@ export function withOrigin(html, base, origin) {
   return ['"', "'"].reduce(
     (text, quote) =>
       text.split(`${quote}${base}`).join(`${quote}${origin}${base}`),
-    html
+    html,
   )
 }
 
@@ -97,7 +97,7 @@ export function rootRelativePlugin() {
           throw new Error(
             `${filename} loads ${relative.join(', ')} by a relative URL: ` +
               'write it root-relative, /<page>/<file>, which Vite puts ' +
-              'under the base'
+              'under the base',
           )
         }
         return html
@@ -125,7 +125,7 @@ export function originPlugin(origin = 'http://127.0.0.1:5757') {
             'originPlugin needs a base of its own, such as /mumulib-vite/: ' +
               'it puts the dev server in front of every quoted URL under ' +
               'the base, and under /, that is every root-relative URL on ' +
-              "the page, its links to the other server's pages too"
+              "the page, its links to the other server's pages too",
           )
         }
       },
@@ -137,4 +137,78 @@ export function originPlugin(origin = 'http://127.0.0.1:5757') {
       },
     },
   ]
+}
+
+// Where mumulib's Python serves the library's browser build, which its wheel
+// ships: the whole of it, and a module for each part
+export const SERVER_LIBRARY = '/mumulib/browser/'
+
+// The parts of the library, each importable alone -- `mumulib/mumu` -- beside
+// the whole, `mumulib`. The one list: the library's build, the pages' build
+// and this plugin read it here, and package.json's exports name each part,
+// as a test checks
+export const LIBRARY_PARTS = [
+  'state',
+  'patslot',
+  'dialog',
+  'events',
+  'sync',
+  'mumu',
+  'app',
+]
+
+/**
+ * The import map naming each of mumulib's module specifiers -- `mumulib`,
+ * and `mumulib/<part>` -- by the URL the server serves it at.
+ *
+ * @param {string} [at] Where the server serves the browser build
+ * @returns {{ imports: Record<string, string> }}
+ */
+export function libraryImportMap(at = SERVER_LIBRARY) {
+  return {
+    imports: Object.fromEntries([
+      ['mumulib', `${at}mumulib.mjs`],
+      ...LIBRARY_PARTS.map((part) => [`mumulib/${part}`, `${at}${part}.mjs`]),
+    ]),
+  }
+}
+
+/**
+ * Whether id is one of mumulib's module specifiers, as a page imports it.
+ *
+ * @param {string} id
+ * @returns {boolean}
+ */
+export function isLibrary(id) {
+  return (
+    id === 'mumulib' || LIBRARY_PARTS.some((part) => id === `mumulib/${part}`)
+  )
+}
+
+/**
+ * In a build, the library is the server's: left out of the pages, and
+ * imported from mumulib's Python, which serves its browser build -- the
+ * same version as itself -- at /mumulib/browser/. Each page is given an
+ * import map naming it there, so every page shares the one copy, cached
+ * once. In development it changes nothing, and the library is resolved as
+ * Vite resolves it.
+ *
+ * @returns {import('vite').Plugin}
+ */
+export function serverLibraryPlugin() {
+  return {
+    name: 'mumulib-origin:server-library',
+    apply: 'build',
+    config: () => ({
+      build: { rolldownOptions: { external: isLibrary } },
+    }),
+    transformIndexHtml: () => [
+      {
+        tag: 'script',
+        attrs: { type: 'importmap' },
+        children: JSON.stringify(libraryImportMap()),
+        injectTo: 'head-prepend',
+      },
+    ],
+  }
 }

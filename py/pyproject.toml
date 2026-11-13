@@ -77,8 +77,10 @@ precision = 1
 fail_under = 100
 
 # The package is mumulib/, beside this file, and everything in it ships --
-# live.js, the script consumers_app serves at /mumulib/live.js, and py.typed,
-# the marker for type checkers -- but its tests. They sit beside their
+# live.js, the script consumers_app serves at /mumulib/live.js; browser/,
+# the TypeScript library's browser build, which make dist copies in and
+# every app serves at /mumulib/browser/; and py.typed, the marker for type
+# checkers -- but its tests. They sit beside their
 # modules, and are not the library: a checkout of the repository has them,
 # and an install does not. The source distribution keeps them, with the
 # files they read, for anyone building from it to run.

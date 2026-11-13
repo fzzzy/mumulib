@@ -192,7 +192,7 @@ test.describe('Mumulib apps', () => {
       }
     })
     expect(refused).toBe(
-      'Picker has no method pick, which data-on="click=pick" calls'
+      'Picker has no method pick, which data-on="click=pick" calls',
     )
   })
 
@@ -227,7 +227,7 @@ test.describe('Mumulib apps', () => {
                 return []
               }
             },
-            root
+            root,
           )
           tries.push('')
         } catch (e) {

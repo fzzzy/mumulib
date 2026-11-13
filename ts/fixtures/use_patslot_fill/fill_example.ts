@@ -14,7 +14,7 @@ window.onload = async () => {
     patslot.fill_slots(
       document.getElementById('fill-element') as HTMLElement,
       'fill_me',
-      'now been filled.'
+      'now been filled.',
     )
   }, 500)
 }
