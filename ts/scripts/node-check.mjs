@@ -231,6 +231,44 @@ try {
       console.log(`${file}: patslot and state work in Node`)
     }
   }
+  // Tree shaking, as a bundler for the browser does it: a page importing one
+  // part through the whole library gets what that part needs, and no more --
+  // nothing of state's, which listens to the page, unless it uses state. It
+  // takes "sideEffects": false, and no module doing anything as it loads
+  const rolldown = path.join(root, 'node_modules', '.bin', 'rolldown')
+  const SHAKEN = {
+    "import { patslot } from 'mumulib'; patslot.fill(document.body, {})": false,
+    "import { mumuElement } from 'mumulib'; console.log(mumuElement)": false,
+    "import { state } from 'mumulib'; state.onstate(async () => {})": true,
+  }
+  for (const [source, listens] of Object.entries(SHAKEN)) {
+    fs.writeFileSync(path.join(work, 'shaken.mjs'), source)
+    let bundle = ''
+    try {
+      execFileSync(
+        rolldown,
+        ['shaken.mjs', '--file', 'shaken.out.js', '--platform', 'browser'],
+        { cwd: work, encoding: 'utf-8' },
+      )
+      bundle = fs.readFileSync(path.join(work, 'shaken.out.js'), 'utf-8')
+    } catch (e) {
+      bundle = `FAILED: ${String(e.stdout || e.message)}`
+    }
+    const listening = bundle.includes('DOMContentLoaded')
+    if (bundle.startsWith('FAILED') || listening !== listens) {
+      failed = true
+      console.log(
+        `shaken (${source}): FAILED, state is ${listening ? '' : 'not '}in it`,
+        bundle.startsWith('FAILED') ? bundle : '',
+      )
+    } else {
+      console.log(
+        `shaken (${source}): ${bundle.length} bytes, ` +
+          `${listens ? 'state in it' : 'nothing of state'}`,
+      )
+    }
+  }
+
   // The types, as a TypeScript project finds them through the exports: one
   // that resolves as Node does, and one that resolves as a bundler does --
   // Vite's. Each export names its declarations first, under types, for both

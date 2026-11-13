@@ -14,6 +14,9 @@
   "main": "./dist/esm/index.mjs",
   "module": "./dist/browser/src/index.mjs",
   "types": "./dist/esm/types/index.d.ts",
+  "sideEffects": [
+    "./dist/esm/dom.mjs"
+  ],
   "bin": {
     "mumulib-sfc-check": "./dist/vite/sfc-check.mjs"
   },
