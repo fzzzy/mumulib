@@ -161,7 +161,7 @@ function reopen(): void {
     const query = [...topics.keys()]
       .map((topic) => `topic=${encodeURIComponent(topic)}`)
       .join('&')
-    let opened = new EventSource(
+    const opened = new EventSource(
       `${new URL(prefix, location.href).pathname}${HUB}?${query}`,
     )
     stream = opened
