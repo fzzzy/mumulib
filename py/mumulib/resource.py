@@ -86,7 +86,7 @@ class Resource(Located):
     to keep the two apart.
 
     It is Located: url is where it is published, without an extension --
-    /editors/characters/c1 -- learnt when a request first reaches it, and
+    /people/ada -- learnt when a request first reaches it, and
     None until then. Unlike the url slot, which is the request's own URL.
 
     And it is persistent. Its file, named by its URL in the app's data

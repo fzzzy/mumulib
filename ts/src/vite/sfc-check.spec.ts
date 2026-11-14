@@ -18,17 +18,17 @@ function check(...paths: string[]) {
       line: Number(line),
       column: Number(column),
       code: Number(code),
-    })
+    }),
   )
   return { status: run.status, stdout: run.stdout, errors }
 }
 
 // Node alone; no page, so no browser and no coverage to keep
 test.describe('Mumulib single-file component type checking', () => {
-  test('the examples have no type errs', () => {
-    const run = check('--project', 'tsconfig.examples.json', 'examples')
+  test('the fixtures have no type errs', () => {
+    const run = check('--project', 'tsconfig.fixtures.json', 'fixtures')
     expect(run.stdout).toContain(
-      "2 components and tsconfig.examples.json's files, no type errs."
+      "10 components and tsconfig.fixtures.json's files, no type errs.",
     )
     expect(run.status).toBe(0)
   })
@@ -75,12 +75,12 @@ test.describe('Mumulib single-file component type checking', () => {
     for (const name of ['tally.sfc.html', 'use.ts']) {
       fs.copyFileSync(
         path.join(FIXTURES, 'typed', name),
-        path.join(typed, name)
+        path.join(typed, name),
       )
     }
     const tsconfig = path.join(typed, 'tsconfig.json')
     const config = JSON.parse(
-      fs.readFileSync(path.join(FIXTURES, 'typed', 'tsconfig.json'), 'utf-8')
+      fs.readFileSync(path.join(FIXTURES, 'typed', 'tsconfig.json'), 'utf-8'),
     )
     config.include = ['*.ts', path.join(__dirname, 'sfc-client.d.ts')]
     fs.writeFileSync(tsconfig, JSON.stringify(config))
@@ -88,16 +88,16 @@ test.describe('Mumulib single-file component type checking', () => {
       const run = check('--project', tsconfig, '--declarations', typed)
       expect(run.stdout).toContain('Wrote 1 declaration')
       expect(
-        fs.readFileSync(path.join(typed, 'tally.sfc.html.d.ts'), 'utf-8')
+        fs.readFileSync(path.join(typed, 'tally.sfc.html.d.ts'), 'utf-8'),
       ).toContain('export default class Tally extends HTMLElement')
       // And tsc alone, with no checker, now knows the component's class
       const tsc = spawnSync(
         'npx',
         ['tsc', '--pretty', 'false', '-p', tsconfig],
-        { cwd: ROOT, encoding: 'utf-8' }
+        { cwd: ROOT, encoding: 'utf-8' },
       )
       expect(tsc.stdout).toContain(
-        "use.ts(5,1): error TS2322: Type 'string' is not assignable to type 'number'."
+        "use.ts(5,1): error TS2322: Type 'string' is not assignable to type 'number'.",
       )
     } finally {
       fs.rmSync(typed, { recursive: true, force: true })

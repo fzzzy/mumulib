@@ -71,7 +71,7 @@ async function* parts(pat: Pattern | Part | Part[]): AsyncGenerator<Part> {
 // no selector is built from a name, so any name is found as it is written
 function having(node: Element, attribute: string, value: string): Element[] {
   return Array.from(node.querySelectorAll(`[${attribute}]`)).filter(
-    (el) => el.getAttribute(attribute) === value
+    (el) => el.getAttribute(attribute) === value,
   )
 }
 
@@ -99,7 +99,7 @@ function attr_slots(el: Element): [string, string][] {
 function reach(
   node: Element,
   matches: (el: Element) => boolean,
-  stop: boolean
+  stop: boolean,
 ): Element[] {
   const found: Element[] = []
   const visit = (el: Element) => {
@@ -130,7 +130,7 @@ class Template {
 
   async clone_pat(
     patname: string,
-    slots: { [key: string]: Pattern }
+    slots: { [key: string]: Pattern },
   ): Promise<HTMLElement> {
     let template
     if (this.url === '') {
@@ -186,7 +186,7 @@ async function fill_slots(node: HTMLElement, slotname: string, pat: Pattern) {
 async function append_to_slots(
   node: HTMLElement,
   slotname: string,
-  pat: Pattern
+  pat: Pattern,
 ) {
   await _fill_or_append_slots(node, slotname, pat, true)
 }
@@ -195,7 +195,7 @@ async function _fill_or_append_slots(
   node: HTMLElement,
   slotname: string,
   pat: Pattern,
-  append: boolean
+  append: boolean,
 ) {
   // Attributes, not dataset, which domino -- the DOM in Node -- lacks. A
   // pattern's own data-slot is found, as a slot filled with an element takes
@@ -203,7 +203,7 @@ async function _fill_or_append_slots(
   const slots = reach(
     node,
     (el) => el.getAttribute('data-slot') === slotname,
-    true
+    true,
   )
   const calculated_slot: Part[] = []
   if (pat instanceof Promise) {
@@ -259,7 +259,7 @@ async function _fill_or_append_slots(
     (el) =>
       Boolean(el.getAttribute('data-attr')) &&
       (el === node || !el.hasAttribute('data-pat')),
-    false
+    false,
   )
 
   // One value for every attribute of the slot's name, made once: an iterator
@@ -270,7 +270,7 @@ async function _fill_or_append_slots(
     for (const [attribute_name, attribute_slot] of attr_slots(attrslot)) {
       if (attribute_slot === slotname) {
         value ??= await attribute_value(
-          calculated_slot.length !== 0 ? calculated_slot : pat
+          calculated_slot.length !== 0 ? calculated_slot : pat,
         )
         attrslot.setAttribute(attribute_name, value)
       }
@@ -293,7 +293,7 @@ async function attribute_value(pat: Pattern | Part[]): Promise<string> {
 
 async function clone_pat(
   patname: string,
-  slots: { [key: string]: Pattern }
+  slots: { [key: string]: Pattern },
 ): Promise<HTMLElement> {
   const template = new Template('')
   return await template.clone_pat(patname, slots)

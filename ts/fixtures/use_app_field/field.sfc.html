@@ -1,0 +1,19 @@
+<!--
+  A labelled text field, bound to its own `text`: what is typed goes up to
+  whoever gave it `text`, by data-prop, as a change of their state there.
+-->
+<template>
+  <label>
+    <span data-slot="label">Label</span>
+    <input name="this.text" />
+  </label>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  export default class Field extends Mumu<{ label: string; text: string }> {
+    static template = template
+    static state = { label: '', text: '' }
+  }
+</script>

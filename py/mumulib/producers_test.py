@@ -1,5 +1,6 @@
 # pyright: standard
 import asyncio
+import tempfile
 import unittest
 from pathlib import Path
 from types import MappingProxyType
@@ -15,6 +16,17 @@ from mumulib.producers import (
 )
 
 HERE = Path(__file__).parent
+# The tests' own files, outside the package: none of them ship
+UNIT = HERE.parent / "fixtures" / "unit"
+
+
+def markdown_file(case: unittest.TestCase) -> Path:
+    """A Markdown file of the test's own, removed after it."""
+    directory = tempfile.TemporaryDirectory()
+    case.addCleanup(directory.cleanup)
+    path = Path(directory.name) / "README.md"
+    path.write_text("# mumulib\n\nA text file, in Markdown.\n")
+    return path
 
 
 class TestCustomSerializer(unittest.TestCase):
@@ -307,8 +319,7 @@ class TestProduceFile(unittest.TestCase):
 
     async def async_test_produce_text_file(self):
         """Test producing a text file"""
-        # Use an actual text file from the project
-        test_file_path = HERE.parent / "README.md"
+        test_file_path = markdown_file(self)
 
         with open(test_file_path) as file_obj:
             state = {}
@@ -395,7 +406,7 @@ class TestProduceFile(unittest.TestCase):
     async def async_test_produce_ttf_file(self):
         """Test producing a TTF font file (binary)"""
         # Use an actual TTF file - open in binary mode to get BufferedReader
-        test_file_path = HERE / "test_fixtures" / "Lexington-Gothic.ttf"
+        test_file_path = UNIT / "Lexington-Gothic.ttf"
 
         with open(test_file_path, "rb") as file_obj:
             state = {}
@@ -458,22 +469,35 @@ class TestFilesOverHttp(unittest.TestCase):
         return sent[0]["status"], dict(sent[0]["headers"]), body
 
     def test_a_binary_file_arrives_byte_for_byte(self):
-        path = HERE / "test_fixtures" / "pixel.png"
+        path = UNIT / "pixel.png"
         with open(path, "rb") as file:
             status, headers, body = self.serve({"pixel": file}, "/pixel.png")
         self.assertEqual(status, 200)
         self.assertEqual(headers[b"content-type"], b"image/png")
-        self.assertTrue(body.startswith(path.read_bytes()))
+        self.assertEqual(body, path.read_bytes())
+
+    def test_each_face_of_a_font_is_a_file_of_its_own(self):
+        # Lexington, upright and oblique: a family a page links face by face
+        for face in ("Gothic", "Oblique"):
+            with self.subTest(face=face):
+                path = UNIT / f"Lexington-{face}.ttf"
+                with open(path, "rb") as file:
+                    status, headers, body = self.serve(
+                        {"fonts": {face.lower(): file}}, f"/fonts/{face.lower()}.ttf"
+                    )
+                self.assertEqual(status, 200)
+                self.assertEqual(headers[b"content-type"], b"font/ttf")
+                self.assertEqual(body, path.read_bytes())
 
     def test_a_file_opened_as_text_is_still_sent_as_its_bytes(self):
-        path = HERE / "test_fixtures" / "pixel.png"
+        path = UNIT / "pixel.png"
         with open(path) as file:
             _, _, body = self.serve({"pixel": file}, "/pixel.png")
-        self.assertTrue(body.startswith(path.read_bytes()))
+        self.assertEqual(body, path.read_bytes())
 
     def test_the_url_names_a_files_type(self):
-        path = HERE.parent / "README.md"
+        path = markdown_file(self)
         with open(path) as file:
             _, headers, body = self.serve({"readme": file}, "/readme.md")
         self.assertEqual(headers[b"content-type"], b"text/markdown; charset=UTF-8")
-        self.assertTrue(body.startswith(path.read_bytes()))
+        self.assertEqual(body, path.read_bytes())

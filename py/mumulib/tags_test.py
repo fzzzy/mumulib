@@ -10,6 +10,8 @@ from mumulib.tags import Stan, Template, parse_template
 from mumulib.tags import every as t
 
 HERE = Path(__file__).parent
+# The tests' own files, outside the package: none of them ship
+UNIT = HERE.parent / "fixtures" / "unit"
 
 ATTR_TEMPLATE = b"""<!DOCTYPE html>
 <html>
@@ -272,7 +274,7 @@ class TestTemplates(unittest.TestCase):
         self.assertIsNone(parse_template(io.BytesIO(b" ")))
 
     def test_template_clone_pat_fills_slots(self):
-        template = loaded(HERE / "templates.html")
+        template = loaded(UNIT / "templates.html")
         person = template.clone_pat("person", name="Bob", age=40)
         self.assertTrue(template.loaded)
         rendered = render(person)
@@ -350,7 +352,7 @@ class TestTemplateLoading(unittest.TestCase):
     """A template is loaded once, awaited, off the loop, and closed after"""
 
     def test_used_before_it_is_loaded_is_an_error(self):
-        template = Template(str(HERE / "templates.html"))
+        template = Template(str(UNIT / "templates.html"))
         for use in (
             lambda: template.clone_pat("person"),
             lambda: template.fill_slots("x", "y"),
@@ -378,7 +380,7 @@ class TestTemplateLoading(unittest.TestCase):
             warnings.catch_warnings(record=True) as caught,
         ):
             warnings.simplefilter("always", ResourceWarning)
-            template = loaded(HERE / "templates.html")
+            template = loaded(UNIT / "templates.html")
             gc.collect()
         self.assertIsNot(threads[0], threading.main_thread())
         self.assertIsNotNone(template.template)

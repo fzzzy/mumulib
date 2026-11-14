@@ -1,43 +1,77 @@
 {
   "name": "mumulib",
-  "version": "1.0.16",
-  "description": "mumulib is a simple typescript state management, html templating, and form processing library. It contains three modules: state, patslot, and dialog.",
+  "version": "2.0.0-alpha.1",
+  "description": "mumulib builds web pages from single-file components and an app that keeps their state, with templates in plain HTML; its parts -- mumu, app, state, patslot, dialog, events, sync -- each import alone.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fzzzy/mumulib.git",
+    "directory": "ts"
+  },
   "files": [
     "dist",
-    "README.md",
     "LICENSE"
   ],
-  "main": "./dist/cjs/index.cjs",
+  "main": "./dist/esm/index.mjs",
   "module": "./dist/browser/src/index.mjs",
-  "types": "dist/types/index.d.ts",
+  "types": "./dist/esm/types/index.d.ts",
+  "sideEffects": [
+    "./dist/esm/dom.mjs"
+  ],
   "bin": {
     "mumulib-sfc-check": "./dist/vite/sfc-check.mjs"
   },
   "exports": {
     ".": {
-      "browser": {
-        "types": "./dist/esm/types/index.d.ts",
-        "default": "./dist/browser/src/index.mjs"
-      },
-      "import": {
-        "types": "./dist/esm/types/index.d.ts",
-        "default": "./dist/esm/index.mjs"
-      },
-      "require": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/cjs/index.cjs"
-      },
+      "types": "./dist/esm/types/index.d.ts",
+      "browser": "./dist/browser/src/index.mjs",
+      "node": "./dist/esm/index.mjs",
       "default": "./dist/browser/src/index.mjs"
     },
+    "./state": {
+      "types": "./dist/esm/types/state.d.ts",
+      "browser": "./dist/browser/src/state.mjs",
+      "node": "./dist/esm/state.mjs",
+      "default": "./dist/browser/src/state.mjs"
+    },
+    "./patslot": {
+      "types": "./dist/esm/types/patslot.d.ts",
+      "browser": "./dist/browser/src/patslot.mjs",
+      "node": "./dist/esm/patslot.mjs",
+      "default": "./dist/browser/src/patslot.mjs"
+    },
+    "./dialog": {
+      "types": "./dist/esm/types/dialog.d.ts",
+      "browser": "./dist/browser/src/dialog.mjs",
+      "node": "./dist/esm/dialog.mjs",
+      "default": "./dist/browser/src/dialog.mjs"
+    },
+    "./events": {
+      "types": "./dist/esm/types/events.d.ts",
+      "browser": "./dist/browser/src/events.mjs",
+      "node": "./dist/esm/events.mjs",
+      "default": "./dist/browser/src/events.mjs"
+    },
+    "./sync": {
+      "types": "./dist/esm/types/sync.d.ts",
+      "browser": "./dist/browser/src/sync.mjs",
+      "node": "./dist/esm/sync.mjs",
+      "default": "./dist/browser/src/sync.mjs"
+    },
+    "./mumu": {
+      "types": "./dist/esm/types/mumu.d.ts",
+      "browser": "./dist/browser/src/mumu.mjs",
+      "node": "./dist/esm/mumu.mjs",
+      "default": "./dist/browser/src/mumu.mjs"
+    },
+    "./app": {
+      "types": "./dist/esm/types/app.d.ts",
+      "browser": "./dist/browser/src/app.mjs",
+      "node": "./dist/esm/app.mjs",
+      "default": "./dist/browser/src/app.mjs"
+    },
     "./node": {
-      "import": {
-        "types": "./dist/esm/types/node.d.ts",
-        "default": "./dist/esm/node.mjs"
-      },
-      "require": {
-        "types": "./dist/types/node.d.ts",
-        "default": "./dist/cjs/node.cjs"
-      }
+      "types": "./dist/esm/types/node.d.ts",
+      "default": "./dist/esm/node.mjs"
     },
     "./vite-plugin-sfc": {
       "types": "./dist/esm/types/vite/sfc.d.mts",
@@ -48,7 +82,7 @@
       "import": "./dist/vite/origin.mjs"
     },
     "./sfc-client": {
-      "types": "./dist/types/vite/sfc-client.d.ts"
+      "types": "./dist/esm/types/vite/sfc-client.d.ts"
     },
     "./sfc-check": {
       "types": "./dist/esm/types/vite/sfc-check.d.mts",
@@ -57,14 +91,12 @@
   },
   "type": "commonjs",
   "scripts": {
-    "start": "vite",
     "build": "rm -rf dist && vite build && vite build --mode node && tsc && node scripts/esm-types.mjs",
-    "test": "npm run build && playwright test",
-    "test:unit": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
+    "typecheck": "tsc --noEmit --module NodeNext --moduleResolution nodenext --target ES2020 --strict --skipLibCheck",
     "test:browser": "rm -rf .nyc_output && playwright test",
     "coverage": "nyc report --temp-dir .nyc_output --extension=.ts --extension=.html --reporter=text --reporter=html --report-dir coverage-frontend",
-    "lint": "eslint . && prettier --config .prettierrc --check . ../README.md ../CHANGELOG.md ../design ../.github",
-    "format": "eslint . --fix && prettier --config .prettierrc --write . ../README.md ../CHANGELOG.md ../design ../.github"
+    "lint": "eslint . && prettier --config .prettierrc --check . ../README.md ../CHANGELOG.md ../.github",
+    "format": "eslint . --fix && prettier --config .prettierrc --write . ../README.md ../CHANGELOG.md ../.github"
   },
   "keywords": [
     "html templating",
@@ -112,5 +144,8 @@
     "domino": "^2.1.8",
     "morphdom": "^2.7.8",
     "object-path": "^0.11.8"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

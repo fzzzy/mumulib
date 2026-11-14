@@ -1,20 +1,35 @@
 .PHONY: check lint fix typecheck test py-test browser-test node-test build dist \
 	python-sync \
 	node_modules browsers run stop tail dev server server-exists declarations clean tags \
-	pages production
+	pages production certs
 
+# The fixtures' dev server: Vite reads the same default, 5750, in
+# ts/vite.config.mts
+PORT := 5750
 # The dev server of the pages Python serves, ts/pages: always on this port,
-# which a page served in development names in full
+# on this machine alone -- Python passes /mumulib-vite/ on to it
 PAGES_PORT := 5757
 LOG := $(CURDIR)/var/log
 
-# make run and make server run one of py/examples.
+# make run and make server run one of py/fixtures.
 
 # SERVER=<name> for another than hello
 SERVER ?= hello
-SERVER_PORT ?= 5959
-# set up the Python server to reload as the code changes
-UVICORN_FLAGS := --reload
+SERVER_PORT ?= 5758
+# And, given a certificate, HTTPS, which browsers speak HTTP/2 over: every
+# request and stream of a page, and of every tab, on one connection. Over
+# HTTP/1.1 a browser opens six to a server at most, and each page holding a
+# change stream open keeps one for good
+SERVER_HTTPS_PORT ?= 5759
+CERT := var/certs/dev.pem
+CERT_KEY := var/certs/dev-key.pem
+# Where the server listens: plain HTTP, and HTTPS if there is a certificate.
+# With one, --bind is the HTTPS and --insecure-bind the plain; without, the
+# plain is --bind -- given only --insecure-bind, Hypercorn binds its own
+# default too, 127.0.0.1:8000, as well
+BINDS = $(if $(wildcard $(CERT)),--insecure-bind 127.0.0.1:$(SERVER_PORT) \
+	--bind 127.0.0.1:$(SERVER_HTTPS_PORT) --certfile $(CERT) --keyfile $(CERT_KEY),\
+	--bind 127.0.0.1:$(SERVER_PORT))
 
 # The TypeScript library is in ts/ and the Python one in py/.
 
@@ -24,10 +39,17 @@ UVICORN_FLAGS := --reload
 UV_FLAGS := --extra dev --locked
 UV := uv run --directory py $(UV_FLAGS)
 # A Python example's server is the exception: it runs from the root, so the
-# data it keeps, var/data, is beside var/log -- still reading py/'s project,
-# importing from py/, and reloading as py/ changes
-SERVE := uv run --project py $(UV_FLAGS) uvicorn --app-dir py \
-	--reload-dir py
+# data it keeps, var/data, is beside var/log -- still reading py/'s project
+# and importing from py/. Hypercorn, for HTTP/2, as mumulib.serve runs it;
+# mumulib itself needs no particular ASGI server
+SERVE := uv run --project py $(UV_FLAGS) env PYTHONPATH=py python -m mumulib.serve
+# And restarted as py/ changes: by watchfiles, whose SIGINT reaches the app
+# -- one process, --workers 0 -- which ends its event streams on it, so the
+# server stops at once with pages open. Hypercorn's own --reload signals
+# nothing, and waits on them for as long as a tab is open
+RELOADING = uv run --project py $(UV_FLAGS) env PYTHONPATH=py \
+	watchfiles --filter python --sigint-timeout 5 \
+	"python -m mumulib.serve fixtures.$(SERVER):app --workers 0 $(BINDS) --graceful-timeout 1" py
 # Its pages from Vite's dev server, not from their build
 DEVELOPMENT := MUMULIB_DEVELOPMENT=1
 NPM := cd ts && npm
@@ -47,8 +69,8 @@ fix: node_modules python-sync
 	$(UV) ruff format
 
 typecheck: node_modules python-sync
-	$(NPM) run test:unit
-	cd ts && node src/vite/sfc-check.mjs --project tsconfig.examples.json --declarations examples
+	$(NPM) run typecheck
+	cd ts && node src/vite/sfc-check.mjs --project tsconfig.fixtures.json --declarations fixtures pages
 	$(UV) pyright
 
 
@@ -69,8 +91,15 @@ node-test: dist
 
 build: python-sync dist pages
 
+# The npm package in ts/dist; and its browser build copied into the Python
+# package, which serves it at /mumulib/browser/ and ships it in the wheel.
+# Its entry, index.mjs, is copied as mumulib.mjs: a file named index is
+# its directory's slash, never a name of its own. No module imports it.
 dist: node_modules
 	$(NPM) run build
+	rm -rf py/mumulib/browser
+	cp -R ts/dist/browser/src py/mumulib/browser
+	mv py/mumulib/browser/index.mjs py/mumulib/browser/mumulib.mjs
 
 python-sync:
 	uv sync --project py $(UV_FLAGS)
@@ -88,10 +117,11 @@ ts/node_modules: ts/package.json ts/package-lock.json
 	touch ts/node_modules
 
 
-# The examples in the background: the TypeScript ones from Vite at
-# http://127.0.0.1:$(PORT)/, and a Python one (SERVER=<name>) from uvicorn at
-# http://127.0.0.1:$(SERVER_PORT)/ in development, with the pages it serves
-# from their own Vite on $(PAGES_PORT), each reloading as its code changes and
+# The fixtures in the background: the TypeScript ones from Vite at
+# http://127.0.0.1:$(PORT)/, and a Python one (SERVER=<name>) from Hypercorn at
+# http://127.0.0.1:$(SERVER_PORT)/ in development -- and https on
+# $(SERVER_HTTPS_PORT), given a certificate: make certs -- with the pages it
+# serves from their own Vite on $(PAGES_PORT), through it; each reloading as its code changes and
 # logging to var/log. A service is whatever holds its port: run frees the
 # ports first, stop signals whatever holds them, and neither needs a pidfile.
 run: node_modules python-sync server-exists declarations
@@ -100,14 +130,14 @@ run: node_modules python-sync server-exists declarations
 	@cd ts && exec npx vite > "$(LOG)/vite.log" 2>&1 < /dev/null &
 	@cd ts && exec npx vite --config vite.pages.config.mts \
 		> "$(LOG)/vite-pages.log" 2>&1 < /dev/null &
-	@PYTHONUNBUFFERED=1 $(DEVELOPMENT) exec $(SERVE) examples.$(SERVER):app \
-		--host 127.0.0.1 --port $(SERVER_PORT) $(UVICORN_FLAGS) \
+	@PYTHONUNBUFFERED=1 $(DEVELOPMENT) exec $(RELOADING) \
 		> "$(LOG)/server.log" 2>&1 < /dev/null &
 	@$(call wait_for_port,$(PORT),vite)
 	@$(call wait_for_port,$(PAGES_PORT),vite-pages)
 	@$(call wait_for_port,$(SERVER_PORT),server)
-	@echo "Examples: http://127.0.0.1:$(PORT)/"
-	@echo "Python:   http://127.0.0.1:$(SERVER_PORT)/  (examples/$(SERVER).py)"
+	@echo "Fixtures: http://127.0.0.1:$(PORT)/"
+	@echo "Python:   http://127.0.0.1:$(SERVER_PORT)/  (fixtures/$(SERVER).py)"
+	@$(if $(wildcard $(CERT)),echo "HTTP/2:   https://localhost:$(SERVER_HTTPS_PORT)/",echo "HTTP/2:   none: make certs, for https://localhost:$(SERVER_HTTPS_PORT)/")
 	@echo "Pages:    http://127.0.0.1:$(PAGES_PORT)/mumulib-vite/  (ts/pages, for Python)"
 	@echo "Logs:     make tail"
 	@echo "Stop:     make stop"
@@ -116,6 +146,7 @@ stop:
 	@$(call stop_port,$(PORT),Vite)
 	@$(call stop_port,$(PAGES_PORT),The pages' Vite)
 	@$(call stop_port,$(SERVER_PORT),The Python server)
+	@$(call stop_port,$(SERVER_HTTPS_PORT),The Python server's HTTPS)
 
 # -F rather than -f: a log run truncates is followed from its new start
 tail:
@@ -137,8 +168,13 @@ endef
 # listening -- as uvicorn's reloader is while the app it runs fails to
 # import, which a LISTEN-only search misses though nothing else can bind the
 # port. A connection, to or from the port, is someone else's: a browser's.
+# And the watchfiles a holder runs under, which would start it again as the
+# next change came: stopping the server is stopping it too
 port_holders = lsof -nP -iTCP:$(1) -sTCP:LISTEN,CLOSED -Fpn \
-	| awk '/^p/ { pid = substr($$0, 2) } /^n/ && !/->/ { print pid }' | sort -u
+	| awk '/^p/ { pid = substr($$0, 2) } /^n/ && !/->/ { print pid }' | sort -u \
+	| while read pid; do echo $$pid; parent=$$(ps -o ppid= -p $$pid | tr -d ' '); \
+		ps -o command= -p $$parent 2> /dev/null | grep -q watchfiles && echo $$parent; done \
+	| sort -u
 
 # Succeeds if any of the processes $(1) is still running -- in a subshell,
 # so its exit is its own. kill -0 with them all fails as soon as one has
@@ -167,16 +203,15 @@ echo "$(2) stopped (port $(1))."
 endef
 
 
-# Each example component's <name>.sfc.html.d.ts, so tsc and editors know its
+# Each example and page component's <name>.sfc.html.d.ts, so tsc and editors know its
 # class: written even if a component has a type error, which make check says
 declarations: node_modules
-	-@cd ts && node src/vite/sfc-check.mjs --declarations examples > /dev/null
+	-@cd ts && node src/vite/sfc-check.mjs --declarations fixtures pages > /dev/null
 
 # A Python example, in the foreground, reloading as its code changes; its
 # pages from their Vite dev server, which make run starts
 server: python-sync server-exists
-	$(DEVELOPMENT) $(SERVE) examples.$(SERVER):app --host 127.0.0.1 \
-		--port $(SERVER_PORT) $(UVICORN_FLAGS)
+	$(DEVELOPMENT) $(RELOADING)
 
 # The pages Python serves, bundled and code-split, into ts/build/pages
 pages: node_modules
@@ -184,21 +219,33 @@ pages: node_modules
 
 # A Python example in production, in the foreground: its pages built, served
 # by Python under /mumulib-vite/, and no Vite running
-production: python-sync server-exists pages
-	uv run --project py $(UV_FLAGS) uvicorn --app-dir py \
-		examples.$(SERVER):app --host 127.0.0.1 --port $(SERVER_PORT)
+production: python-sync server-exists dist pages
+	$(SERVE) fixtures.$(SERVER):app $(BINDS)
+
+# The certificate for HTTPS, made by mkcert -- whose root a machine trusts
+# once `mkcert -install` has run there -- for the names this one is reached by
+certs:
+	@command -v mkcert > /dev/null || { echo "No mkcert: brew install mkcert, then mkcert -install"; exit 1; }
+	@mkdir -p var/certs
+	mkcert -cert-file $(CERT) -key-file $(CERT_KEY) localhost 127.0.0.1 ::1
 
 server-exists:
-	@test -f py/examples/$(SERVER).py || { \
-		echo "No py/examples/$(SERVER).py; there are:" \
-			$$(cd py/examples && ls *.py | grep -v -e _test -e __init__ | sed 's/\.py$$//') >&2; \
+	@test -f py/fixtures/$(SERVER).py || { \
+		echo "No py/fixtures/$(SERVER).py; there are:" \
+			$$(cd py/fixtures && ls *.py | grep -v -e _test -e __init__ | sed 's/\.py$$//') >&2; \
 		exit 1; }
 
 
+# Everything made rather than written: dependencies, builds, the tools'
+# caches, generated declarations, test results and Finder's .DS_Store files
 clean:
 	rm -rf var ts/node_modules ts/dist ts/build ts/.nyc_output ts/coverage-frontend \
-		py/.venv
+		ts/test-results ts/playwright-report \
+		py/.venv py/.coverage py/.pytest_cache py/mumulib.egg-info py/mumulib/browser \
+		.ruff_cache py/.ruff_cache
 	find py -name __pycache__ -prune -exec rm -rf {} +
+	find ts/fixtures ts/pages -name '*.sfc.html.d.ts' -delete
+	find . -name .DS_Store -not -path './.git/*' -delete
 
 
 tags: python-sync

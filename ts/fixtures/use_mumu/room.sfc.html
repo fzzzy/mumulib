@@ -1,0 +1,31 @@
+<!--
+  A room: its number, and who is in it, from two properties an owner sets
+  one after the other.
+-->
+<template>
+  <div data-attr="class=classes">
+    <span data-slot="shown"></span> <span data-slot="name"></span>
+  </div>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  export default class Room extends Mumu<{
+    number: string
+    person: { name: string } | null
+  }> {
+    static template = template
+    static state = { number: '', person: null }
+
+    get classes(): string {
+      return this.state.person ? 'room occupied' : 'room'
+    }
+    get shown(): string {
+      return this.state.number.replace(' ', '0')
+    }
+    get name(): string {
+      return this.state.person?.name ?? ''
+    }
+  }
+</script>

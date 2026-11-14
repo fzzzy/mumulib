@@ -21,6 +21,6 @@ export function pageEntries(root) {
           : path.dirname(file).split(path.sep).join('/'),
         path.join(root, file),
       ])
-      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .sort(([a], [b]) => (a < b ? -1 : 1)),
   )
 }

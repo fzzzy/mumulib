@@ -91,7 +91,7 @@ function mappings(source, start, length, before) {
         vlq(generated - lastGenerated) +
           vlq(0) +
           vlq(line - lastLine) +
-          vlq(original - lastColumn)
+          vlq(original - lastColumn),
       )
       lastGenerated = generated
       lastLine = line
@@ -171,7 +171,7 @@ function rawClose(source, from, name, filename) {
   const match = close.exec(source)
   if (!match) {
     throw new Error(
-      `${filename}:${where(source, from)}: <${name}> is not closed`
+      `${filename}:${where(source, from)}: <${name}> is not closed`,
     )
   }
   return match.index
@@ -193,7 +193,7 @@ function templateClose(source, from, filename) {
     const lt = source.indexOf('<', i)
     if (lt < 0) {
       throw new Error(
-        `${filename}:${where(source, from)}: <template> is not closed`
+        `${filename}:${where(source, from)}: <template> is not closed`,
       )
     }
     if (source.startsWith('<!--', lt)) {
@@ -235,7 +235,7 @@ function parts(source, filename) {
     if (text.trim()) {
       const at = i + text.search(/\S/)
       throw new Error(
-        `${filename}:${where(source, at)}: text outside <template> and <script>`
+        `${filename}:${where(source, at)}: text outside <template> and <script>`,
       )
     }
     if (lt < 0) return found
@@ -247,7 +247,7 @@ function parts(source, filename) {
     const name = tag && !tag.closing ? tag.name : ''
     if (name !== 'template' && name !== 'script') {
       throw new Error(
-        `${filename}:${where(source, lt)}: only a <template> and a <script> may be at the top level`
+        `${filename}:${where(source, lt)}: only a <template> and a <script> may be at the top level`,
       )
     }
     if (found[name]) {

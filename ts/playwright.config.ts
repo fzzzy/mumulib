@@ -11,18 +11,21 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-// The Python editors example, py/examples/editors.py, for its browser tests:
-// a server of their own, not whatever make run is serving on 5959
-const EDITORS_PORT = process.env.PLAYWRIGHT_EDITORS_PORT || '8124'
-// The notes example, py/examples/notes.py, a Vite page: once in development,
+// The notes example, py/fixtures/notes.py, a Vite page: once in development,
 // from the pages' Vite dev server on 5757, and once in production, built
-const NOTES_DEVELOPMENT_PORT = '8125'
-const NOTES_PRODUCTION_PORT = '8126'
+const NOTES_DEVELOPMENT_PORT = '5762'
+const NOTES_PRODUCTION_PORT = '5763'
+// The live example, py/fixtures/live.py: one server for each browser, since
+// a change to its one page is heard by every page open
+const LIVE_PORTS = {
+  chromium: '5761',
+  webkit: '5764',
+}
 
 // A Python example in a directory of its own, emptied first: it keeps its
 // objects in var/data there, and each run starts from none
 const pythonExample = (name: string, directory: string, port: string) =>
-  `rm -rf ../var/e2e/${directory} && mkdir -p ../var/e2e/${directory} && cd ../var/e2e/${directory} && uv run --project ../../../py --extra dev --locked uvicorn --app-dir ../../../py examples.${name}:app --host 127.0.0.1 --port ${port}`
+  `rm -rf ../var/e2e/${directory} && mkdir -p ../var/e2e/${directory} && cd ../var/e2e/${directory} && uv run --project ../../../py --extra dev --locked uvicorn --app-dir ../../../py fixtures.${name}:app --host 127.0.0.1 --port ${port}`
 
 export default defineConfig({
   // Each spec sits beside the module it tests
@@ -40,7 +43,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
+    baseURL: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '5760'}`,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -95,19 +98,13 @@ export default defineConfig({
   webServer: [
     {
       command: 'npx vite',
-      url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '8123'}`,
+      url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || '5760'}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
-        PORT: process.env.PLAYWRIGHT_PORT || '8123',
+        PORT: process.env.PLAYWRIGHT_PORT || '5760',
         VITE_COVERAGE: 'true',
       },
-    },
-    {
-      command: pythonExample('editors', 'editors', EDITORS_PORT),
-      url: `http://127.0.0.1:${EDITORS_PORT}/editors/characters.json`,
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
     },
     {
       // The pages' Vite dev server, always on 5757, as make run starts it
@@ -117,10 +114,24 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
+      // The browser fixture: the library's build as Python serves it, which
+      // make dist copies into the package first
+      command: pythonExample('browser', 'browser', '5765'),
+      url: 'http://127.0.0.1:5765/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    ...Object.entries(LIVE_PORTS).map(([project, port]) => ({
+      command: pythonExample('live', `live-${project}`, port),
+      url: `http://127.0.0.1:${port}/`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    })),
+    {
       command: pythonExample(
         'notes',
         'notes-development',
-        NOTES_DEVELOPMENT_PORT
+        NOTES_DEVELOPMENT_PORT,
       ),
       url: `http://127.0.0.1:${NOTES_DEVELOPMENT_PORT}/notes.json`,
       reuseExistingServer: !process.env.CI,

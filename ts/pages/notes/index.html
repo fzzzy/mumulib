@@ -4,14 +4,66 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Notes</title>
+    <script type="module" src="/notes/main.ts"></script>
   </head>
+  <!-- The page's body is the app's template: Notes, in main.ts, draws it
+       from its state -- the notes and who is here, bound to the server --
+       and what happens in it comes to Notes's methods by data-on. -->
   <body>
-    <h1>Notes</h1>
-    <ul id="notes"></ul>
-    <form id="add">
-      <label>A note <input name="text" type="text" required /></label>
+    <header>
+      <button
+        id="trash"
+        type="button"
+        aria-label="Trash"
+        title="Drag a note here to remove it"
+        data-ref="trash"
+        data-on="click=trashFocused"
+      >
+        <svg
+          viewBox="0 0 16 16"
+          width="22"
+          height="22"
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.75 6.5v4.5M9.25 6.5v4.5"
+          />
+        </svg>
+      </button>
+      <h1>Notes</h1>
+      <ul id="players" aria-label="Who is here" data-slot="players">
+        <template data-pat="foreach">
+          <li data-slot="name" data-attr="class=whose,style=swatch">
+            Otter Swimming Teal
+          </li>
+        </template>
+      </ul>
+    </header>
+    <div
+      id="notes"
+      role="list"
+      aria-label="Notes"
+      data-slot="rows"
+      data-ref="list"
+    >
+      <template data-pat="foreach">
+        <note-row
+          role="listitem"
+          data-attr="data-id=key,style=outline,title=here"
+          data-prop="note=key,text=text,editing=editing,clashed=clashed"
+          data-on="save=save,cancel=cancel,resolve=resolve"
+        ></note-row>
+      </template>
+      <p>Loading…</p>
+    </div>
+    <form id="add" data-on="submit=add">
+      <input name="this.draft" type="text" required aria-label="A note" />
       <button>Add</button>
     </form>
-    <script type="module" src="/notes/main.ts"></script>
   </body>
 </html>

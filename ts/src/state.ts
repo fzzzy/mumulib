@@ -24,7 +24,7 @@
 
 import { set, get } from 'object-path'
 import { tree as state } from './tree.js'
-import { show, drafted } from './controls.js'
+import { show, drafted, checkable, read, inClaimed } from './controls.js'
 import type { Control } from './controls.js'
 import { set_debugging, debugging, log } from './debugging.js'
 
@@ -45,6 +45,7 @@ function debug(mode: boolean) {
 }
 
 async function onstate(onstatechange: OnStateChange) {
+  start()
   if (loaded) {
     await onstatechange(state)
   }
@@ -54,8 +55,9 @@ async function onstate(onstatechange: OnStateChange) {
 async function _set_state(
   root: State,
   path: string,
-  nstate: State
+  nstate: State,
 ): Promise<void> {
+  start()
   let changed = false
   if (nstate === null) {
     changed = true
@@ -118,7 +120,7 @@ async function set_state(nstate: State): Promise<void> {
 async function _set_path(
   root: State,
   path: string,
-  nstate: State
+  nstate: State,
 ): Promise<void> {
   await _set_state(root, path, nstate)
 }
@@ -127,45 +129,9 @@ async function set_path(path: string, nstate: State): Promise<void> {
   await _set_path(state, path, nstate)
 }
 
-document.addEventListener('DOMContentLoaded', async function () {
-  loaded = true
-  await set_state(null)
-})
-
-// A checkbox or a radio button: what it says is whether it is checked, not
-// its value, and it says so by a change event, which only a change fires
-function checkable(el: Element): el is HTMLInputElement {
-  return (
-    el instanceof HTMLInputElement &&
-    (el.type === 'checkbox' || el.type === 'radio')
-  )
-}
-
-// What a control says, as the state holds it: a checkbox whether it is
-// checked; a radio button, which only says so as it is checked, its value
-function read(el: Control): string | boolean {
-  if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-    return el.checked
-  }
-  return el.value
-}
-
-document.addEventListener(
-  'focus',
-  function (e) {
-    if (
-      (e.target instanceof HTMLInputElement && !checkable(e.target)) ||
-      e.target instanceof HTMLTextAreaElement
-    ) {
-      initialValues[e.target.name] = e.target.value
-    }
-  },
-  true
-)
-
 function possibly_changed(target: Control) {
   // An empty value is a field cleared, and goes through like any other
-  if (!target.name || drafted(target)) {
+  if (!target.name || drafted(target) || inClaimed(target)) {
     return
   }
   const name = target.name
@@ -202,31 +168,83 @@ function possibly_changed(target: Control) {
   }
 }
 
-document.addEventListener(
-  'focusout',
-  function (e: Event) {
-    if (
-      (e.target instanceof HTMLInputElement && !checkable(e.target)) ||
-      e.target instanceof HTMLTextAreaElement
-    ) {
-      possibly_changed(e.target)
-    }
-  },
-  true
-)
+// Nothing listens until the page uses state: the first onstate, set_state
+// or set_path starts it, so a page that never does -- one that imports
+// patslot from the whole library, say -- has no handlers of state's, and a
+// bundler may leave state out of it entirely. Started before the page has
+// loaded, it draws the page from the state as the page loads; after, at once.
+let started = false
 
-document.addEventListener(
-  'change',
-  function (e: Event) {
-    if (
-      (e.target instanceof Element && checkable(e.target)) ||
-      e.target instanceof HTMLSelectElement
-    ) {
-      possibly_changed(e.target)
-    }
-  },
-  true
-)
+// Whether DOMContentLoaded has fired: readyState alone cannot say, as it is
+// already interactive while module scripts run, before the event. The
+// navigation's timing records the event's start; where there is none, in
+// Node, a document not loading has loaded.
+function contentLoaded(): boolean {
+  if (document.readyState === 'complete') {
+    return true
+  }
+  const navigation = globalThis.performance?.getEntriesByType?.(
+    'navigation',
+  )[0] as PerformanceNavigationTiming | undefined
+  if (navigation) {
+    return navigation.domContentLoadedEventStart > 0
+  }
+  return document.readyState !== 'loading'
+}
+
+function start() {
+  if (started) {
+    return
+  }
+  started = true
+  if (!contentLoaded()) {
+    document.addEventListener('DOMContentLoaded', async function () {
+      loaded = true
+      await set_state(null)
+    })
+  } else {
+    loaded = true
+    update_dom_state(state)
+  }
+  document.addEventListener(
+    'focus',
+    function (e) {
+      if (
+        (e.target instanceof HTMLInputElement && !checkable(e.target)) ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        initialValues[e.target.name] = e.target.value
+      }
+    },
+    true,
+  )
+
+  document.addEventListener(
+    'focusout',
+    function (e: Event) {
+      if (
+        (e.target instanceof HTMLInputElement && !checkable(e.target)) ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        possibly_changed(e.target)
+      }
+    },
+    true,
+  )
+
+  document.addEventListener(
+    'change',
+    function (e: Event) {
+      if (
+        (e.target instanceof Element && checkable(e.target)) ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        possibly_changed(e.target)
+      }
+    },
+    true,
+  )
+}
 
 // Being typed in: a text field or a textarea with the focus, which holds what
 // is typed until the focus leaves it, and only then gives it to the state
@@ -253,7 +271,7 @@ function bound_value(state: State, name: string): [boolean, unknown] {
 async function update_dom_state(state: State) {
   const elements = document.querySelectorAll<Control>('input, select, textarea')
   elements.forEach((el) => {
-    if (drafted(el)) {
+    if (drafted(el) || inClaimed(el)) {
       return
     }
     // What is being typed is not written over: a change of state from

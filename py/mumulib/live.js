@@ -17,7 +17,7 @@
 
 // A URL as live elements compare them: its path on this origin, without an
 // extension on its last segment, or a query or a fragment. A trailing slash
-// is kept: /editors/ is not /editors.
+// is kept: /counters/ is not /counters.
 const watched = (url) => {
   const path = new URL(url, location.href).pathname
   if (path.endsWith('/')) return path

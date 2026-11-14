@@ -2,8 +2,97 @@ body {
   font-family: system-ui, sans-serif;
   max-width: 40rem;
   margin: 2rem auto;
+  padding: 0 1rem;
 }
 
-li button {
-  margin-left: 0.5rem;
+/* The trash at the top left, who is here at the top right */
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  /* In view however far the notes are scrolled: the trash is dragged to */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.5rem 0;
+  background: #fff;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+}
+
+#trash {
+  display: inline-flex;
+  padding: 0.4rem;
+  border: 1px dashed transparent;
+  border-radius: 8px;
+  background: none;
+  color: #888;
+  cursor: pointer;
+}
+
+#trash:hover,
+#trash:focus-visible,
+#trash.over {
+  border-color: #c0322f;
+  background: #fde8e8;
+  color: #c0322f;
+}
+
+#trash.over {
+  transform: scale(1.15);
+}
+
+#players {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+#players li::before {
+  content: '';
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.4em;
+  border-radius: 50%;
+  background: var(--color);
+}
+
+#players .you {
+  font-weight: 600;
+}
+
+#notes {
+  margin: 1.5rem 0;
+}
+
+/* A note's own look is its component's: what the page draws on one is
+   where it is being dragged, and where it would land */
+note-row.dragging {
+  position: relative;
+  z-index: 1;
+  opacity: 0.85;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.2) !important;
+}
+
+note-row.drop-before {
+  border-top: 3px solid var(--me);
+}
+
+note-row.drop-after {
+  border-bottom: 3px solid var(--me);
+}
+
+#add {
+  display: flex;
+  gap: 0.5rem;
+}
+
+#add input {
+  flex: 1;
 }

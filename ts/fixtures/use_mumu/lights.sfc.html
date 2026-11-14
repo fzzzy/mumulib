@@ -1,0 +1,23 @@
+<!--
+  Components inside a component: one light handed `connected` by data-prop,
+  and a row of lights, one for each of `on`.
+-->
+<template>
+  <my-light class="main" data-prop="connected=connected"></my-light>
+  <div data-slot="row">
+    <my-light data-pat="foreach" data-prop="connected=on"></my-light>
+  </div>
+</template>
+
+<script>
+  import { Mumu } from 'mumulib'
+
+  export default class Lights extends Mumu<{ connected: boolean; on: boolean[] }> {
+    static template = template
+    static state = { connected: false, on: [] as boolean[] }
+
+    get row(): { on: boolean }[] {
+      return this.state.on.map((on) => ({ on }))
+    }
+  }
+</script>

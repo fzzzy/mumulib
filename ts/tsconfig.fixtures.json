@@ -1,0 +1,28 @@
+{
+  // The fixtures, and the pages Python serves, type-checked as Vite builds them -- Bundler resolution,
+  // mumulib from src rather than dist, nothing emitted -- by
+  // mumulib-sfc-check, which also sees into their .sfc.html components
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "rootDir": ".",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "mumulib": ["./src/index.ts"],
+      "mumulib/state": ["./src/state.ts"],
+      "mumulib/patslot": ["./src/patslot.ts"],
+      "mumulib/dialog": ["./src/dialog.ts"],
+      "mumulib/events": ["./src/events.ts"],
+      "mumulib/sync": ["./src/sync.ts"],
+      "mumulib/mumu": ["./src/mumu.ts"],
+      "mumulib/app": ["./src/app.ts"]
+    }
+  },
+  "include": ["fixtures/**/*", "pages/**/*", "src/vite/sfc-client.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

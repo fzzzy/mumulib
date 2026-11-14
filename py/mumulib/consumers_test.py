@@ -656,7 +656,7 @@ class TestRefuseIndex(DirectorySite):
     def test_it_guards_a_dict_too(self):
         root = RefuseIndex({"index": "home", "a": 1})
         self.assertEqual(call(root, "GET", "/")[0], 404)
-        self.assertEqual(call(root, "GET", "/a.json")[2], b"1\n")
+        self.assertEqual(call(root, "GET", "/a.json")[2], b"1")
 
 
 class TestRefuseIndexWrites(unittest.TestCase):

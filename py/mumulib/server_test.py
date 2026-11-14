@@ -3,6 +3,7 @@ import asyncio
 import json
 import os
 import signal
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -21,6 +22,7 @@ from mumulib.server import (
     parse_multipart,
     parse_urlencoded,
 )
+from mumulib.static import file_etag
 from mumulib.tags import Markup
 
 
@@ -1195,10 +1197,10 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             self.assertEqual(response_body_3["body"], b"Second chunk from producer")
             self.assertTrue(response_body_3["more_body"])
 
-            # Final newline chunk
+            # The end of the body, adding nothing to it
             response_body_4 = sent_messages[4]
             self.assertEqual(response_body_4["type"], "http.response.body")
-            self.assertEqual(response_body_4["body"], b"\n")
+            self.assertEqual(response_body_4["body"], b"")
             self.assertFalse(response_body_4["more_body"])
 
         finally:
@@ -1281,10 +1283,10 @@ class TestSpecialResponseWithWriter(unittest.TestCase):
             self.assertEqual(response_body_1["body"], b"Response without writer")
             self.assertTrue(response_body_1["more_body"])
 
-            # Final newline chunk
+            # The end of the body, adding nothing to it
             response_body_2 = sent_messages[2]
             self.assertEqual(response_body_2["type"], "http.response.body")
-            self.assertEqual(response_body_2["body"], b"\n")
+            self.assertEqual(response_body_2["body"], b"")
             self.assertFalse(response_body_2["more_body"])
 
         finally:
@@ -1615,7 +1617,11 @@ async def get(root, path, method="GET"):
         return {"type": "http.request", "body": b"", "more_body": False}
 
     scope = {"type": "http", "method": method, "path": path, "headers": []}
-    await consumers_app(root)({**scope, "state": {}}, receive, send)
+    # A data directory of its own: a Persist reached writes its file there,
+    # not in var/data beside wherever the tests are run
+    with tempfile.TemporaryDirectory() as data:
+        app = consumers_app(root, data=data)
+        await app({**scope, "state": {}}, receive, send)
     start = sent[0]
     body = b"".join(m.get("body", b"") for m in sent[1:])
     return start["status"], dict(start["headers"]), body
@@ -1962,6 +1968,70 @@ class TestChanges(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(listener.body.count(b"data: "), 1)
 
 
+class TestServesTheBrowserBuild(unittest.TestCase):
+    """/mumulib/browser/ is the TypeScript library's browser build, as make
+    dist copies it into the package: here, a stand-in of the test's own."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.browser = Path(directory.name) / "browser"
+        self.browser.mkdir()
+        (self.browser / "mumulib.mjs").write_text('export { App } from "./app.mjs";\n')
+        (self.browser / "app.mjs").write_text("export class App {}\n")
+        patcher = mock.patch("mumulib.server.BROWSER", self.browser)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_each_module_is_served_as_it_was_built(self):
+        for name in ("mumulib.mjs", "app.mjs"):
+            with self.subTest(name=name):
+                status, headers, body = asyncio.run(get({}, f"/mumulib/browser/{name}"))
+                self.assertEqual(status, 200)
+                self.assertEqual(
+                    headers[b"content-type"], b"text/javascript; charset=UTF-8"
+                )
+                self.assertEqual(body, (self.browser / name).read_bytes())
+
+    def test_each_module_is_cached_by_its_file(self):
+        # Shared by every page that imports it: asked again, only whether
+        # it changed, as any file of a published directory is
+        _, headers, _ = asyncio.run(get({}, "/mumulib/browser/app.mjs"))
+        self.assertEqual(headers[b"cache-control"], b"no-cache")
+        self.assertEqual(headers[b"etag"], file_etag(self.browser / "app.mjs"))
+
+    def test_it_is_served_with_changes_too(self):
+        app = consumers_app({}, changes=EventSource())
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        scope = {"type": "http", "method": "GET", "headers": []}
+        path = "/mumulib/browser/mumulib.mjs"
+        asyncio.run(app({**scope, "path": path, "state": {}}, receive, send))
+        self.assertEqual(sent[0]["status"], 200)
+
+    def test_mumulib_is_the_apps_own_and_not_roots(self):
+        root = {"mumulib": {"mine": "root's"}}
+        self.assertEqual(asyncio.run(get(root, "/mumulib/mine.txt"))[0], 404)
+
+    def test_it_is_only_read(self):
+        status, _, _ = asyncio.run(get({}, "/mumulib/browser/app.mjs", "PUT"))
+        self.assertEqual(status, 405)
+        self.assertEqual(
+            (self.browser / "app.mjs").read_text(), "export class App {}\n"
+        )
+
+    def test_a_checkout_not_yet_built_has_none(self):
+        with mock.patch("mumulib.server.BROWSER", self.browser / "missing"):
+            status, _, _ = asyncio.run(get({}, "/mumulib/browser/mumulib.mjs"))
+        self.assertEqual(status, 404)
+
+
 class TestStreamsEndOnSignal(unittest.IsolatedAsyncioTestCase):
     """SIGINT or SIGTERM ends every event stream, then reaches the server's
     own handler, so the server's wait for open responses ends at once."""
@@ -2269,6 +2339,37 @@ class TestFunctionsInTheTree(unittest.TestCase):
 
         self.assertEqual(asyncio.run(post()), 200)
         self.assertEqual(self.calls[0]["parsed_body"], {"n": 1})
+
+    def test_it_is_given_the_headers_and_the_query(self):
+        async def call():
+            async def send(message):
+                pass
+
+            async def receive():
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            scope = {
+                "type": "http",
+                "method": "GET",
+                "path": "/f.txt",
+                "query_string": b"tag=a&tag=b&empty=&n=1",
+                "headers": [
+                    (b"Authorization", b"Bearer s3cret"),
+                    (b"accept-language", b"en"),
+                    (b"Accept-Language", b"fr"),
+                ],
+                "state": {},
+            }
+            await consumers_app({"f": self.f})(scope, receive, send)
+
+        asyncio.run(call())
+        [state] = self.calls
+        # By lowercase name; a repeated one joined, as HTTP reads it
+        self.assertEqual(
+            state["headers"],
+            {"authorization": "Bearer s3cret", "accept-language": "en, fr"},
+        )
+        self.assertEqual(state["query"], {"tag": ["a", "b"], "empty": [""], "n": ["1"]})
 
     def test_it_is_a_leaf(self):
         for path in ("/f/", "/f/more.txt"):
